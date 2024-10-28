@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 
 export default function SignUpPage() {
   return (
-    <div className="mx-auto flex h-screen max-w-xl flex-col items-start justify-center gap-y-3 p-4 text-center leading-6">
+    <div className="mx-auto flex h-screen w-full max-w-xl flex-col items-start justify-center gap-y-3 p-4 text-center leading-6">
       <Link href="/" className="w-full">
         <Image
           src="/logo.jpg"
@@ -19,7 +19,7 @@ export default function SignUpPage() {
       <div className="w-full text-center font-normal text-gray-500">
         <button
           onClick={() => signIn("google", { callbackUrl: "/" })}
-          className="mt-4 flex w-full cursor-pointer items-center justify-between rounded-md border p-3 text-sm font-medium hover:bg-[#F5F5F5]"
+          className="mt-4 flex w-full cursor-pointer items-center justify-between rounded-2xl border-2 p-3 text-sm font-medium hover:border-2 hover:border-black hover:bg-gray-50"
         >
           <Image
             src="/google.png"
