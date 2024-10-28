@@ -1,6 +1,7 @@
 import { HydrateClient } from "@/trpc/server";
 import { getServerAuthSession } from "@/server/auth";
 import Link from "next/link";
+import { SignOut } from "@/lib/actions/auth";
 
 export default async function Home() {
   const session = await getServerAuthSession();
@@ -9,9 +10,14 @@ export default async function Home() {
     <HydrateClient>
       <main className="flex items-center justify-center">
         {session ? (
-          <div>
-            Logged in as {session.user.email}
-            <Link href="/logout">Logout</Link>
+          <div className="flex flex-col items-center text-gray-600">
+            Logged in as <strong>{session.user.email}</strong>
+            <Link href="/dashboard" className="text-blue-500">
+              Dashboard
+            </Link>
+            <button className="text-blue-500" onClick={SignOut}>
+              Logout
+            </button>
           </div>
         ) : (
           <div className="flex flex-col items-center">

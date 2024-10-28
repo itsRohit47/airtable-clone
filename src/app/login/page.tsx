@@ -1,11 +1,11 @@
-"use client";
+'use client';
 import Image from "next/image";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
   return (
-    <div className="mx-auto flex h-screen w-full max-w-xl flex-col items-start justify-center gap-y-3 p-4 text-center leading-6">
+    <div className="mx-auto flex h-screen w-full max-w-2xl flex-col items-start justify-center gap-y-3 p-4 text-center leading-6">
       <Link href="/" className="w-full">
         <Image
           src="/logo.jpg"
@@ -30,7 +30,7 @@ export default function LoginPage() {
       <div className="w-full text-center font-normal">
         <button
           onClick={() => signIn("google", { callbackUrl: "/" })}
-          className="mt-4 flex w-full cursor-pointer items-center justify-center gap-x-3 rounded-2xl border-2 p-3 text-sm font-medium hover:bg-gray-50 hover:border-black"
+          className="mt-4 flex w-full cursor-pointer items-center justify-center gap-x-3 rounded-2xl border-2 p-3 text-sm font-medium hover:border-black hover:bg-gray-50"
         >
           <Image
             src="/google.png"
