@@ -1,0 +1,49 @@
+"use client";
+import Image from "next/image";
+import Link from "next/link";
+import { signIn } from "next-auth/react";
+
+export default function LoginPage() {
+  return (
+    <div className="mx-auto flex h-screen max-w-xl flex-col items-start justify-center gap-y-3 p-4 text-center leading-6">
+      <Link href="/" className="w-full">
+        <Image
+          src="/logo.jpg"
+          width={136}
+          height={29}
+          alt="Airtable logo"
+          className="mx-auto"
+        />
+      </Link>
+      <h1 className="mx-auto text-2xl">
+        Sign in{" "}
+        <p className="text-center text-sm">
+          or{" "}
+          <Link
+            href="/signup"
+            className="border-b border-b-blue-500 pb-1 font-normal text-blue-500 hover:no-underline"
+          >
+            Create an account
+          </Link>
+        </p>
+      </h1>
+      <div className="w-full text-center font-normal">
+        <button
+          onClick={() => signIn("google", { callbackUrl: "/" })}
+          className="mt-4 flex w-full cursor-pointer items-center justify-center gap-x-3 rounded-md border p-3 text-sm font-medium hover:bg-[#F5F5F5]"
+        >
+          <Image
+            src="/google.png"
+            width={60}
+            height={48}
+            alt="google logo"
+            className="h-4 w-4"
+          />
+          <div className="text-center font-normal">
+            <span className="font-semibold">Sign in with</span> Google
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+}
