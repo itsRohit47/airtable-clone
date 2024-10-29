@@ -39,11 +39,10 @@ export function BaseList() {
   return (
     <div>
       <div className="mb-6 flex flex-col items-center justify-center gap-3">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid gap-y-3">
           {bases?.map((base) => <BaseCard key={base.id} base={base} />) ?? (
             <div>Loading bases...</div>
           )}
-
           {bases?.length === 0 && <div>No bases found. Create one!</div>}
         </div>
 

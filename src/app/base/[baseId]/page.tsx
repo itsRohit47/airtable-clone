@@ -1,19 +1,70 @@
+"use client";
 import { Suspense } from "react";
-import AuthGuard from "@/components/auth-guard";
+import { GetTableList } from "@/lib/actions/table";
+import { api } from "@/trpc/react";
+import { Button } from "@/components/ui/button";
 
 export default function BasePage({ params }: { params: { baseId: string } }) {
+  const tables = GetTableList({ baseId: params.baseId });
+  const ctx = api.useUtils();
+  const { mutate: addField } = api.table.addField.useMutation({
+    onSuccess: () => {
+      console.log("added field");
+      void ctx.table.getTablesByBaseId.invalidate();
+    },
+  });
+
+  const { mutate: addTable } = api.table.addTable.useMutation({
+    onSuccess: () => {
+      console.log("added table");
+      void ctx.table.getTablesByBaseId.invalidate();
+    },
+  });
+
   return (
-    <AuthGuard>
-      <div className="p-6">
-        <Suspense fallback={<div>Loading tables...</div>}></Suspense>
-        <div className="mt-6">
-          <h1 className="text-2xl font-semibold">Tables</h1>
-          <p className="text-muted-foreground">
-            Manage the tables in your base
-          </p>
-          {params.baseId}
+    <div className="p-6">
+      <Suspense fallback={<div>Loading tables...</div>}></Suspense>
+      <div className="mt-6 flex flex-col items-center gap-y-3 text-center">
+        <p className="text-muted-foreground">Base ID: {params.baseId}</p>
+        <h1 className="text-2xl font-semibold">Tables</h1>
+        <p className="text-muted-foreground">Manage the tables in your base</p>
+        <Button
+          onClick={() => {
+            addTable({ baseId: params.baseId });
+          }}
+        >
+          Add Table
+        </Button>
+        <br />
+        <div className="flex gap-x-3">
+          {tables?.map((table) => (
+            <div
+              key={table.id}
+              className="rounded-lg border bg-gray-100 p-4 shadow-sm"
+            >
+              <div>
+                name: <strong>{table.name}</strong>
+              </div>
+              <br />
+              {table.columns.map((column, index) => (
+                <div key={column.id}>
+                  colums {index} : {column.id}
+                </div>
+              ))}
+              <br />
+              {table.rows?.length === 0 && <div>now rows yet</div>}
+              <br />
+              <Button
+                onClick={() => {
+                  addField({ tableId: table.id });
+                }}
+              >
+                Add field
+              </Button>
+            </div>
+          ))}
         </div>
       </div>
-    </AuthGuard>
+    </div>
   );
 }
