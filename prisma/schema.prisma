@@ -7,23 +7,21 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-// Necessary for Next auth
 model Account {
     id                       String  @id @default(cuid())
     userId                   String
     type                     String
     provider                 String
     providerAccountId        String
-    refresh_token            String? // @db.Text
-    access_token             String? // @db.Text
+    refresh_token            String?
+    access_token             String?
     expires_at               Int?
     token_type               String?
     scope                    String?
-    id_token                 String? // @db.Text
+    id_token                 String?
     session_state            String?
     user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
     refresh_token_expires_in Int?
-
     @@unique([provider, providerAccountId])
 }
 
@@ -43,8 +41,7 @@ model User {
     image         String?
     accounts      Account[]
     sessions      Session[]
-
-    Base Base[]
+    Base Base[] 
 }
 
 model VerificationToken {
@@ -54,22 +51,20 @@ model VerificationToken {
     @@unique([identifier, token])
 }
 
-
 model Base {
   id        String   @id @default(cuid())
   name      String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade) 
   userId    String
   tables    Table[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-
 model Table {
   id        String   @id @default(cuid())
   name      String
-  base      Base     @relation(fields: [baseId], references: [id])
+  base      Base     @relation(fields: [baseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   baseId    String
   columns   Column[]
   rows      Row[]
@@ -79,12 +74,11 @@ model Table {
   updatedAt DateTime @updatedAt
 }
 
-
 model Column {
   id        String   @id @default(cuid())
   name      String
-  type      String   // "text" or "number"
-  table     Table    @relation(fields: [tableId], references: [id])
+  type      String   
+  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   tableId   String
   cells     Cell[]
   order     Int
@@ -94,7 +88,7 @@ model Column {
 
 model Row {
   id        String   @id @default(cuid())
-  table     Table    @relation(fields: [tableId], references: [id])
+  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   tableId   String
   cells     Cell[]
   order     Int
@@ -102,10 +96,9 @@ model Row {
   updatedAt DateTime @updatedAt
 }
 
-
 model Cell {
   id        String   @id @default(cuid())
-  value     String?  // Store all values as strings, convert numbers when needed
+  value     String?  
   row       Row      @relation(fields: [rowId], references: [id])
   rowId     String
   column    Column   @relation(fields: [columnId], references: [id])
@@ -114,11 +107,9 @@ model Cell {
   tableId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   @@unique([rowId, columnId])
-  @@index([value]) // For faster searching
+  @@index([value]) 
 }
-
 
 model View {
   id        String       @id @default(cuid())
@@ -131,26 +122,23 @@ model View {
   updatedAt DateTime     @updatedAt
 }
 
-
 model ViewFilter {
   id        String   @id @default(cuid())
   view      View     @relation(fields: [viewId], references: [id])
   viewId    String
   columnId  String
-  operator  String   // "gt", "lt", "empty", "not_empty"
+  operator  String   
   value     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
-
 
 model ViewSort {
   id        String   @id @default(cuid())
   view      View     @relation(fields: [viewId], references: [id])
   viewId    String
   columnId  String
-  direction String   // "asc" or "desc"
+  direction String  
   order     Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -1,4 +1,4 @@
-import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
 import z from "zod";
 
 export const tableRouter = createTRPCRouter({
@@ -47,5 +47,11 @@ export const tableRouter = createTRPCRouter({
           },
         },
       });
+    }),
+
+  deleteTable: protectedProcedure
+    .input(z.object({ tableId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      return ctx.db.table.delete({ where: { id: input.tableId } });
     }),
 });

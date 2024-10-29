@@ -3,7 +3,10 @@ import z from "zod";
 
 export const baseRouter = createTRPCRouter({
   getAllBases: protectedProcedure.query(({ ctx }) => {
-    return ctx.db.base.findMany({ where: { userId: ctx.session.user?.id } });
+    return ctx.db.base.findMany({
+      where: { userId: ctx.session.user?.id },
+      orderBy: { updatedAt: "desc" },
+    });
   }),
 
   createBase: protectedProcedure.mutation(async ({ input, ctx }) => {
@@ -34,4 +37,10 @@ export const baseRouter = createTRPCRouter({
     });
     return base;
   }),
+
+  deleteBase: protectedProcedure
+    .input(z.object({ baseId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      return ctx.db.base.delete({ where: { id: input.baseId } });
+    }),
 });

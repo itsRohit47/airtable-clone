@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button";
 import { BaseCard } from "./base-card";
 import { api } from "@/trpc/react";
 import { GetBaseList } from "@/lib/actions/base";
-import { toast, useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 
 export function BaseList() {

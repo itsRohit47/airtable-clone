@@ -21,13 +21,19 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
     },
   });
 
+  const { mutate: deleteTable } = api.table.deleteTable.useMutation({
+    onSuccess: () => {
+      console.log("deleted table");
+      void ctx.table.getTablesByBaseId.invalidate();
+    },
+  });
+
   return (
     <div className="p-6">
       <Suspense fallback={<div>Loading tables...</div>}></Suspense>
       <div className="mt-6 flex flex-col items-center gap-y-3 text-center">
         <p className="text-muted-foreground">Base ID: {params.baseId}</p>
         <h1 className="text-2xl font-semibold">Tables</h1>
-        <p className="text-muted-foreground">Manage the tables in your base</p>
         <Button
           onClick={() => {
             addTable({ baseId: params.baseId });
@@ -36,14 +42,25 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
           Add Table
         </Button>
         <br />
-        <div className="flex gap-x-3">
+        <div className="grid gap-3">
           {tables?.map((table) => (
             <div
               key={table.id}
               className="rounded-lg border bg-gray-100 p-4 shadow-sm"
             >
-              <div>
-                name: <strong>{table.name}</strong>
+              <div className="flex items-center justify-center gap-x-3">
+                <div>
+                  <strong>{table.name}</strong>
+                </div>
+                <Button
+                  variant={"destructive"}
+                  size={"sm"}
+                  onClick={() => {
+                    deleteTable({ tableId: table.id });
+                  }}
+                >
+                  x
+                </Button>
               </div>
               <br />
               {table.columns.map((column, index) => (
