@@ -28,6 +28,13 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
     },
   });
 
+  const { mutate: deleteColumn } = api.table.deleteColumn.useMutation({
+    onSuccess: () => {
+      console.log("deleted column");
+      void ctx.table.getTablesByBaseId.invalidate();
+    },
+  });
+
   return (
     <div className="p-6">
       <Suspense fallback={<div>Loading tables...</div>}></Suspense>
@@ -66,6 +73,15 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
               {table.columns.map((column, index) => (
                 <div key={column.id}>
                   colums {index} : {column.id}
+                  <Button
+                    variant={"destructive"}
+                    size={"sm"}
+                    onClick={() => {
+                      deleteColumn({ columnId: column.id });
+                    }}
+                  >
+                    x
+                  </Button>
                 </div>
               ))}
               <br />

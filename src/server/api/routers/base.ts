@@ -2,6 +2,7 @@ import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import z from "zod";
 
 export const baseRouter = createTRPCRouter({
+  // for the dashboard
   getAllBases: protectedProcedure.query(({ ctx }) => {
     return ctx.db.base.findMany({
       where: { userId: ctx.session.user?.id },
@@ -9,6 +10,7 @@ export const baseRouter = createTRPCRouter({
     });
   }),
 
+  // to create a new base for the user to work with tables
   createBase: protectedProcedure.mutation(async ({ input, ctx }) => {
     const base = await ctx.db.base.create({
       data: { name: "Untitled Base", userId: ctx.session.user?.id },
@@ -38,9 +40,12 @@ export const baseRouter = createTRPCRouter({
     return base;
   }),
 
+  // to delete a base and all its tables and columns and rows from the database
   deleteBase: protectedProcedure
     .input(z.object({ baseId: z.string() }))
     .mutation(async ({ input, ctx }) => {
       return ctx.db.base.delete({ where: { id: input.baseId } });
     }),
+
+ 
 });
