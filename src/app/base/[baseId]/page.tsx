@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { GetTableList } from "@/lib/actions/table";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
-
+import Link from "next/link";
 export default function BasePage({ params }: { params: { baseId: string } }) {
   const tables = GetTableList({ baseId: params.baseId });
   const ctx = api.useUtils();
@@ -49,16 +49,20 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
           Add Table
         </Button>
         <br />
-        <div className="grid gap-3">
+        <div className="grid gap-3 lg:flex lg:flex-wrap">
           {tables?.map((table) => (
             <div
               key={table.id}
               className="rounded-lg border bg-gray-100 p-4 shadow-sm"
             >
-              <div className="flex items-center justify-center gap-x-3">
+              <div className="flex flex-col items-center justify-center gap-x-3">
                 <div>
                   <strong>{table.name}</strong>
                 </div>
+                <strong>{table.id}</strong>
+                <Link href={`/base/${params.baseId}/table/${table.id}`} className="text-blue-500">
+                  View Table
+                </Link>
                 <Button
                   variant={"destructive"}
                   size={"sm"}
@@ -66,12 +70,12 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
                     deleteTable({ tableId: table.id });
                   }}
                 >
-                  x
+                  delete table
                 </Button>
               </div>
               <br />
               {table.columns.map((column, index) => (
-                <div key={column.id}>
+                <div key={column.id} className="flex flex-col">
                   colums {index} : {column.id}
                   <Button
                     variant={"destructive"}
@@ -80,7 +84,7 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
                       deleteColumn({ columnId: column.id });
                     }}
                   >
-                    x
+                    delete column {index}
                   </Button>
                 </div>
               ))}

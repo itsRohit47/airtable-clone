@@ -75,15 +75,16 @@ model Table {
 }
 
 model Column {
-  id        String   @id @default(cuid())
-  name      String
-  type      String   
-  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  tableId   String
-  cells     Cell[]
-  order     Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  type        String
+  order       Int
+  defaultValue String? 
+  tableId     String
+  table       Table    @relation(fields: [tableId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  cells       Cell[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Row {
@@ -99,11 +100,11 @@ model Row {
 model Cell {
   id        String   @id @default(cuid())
   value     String?  
-  row       Row      @relation(fields: [rowId], references: [id])
+  row       Row      @relation(fields: [rowId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   rowId     String
-  column    Column   @relation(fields: [columnId], references: [id])
+  column    Column   @relation(fields: [columnId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   columnId  String
-  table     Table    @relation(fields: [tableId], references: [id])
+  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   tableId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
