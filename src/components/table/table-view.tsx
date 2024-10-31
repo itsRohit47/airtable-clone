@@ -40,6 +40,17 @@ export function TableView({ tableId }: TableViewProps) {
     tableId,
   });
 
+  // add column mutation
+  const addColumn = api.table.addField.useMutation({
+    onSuccess: () => {
+      void ctx.table.getData.invalidate({ tableId });
+      toast({
+        title: "Success",
+        description: "Column added successfully",
+      });
+    },
+  });
+
   // Add row mutation
   const addRow = api.table.addRow.useMutation({
     onSuccess: () => {
@@ -62,7 +73,16 @@ export function TableView({ tableId }: TableViewProps) {
     },
   });
 
-  // Update cell mutation
+  // autosave cell mutation
+  const autoSave = api.table.updateCell.useMutation({
+    onSuccess: () => {
+      void ctx.table.getData.invalidate({ tableId });
+      toast({
+        title: "Success",
+        description: "Cell updated successfully",
+      });
+    },
+  });
 
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
     if (!tableData?.columns) return [];
@@ -96,7 +116,11 @@ export function TableView({ tableId }: TableViewProps) {
         <EditableCell
           value={getValue() as string}
           onSave={async (value) => {
-            console.log("Saving", value);
+            await autoSave.mutateAsync({
+              rowId: String(row.original.id),
+              columnId: col.id,
+              value,
+            });
           }}
           type={col.type as "number" | "text"}
           column={{
@@ -109,7 +133,7 @@ export function TableView({ tableId }: TableViewProps) {
         />
       ),
     }));
-  }, [tableData?.columns]);
+  }, [autoSave, tableData?.columns]);
 
   const table = useReactTable({
     data: tableData?.data ?? [],
@@ -126,13 +150,21 @@ export function TableView({ tableId }: TableViewProps) {
     onSortingChange: setSorting,
     initialState: {
       pagination: {
-        pageSize: 10, // Adjust based on your needs
+        pageSize: 2,
       },
     },
   });
 
   const handleAddRow = async () => {
     await addRow.mutateAsync({ tableId });
+  };
+
+  const handleDeleteRow = async (rowId: string) => {
+    await deleteRow.mutateAsync({ tableId, rowId });
+  };
+
+  const handleAddColumn = async () => {
+    await addColumn.mutateAsync({ tableId });
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -149,6 +181,10 @@ export function TableView({ tableId }: TableViewProps) {
         <Button onClick={handleAddRow}>
           <Plus className="mr-2 h-4 w-4" />
           Add Row
+        </Button>
+        <Button onClick={handleAddColumn}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Column
         </Button>
       </div>
 
@@ -170,6 +206,7 @@ export function TableView({ tableId }: TableViewProps) {
                   )}
                 </th>
               ))}
+              <th className="p-2">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -180,6 +217,15 @@ export function TableView({ tableId }: TableViewProps) {
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
+                <td className="p-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteRow(String(row.original.id))}
+                  >
+                    Delete {row.original.id}
+                  </Button>
+                </td>
               </tr>
             ))}
           </tbody>

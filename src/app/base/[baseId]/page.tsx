@@ -7,12 +7,6 @@ import Link from "next/link";
 export default function BasePage({ params }: { params: { baseId: string } }) {
   const tables = GetTableList({ baseId: params.baseId });
   const ctx = api.useUtils();
-  const { mutate: addField } = api.table.addField.useMutation({
-    onSuccess: () => {
-      console.log("added field");
-      void ctx.table.getTablesByBaseId.invalidate();
-    },
-  });
 
   const { mutate: addTable } = api.table.addTable.useMutation({
     onSuccess: () => {
@@ -24,13 +18,6 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
   const { mutate: deleteTable } = api.table.deleteTable.useMutation({
     onSuccess: () => {
       console.log("deleted table");
-      void ctx.table.getTablesByBaseId.invalidate();
-    },
-  });
-
-  const { mutate: deleteColumn } = api.table.deleteColumn.useMutation({
-    onSuccess: () => {
-      console.log("deleted column");
       void ctx.table.getTablesByBaseId.invalidate();
     },
   });
@@ -55,12 +42,15 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
               key={table.id}
               className="rounded-lg border bg-gray-100 p-4 shadow-sm"
             >
-              <div className="flex flex-col items-center justify-center gap-x-3">
+              <div className="flex flex-col items-center justify-center gap-y-3">
                 <div>
                   <strong>{table.name}</strong>
                 </div>
                 <strong>{table.id}</strong>
-                <Link href={`/base/${params.baseId}/table/${table.id}`} className="text-blue-500">
+                <Link
+                  href={`/base/${params.baseId}/table/${table.id}`}
+                  className="text-blue-500"
+                >
                   View Table
                 </Link>
                 <Button
@@ -74,30 +64,6 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
                 </Button>
               </div>
               <br />
-              {table.columns.map((column, index) => (
-                <div key={column.id} className="flex flex-col">
-                  colums {index} : {column.id}
-                  <Button
-                    variant={"destructive"}
-                    size={"sm"}
-                    onClick={() => {
-                      deleteColumn({ columnId: column.id });
-                    }}
-                  >
-                    delete column {index}
-                  </Button>
-                </div>
-              ))}
-              <br />
-              {table.rows?.length === 0 && <div>now rows yet</div>}
-              <br />
-              <Button
-                onClick={() => {
-                  addField({ tableId: table.id });
-                }}
-              >
-                Add field
-              </Button>
             </div>
           ))}
         </div>
