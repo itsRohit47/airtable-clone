@@ -11,6 +11,10 @@ interface AppContextProps {
   setSidebarOpen: (value: boolean) => void;
   listView: boolean;
   setListView: (value: boolean) => void;
+  tableTab: string;
+  setTableTab: (value: string) => void;
+  thisTable: string;
+  setThisTable: (value: string) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -18,11 +22,17 @@ export const AppContext = createContext<AppContextProps | undefined>(undefined);
 const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [listView, setListView] = useState(false);
+  const [tableTab, setTableTab] = useState("data");
+  const [thisTable, setThisTable] = useState("data");
   const value = {
     sidebarOpen,
     setSidebarOpen,
     listView,
     setListView,
+    tableTab,
+    setTableTab,
+    thisTable,
+    setThisTable,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

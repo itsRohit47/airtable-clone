@@ -1,72 +1,63 @@
 "use client";
-import { Suspense } from "react";
 import { GetTableList } from "@/lib/actions/table";
 import { api } from "@/trpc/react";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import TableTopNav from "@/components/table/table-top-nav";
+import { useAppContext } from "@/components/context";
+import TableTools from "@/components/table/table-tools";
+import Image from "next/image";
 export default function BasePage({ params }: { params: { baseId: string } }) {
   const tables = GetTableList({ baseId: params.baseId });
+  const { tableTab, setThisTable } = useAppContext();
+  const tableNames =
+    tables?.map((table) => {
+      return table.name;
+    }) ?? [];
+
   const ctx = api.useUtils();
 
-  const { mutate: addTable } = api.table.addTable.useMutation({
-    onSuccess: () => {
-      console.log("added table");
-      void ctx.table.getTablesByBaseId.invalidate();
-    },
-  });
-
-  const { mutate: deleteTable } = api.table.deleteTable.useMutation({
-    onSuccess: () => {
-      console.log("deleted table");
-      void ctx.table.getTablesByBaseId.invalidate();
-    },
-  });
-
   return (
-    <div className="p-6">
-      <Suspense fallback={<div>Loading tables...</div>}></Suspense>
-      <div className="mt-6 flex flex-col items-center gap-y-3 text-center">
-        <p className="text-muted-foreground">Base ID: {params.baseId}</p>
-        <h1 className="text-2xl font-semibold">Tables</h1>
-        <Button
-          onClick={() => {
-            addTable({ baseId: params.baseId });
-          }}
-        >
-          Add Table
-        </Button>
-        <br />
-        <div className="grid gap-3 lg:flex lg:flex-wrap">
-          {tables?.map((table) => (
-            <div
-              key={table.id}
-              className="rounded-lg border bg-gray-100 p-4 shadow-sm"
-            >
-              <div className="flex flex-col items-center justify-center gap-y-3">
-                <div>
-                  <strong>{table.name}</strong>
-                </div>
-                <strong>{table.id}</strong>
-                <Link
-                  href={`/base/${params.baseId}/table/${table.id}`}
-                  className="text-blue-500"
-                >
-                  View Table
-                </Link>
-                <Button
-                  variant={"destructive"}
-                  size={"sm"}
-                  onClick={() => {
-                    deleteTable({ tableId: table.id });
-                  }}
-                >
-                  delete table
-                </Button>
-              </div>
-              <br />
+    <div className="">
+      <TableTopNav
+        baseName={params.baseId}
+        tableNames={tableNames}
+      ></TableTopNav>
+      <div className="mt-16 py-2">
+        {tableTab == "data" && <TableTools></TableTools>}
+        {tableTab == "interfaces" && (
+          <div>
+            <div>
+              <Image
+                src="/interface.png"
+                alt=""
+                width={2000}
+                height={2000}
+                className="h-full w-full object-cover"
+              ></Image>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
+        {tableTab == "auto" && (
+          <div className="">
+            <Image
+              src="/automation.png"
+              alt=""
+              width={2000}
+              height={2000}
+              className="h-full w-full object-cover"
+            ></Image>
+          </div>
+        )}
+        {tableTab == "forms" && (
+          <div className="">
+            <Image
+              src="/form.png"
+              alt=""
+              width={2000}
+              height={2000}
+              className="h-full w-full object-cover"
+            ></Image>
+          </div>
+        )}
       </div>
     </div>
   );

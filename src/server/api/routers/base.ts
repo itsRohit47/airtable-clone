@@ -10,6 +10,16 @@ export const baseRouter = createTRPCRouter({
     });
   }),
 
+  // Base id to base name
+  baseIdToName: protectedProcedure
+    .input(z.object({ baseId: z.string() }))
+    .query(({ input, ctx }) => {
+      const data = ctx.db.base.findUnique({
+        where: { id: input.baseId },
+      });
+      return data;
+    }),
+
   // to create a new base for the user to work with tables
   createBase: protectedProcedure.mutation(async ({ input, ctx }) => {
     const base = await ctx.db.base.create({
@@ -46,6 +56,4 @@ export const baseRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       return ctx.db.base.delete({ where: { id: input.baseId } });
     }),
-
- 
 });

@@ -22,7 +22,7 @@ export default function SideMenu() {
               All Workspaces
             </div>
           </div>
-          <div className="flex -translate-y-5 flex-col gap-y-5 border-t-2 pt-5 text-sm">
+          <div className="flex -translate-y-5 flex-col gap-y-5 border-t-2 pt-5 text-xs">
             <div className="flex items-center gap-x-1">
               <BookOpen strokeWidth={1.5} size={16} />
               Template and apps
@@ -35,7 +35,7 @@ export default function SideMenu() {
               <GlobeIcon strokeWidth={1.5} size={16} />
               Import
             </div>
-            <Button className="bg-blue-500 text-white">
+            <Button className="bg-blue-500 text-white hover:bg-blue-600">
               <PlusIcon strokeWidth={1.5} size={16} className="" />
               Create
             </Button>

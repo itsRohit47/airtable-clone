@@ -33,9 +33,9 @@ export function BaseCard({ base }: BaseCardProps) {
     >
       <div className="flex h-full gap-x-3">
         <div
-          className={`flex h-full w-14 items-center justify-center rounded-md border bg-blue-100 text-blue-500`}
+          className={`flex h-full w-14 items-center justify-center rounded-md border bg-[#B63A05] text-white`}
         >
-          <StarIcon className="h-5 w-5" />
+          {base.name.slice(0,2)}
         </div>
         <div className="flex flex-col gap-y-3">
           <div className="text-sm">{base.name}</div>{" "}

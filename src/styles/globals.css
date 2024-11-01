@@ -64,3 +64,7 @@
     @apply bg-background text-foreground;
   }
 }
+
+.tabnav {
+  @apply rounded-full bg-[#B63A05] px-3 py-2 shadow-inner;
+}
