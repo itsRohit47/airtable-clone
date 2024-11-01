@@ -4,6 +4,7 @@ import { type Metadata } from "next";
 import { TRPCReactProvider } from "@/trpc/react";
 import { Toaster } from "@/components/ui/toaster";
 import SessionProviderClientComponent from "@/components/session-client-provider";
+import AppContextProvider from "@/components/context";
 
 export const metadata: Metadata = {
   title: "The Platform to build next-gen apps - Airtable",
@@ -17,11 +18,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${GeistSans.variable} flex min-h-screen w-full flex-col items-center justify-center font-sans`}
+        className={`${GeistSans.variable} flex h-screen w-full flex-col bg-[#F9FAFB] font-sans`}
       >
         <Toaster />
         <SessionProviderClientComponent>
-          <TRPCReactProvider>{children}</TRPCReactProvider>
+          <AppContextProvider>
+            <TRPCReactProvider>{children}</TRPCReactProvider>
+          </AppContextProvider>
         </SessionProviderClientComponent>
       </body>
     </html>

@@ -1,9 +1,12 @@
 "use client";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { formatDistanceToNow } from "date-fns";
-import Link from "next/link";
-import { Button } from "../ui/button";
 import { api } from "@/trpc/react";
+import Link from "next/link";
+import { StarIcon } from "@radix-ui/react-icons";
+
+function randomTailwindColor() {
+  const colors = ["red", "yellow", "green", "blue", "indigo", "purple", "pink"];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
 
 interface BaseCardProps {
   base: {
@@ -24,30 +27,23 @@ export function BaseCard({ base }: BaseCardProps) {
   });
 
   return (
-    <Card className="">
-      <CardHeader>
-        <CardTitle>{base.name}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-y-3">
-        <p className="text-sm text-muted-foreground">
-          Last updated {formatDistanceToNow(new Date(base.updatedAt))} ago
-        </p>
-        <Link
-          href={`/base/${base.id}`}
-          className="text-sm text-primary hover:text-blue-500 hover:underline"
+    <Link
+      href={`/base/${base.id}`}
+      className="w-full max-w-96 cursor-pointer rounded-md border border-gray-300 bg-white p-4 shadow-none hover:shadow-md"
+    >
+      <div className="flex h-full gap-x-3">
+        <div
+          className={`flex h-full w-14 items-center justify-center rounded-md border bg-blue-100 text-blue-500`}
         >
-          View base
-        </Link>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => {
-            mutate({ baseId: base.id });
-          }}
-        >
-          Delete base {base.id}
-        </Button>
-      </CardContent>
-    </Card>
+          <StarIcon className="h-5 w-5" />
+        </div>
+        <div className="flex flex-col gap-y-3">
+          <div className="text-sm">{base.name}</div>{" "}
+          <div className="flex flex-col gap-y-3 text-xs text-gray-500">
+            Base
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 }
