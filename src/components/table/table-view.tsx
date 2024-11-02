@@ -15,8 +15,6 @@ import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useAppContext } from "../context";
-import { ScrollArea } from "../ui/scroll-area";
 
 interface TableViewProps {
   tableId: string;
@@ -27,14 +25,9 @@ export function TableView({ tableId }: TableViewProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const { toast } = useToast();
   const ctx = api.useUtils();
-  const { rowCounter, setRowCounter } = useAppContext();
 
   // Get table data
-  const {
-    data: tableData,
-    isLoading,
-    isSuccess,
-  } = api.table.getData.useQuery({
+  const { data: tableData, isLoading } = api.table.getData.useQuery({
     tableId,
   });
 
@@ -51,12 +44,33 @@ export function TableView({ tableId }: TableViewProps) {
 
   // Add row mutation
   const addRow = api.table.addRow.useMutation({
-    onSuccess: () => {
-      void ctx.table.getData.invalidate({ tableId });
-      toast({
-        title: "Success",
-        description: "Row added successfully",
+    onMutate: async () => {
+      await ctx.table.getData.cancel({ tableId });
+      const previousTableData = ctx.table.getData.getData({ tableId });
+
+      const newRowData: Record<string, string | number> = {}; // Define newRowData appropriately
+      ctx.table.getData.setData({ tableId }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          data: [...old.data, { id: "temp-id", ...newRowData }],
+        };
       });
+
+      return { previousTableData };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousTableData) {
+        ctx.table.getData.setData({ tableId }, context.previousTableData);
+      }
+      toast({
+        title: "Error",
+        description: "Failed to add row",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      void ctx.table.getData.invalidate({ tableId });
     },
   });
 
@@ -71,14 +85,42 @@ export function TableView({ tableId }: TableViewProps) {
     },
   });
 
-  // autosave cell mutation
   const autoSave = api.table.updateCell.useMutation({
-    onSuccess: () => {
-      void ctx.table.getData.invalidate({ tableId });
-      toast({
-        title: "Success",
-        description: "Cell updated successfully",
+    onMutate: async ({ rowId, columnId, value }) => {
+      // Cancel any outgoing refetches
+      await ctx.table.getData.cancel({ tableId });
+      const previousData = ctx.table.getData.getData({ tableId });
+
+      // Update immediately in the UI
+      ctx.table.getData.setData({ tableId }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          data: old.data.map((row) => {
+            if (row.id === rowId) {
+              return { ...row, [columnId]: value };
+            }
+            return row;
+          }),
+        };
       });
+
+      return { previousData };
+    },
+    onError: (error, variables, context) => {
+      // On error, revert back to the previous state
+      if (context?.previousData) {
+        ctx.table.getData.setData({ tableId }, context.previousData);
+      }
+      toast({
+        title: "Error",
+        description: "Failed to save changes",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      // Remove this if you don't want to refetch after each save
+      // void ctx.table.getData.invalidate({ tableId });
     },
   });
 
@@ -172,14 +214,13 @@ export function TableView({ tableId }: TableViewProps) {
               </th>
             ))}
             <div
-              className="w-full cursor-pointer bg-white px-10 border-r border-b border-t py-2 text-xs text-gray-500"
+              className="w-full cursor-pointer border-b border-r border-t bg-white px-10 py-2 text-xs text-gray-500"
               onClick={handleAddColumn}
             >
               <Plus size={16} strokeWidth={1.5}></Plus>
             </div>
           </tr>
         </thead>
-
         <tbody className="overflow-scroll">
           {table.getRowModel().rows.map((row, index) => (
             <tr key={row.id} className="">

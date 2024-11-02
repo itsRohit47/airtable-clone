@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Input } from "@/components/ui/input";
 
 interface EditableCellProps {
   value: string;
@@ -25,75 +24,111 @@ export function EditableCell({
   row,
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
-  const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Sync with initial value if it changes externally
   useEffect(() => {
     setValue(initialValue);
   }, [initialValue]);
 
-  // Focus input when editing starts
+  // Cleanup timeout on unmount
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
-
-  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Handle saves
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (value === initialValue) {
-        setIsEditing(false);
-        return;
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
-      setIsLoading(true);
-      try {
-        await onSave(value);
-        setIsEditing(false);
-      } catch (error) {
-        setValue(initialValue);
-      } finally {
-        setIsLoading(false);
-      }
-    }
+    };
+  }, []);
 
-    // Handle cancel
-    if (e.key === "Escape") {
-      setIsEditing(false);
-      setValue(initialValue);
+  const handleSave = async (newValue: string) => {
+    if (newValue === initialValue) return;
+
+    setIsLoading(true);
+    try {
+      await onSave(newValue);
+    } catch (error) {
+      setValue(initialValue); // Rollback on error
+      console.error("Failed to save:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleBlur = async () => {
-    if (!isLoading && value !== initialValue) {
-      setIsLoading(true);
-      try {
-        await onSave(value);
-      } catch (error) {
-        setValue(initialValue);
-      } finally {
-        setIsLoading(false);
-      }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+
+    // Validate number input
+    if (type === "number" && newValue !== "") {
+      const isValid = /^\d*\.?\d*$/.test(newValue);
+      if (!isValid) return;
     }
-    setIsEditing(false);
+
+    setValue(newValue);
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout
+    saveTimeoutRef.current = setTimeout(() => {
+      void handleSave(newValue);
+    }, 500);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    switch (e.key) {
+      case "Enter":
+        if (!e.shiftKey) {
+          e.preventDefault();
+          // Clear timeout and save immediately
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+          }
+          void handleSave(value);
+          // Move to next cell
+          const nextInput = inputRef.current
+            ?.closest("td")
+            ?.nextElementSibling?.querySelector("input");
+          if (nextInput instanceof HTMLInputElement) nextInput.focus();
+        }
+        break;
+      case "Escape":
+        // Clear timeout and revert changes
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        setValue(initialValue);
+        break;
+      case "Tab":
+        // Clear timeout and save immediately
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        void handleSave(value);
+        break;
+    }
   };
 
   return (
     <input
       ref={inputRef}
-      className="flex h-8 cursor-text items-center truncate p-2 text-xs"
-      defaultValue={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={handleBlur}
+      className={`flex h-8 w-full cursor-text items-center truncate p-2 text-xs outline-none ${isLoading ? "bg-gray-50" : "bg-white"} ${type === "number" ? "text-right" : "text-left"} focus:ring-2 focus:ring-blue-500`}
+      value={value}
+      onChange={handleChange}
       onKeyDown={handleKeyDown}
-      autoFocus={isEditing}
-      type={type}
+      onBlur={() => {
+        // Clear timeout and save on blur if needed
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+          void handleSave(value);
+        }
+      }}
+      type="text"
       disabled={isLoading}
       autoComplete="off"
+      spellCheck={false}
     />
   );
 }

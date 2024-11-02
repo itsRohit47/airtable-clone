@@ -14,17 +14,17 @@ import { useAppContext } from "../context";
 import clsx from "clsx";
 
 export default function TableTopNav({
-  baseName,
+  baseId,
   tableNames,
   tableIds,
 }: {
-  baseName: string;
+  baseId: string;
   tableNames: string[];
   tableIds: string[];
 }) {
   const { data: session } = useSession();
   const { tableTab, setTableTab } = useAppContext();
-  const name = BaseIdToName({ baseId: baseName });
+  const name = BaseIdToName({ baseId: baseId });
   return (
     <div className="fixed w-full bg-[#D54402] px-4 pb-2 pt-2 text-white">
       <div className="mb-3 flex items-center justify-between">
@@ -113,7 +113,11 @@ export default function TableTopNav({
         </div>
       </div>
       {tableTab == "data" && (
-        <TableNav tableNames={tableNames} tableIds={tableIds}></TableNav>
+        <TableNav
+          tableNames={tableNames}
+          tableIds={tableIds}
+          baseId={baseId}
+        ></TableNav>
       )}
     </div>
   );

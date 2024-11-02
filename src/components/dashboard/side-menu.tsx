@@ -22,16 +22,16 @@ export default function SideMenu() {
               All Workspaces
             </div>
           </div>
-          <div className="flex -translate-y-5 flex-col gap-y-5 border-t-2 pt-5 text-xs">
-            <div className="flex items-center gap-x-1">
+          <div className="flex -translate-y-5 flex-col gap-y-2 border-t pt-5 text-xs">
+            <div className="flex cursor-pointer items-center gap-x-1 rounded-md p-2 hover:bg-gray-200">
               <BookOpen strokeWidth={1.5} size={16} />
               Template and apps
             </div>
-            <div className="flex items-center gap-x-1">
+            <div className="flex cursor-pointer items-center gap-x-1 rounded-md p-2 hover:bg-gray-200">
               <ShoppingBagIcon strokeWidth={1.5} size={16} />
               Marketplace
             </div>{" "}
-            <div className="flex items-center gap-x-1">
+            <div className="flex cursor-pointer items-center gap-x-1 rounded-md p-2 hover:bg-gray-200">
               <GlobeIcon strokeWidth={1.5} size={16} />
               Import
             </div>

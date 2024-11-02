@@ -1,6 +1,5 @@
 "use client";
 import { GetTableList } from "@/lib/actions/table";
-import { api } from "@/trpc/react";
 import TableTopNav from "@/components/table/table-top-nav";
 import { useAppContext } from "@/components/context";
 import TableTools from "@/components/table/table-tools";
@@ -9,7 +8,7 @@ import { TableView } from "@/components/table/table-view";
 export default function BasePage({ params }: { params: { baseId: string } }) {
   const tables = GetTableList({ baseId: params.baseId });
 
-  const { tableTab, thisTableId, rowCounter } = useAppContext();
+  const { tableTab, thisTableId } = useAppContext();
   const tableNames =
     tables?.map((table) => {
       return table.name;
@@ -20,12 +19,10 @@ export default function BasePage({ params }: { params: { baseId: string } }) {
       return table.id;
     }) ?? [];
 
-  const ctx = api.useUtils();
-
   return (
     <div className="">
       <TableTopNav
-        baseName={params.baseId}
+        baseId={params.baseId}
         tableNames={tableNames}
         tableIds={tableIds}
       ></TableTopNav>

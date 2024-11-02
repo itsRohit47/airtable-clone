@@ -1,16 +1,54 @@
+"use client";
 import { ChevronDown, PlusIcon } from "lucide-react";
 import clsx from "clsx";
 import { useAppContext } from "../context";
+import { api } from "@/trpc/react";
 
 export default function TableNav({
   tableNames,
   tableIds,
+  baseId,
 }: {
   tableNames: string[];
   tableIds: string[];
+  baseId: string;
 }) {
   const { thisTable, setThisTable, thisTableId, setThisTableId } =
     useAppContext();
+
+  const ctx = api.useUtils();
+
+  const { mutate: addTable } = api.table.addTable.useMutation({
+    onMutate: async (newTable) => {
+      await ctx.table.getTablesByBaseId.cancel({ baseId });
+
+      const previousTables = ctx.table.getTablesByBaseId.getData({ baseId });
+
+      ctx.table.getTablesByBaseId.setData({ baseId }, (old) => [
+        ...(old ?? []),
+        {
+          ...newTable,
+          id: "temp-id",
+          name: `table ${previousTables ? previousTables.length + 1 : 1}`,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          columns: [],
+          rows: [],
+        },
+      ]);
+
+      return { previousTables };
+    },
+    onError: (err, newTable, context) => {
+      if (context?.previousTables) {
+        ctx.table.getTablesByBaseId.setData({ baseId }, context.previousTables);
+      }
+    },
+    onSettled: () => {
+      void ctx.table.getTablesByBaseId.invalidate({ baseId });
+    },
+  });
+
   return (
     <div>
       <div className="flex h-max items-center justify-between gap-x-1 text-xs font-normal">
@@ -19,7 +57,7 @@ export default function TableNav({
             <div
               key={table}
               className={clsx(
-                "flex cursor-pointer items-center p-2 hover:bg-[#B63A05]",
+                "flex cursor-pointer items-center gap-x-2 p-2 hover:bg-[#B63A05]",
                 {
                   "rounded-t-md bg-white text-black hover:bg-white":
                     table === thisTable,
@@ -42,7 +80,10 @@ export default function TableNav({
           <span className="px-2 font-thin text-gray-50/50">|</span>
           <ChevronDown strokeWidth={1.5} size={18}></ChevronDown>
           <span className="px-2 font-thin text-gray-50/50">|</span>
-          <div className="flex cursor-pointer items-center gap-x-3 px-2 text-white/90 hover:text-white">
+          <div
+            className="flex cursor-pointer items-center gap-x-3 px-2 text-white/90 hover:text-white"
+            onClick={() => addTable({ baseId })}
+          >
             {" "}
             <PlusIcon size={18}></PlusIcon>
             Add or import table
