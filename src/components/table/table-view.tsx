@@ -11,19 +11,12 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 import { Plus, ArrowUpDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useAppContext } from "../context";
+import { ScrollArea } from "../ui/scroll-area";
 
 interface TableViewProps {
   tableId: string;
@@ -34,9 +27,14 @@ export function TableView({ tableId }: TableViewProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const { toast } = useToast();
   const ctx = api.useUtils();
+  const { rowCounter, setRowCounter } = useAppContext();
 
   // Get table data
-  const { data: tableData, isLoading } = api.table.getData.useQuery({
+  const {
+    data: tableData,
+    isLoading,
+    isSuccess,
+  } = api.table.getData.useQuery({
     tableId,
   });
 
@@ -92,23 +90,8 @@ export function TableView({ tableId }: TableViewProps) {
       accessorKey: col.id,
       header: ({ column }) => {
         return (
-          <div className="flex items-center justify-between">
-            <span>{col.name}</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <ArrowUpDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
-                  Asc
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => column.toggleSorting(true)}>
-                  Desc
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="flex w-max items-center justify-between">
+            <span className="text-xs font-normal">{col.name}</span>
           </div>
         );
       },
@@ -150,7 +133,7 @@ export function TableView({ tableId }: TableViewProps) {
     onSortingChange: setSorting,
     initialState: {
       pagination: {
-        pageSize: 2,
+        pageSize: 50,
       },
     },
   });
@@ -170,91 +153,56 @@ export function TableView({ tableId }: TableViewProps) {
   if (isLoading) return <div>Loading...</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <Input
-          placeholder="Search all columns..."
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="max-w-sm"
-        />
-        <Button onClick={handleAddRow}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Row
-        </Button>
-        <Button onClick={handleAddColumn}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Column
-        </Button>
-      </div>
-
-      <ScrollArea className="h-max rounded-md border">
-        <table className="w-full">
-          <thead className="sticky top-0 border-b bg-background">
-            <tr>
-              {table.getFlatHeaders().map((header) => (
-                <th
-                  key={header.id}
-                  className={cn(
-                    "p-2 text-left",
-                    header.column.getCanSort() && "cursor-pointer select-none",
-                  )}
-                >
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext(),
-                  )}
-                </th>
-              ))}
-              <th className="p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="border-b">
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="p-2">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-                <td className="p-2">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDeleteRow(String(row.original.id))}
-                  >
-                    Delete {row.original.id}
-                  </Button>
-                </td>
-              </tr>
+    <div className="fixed mt-16 h-full translate-y-[4px]">
+      <table className="relative">
+        <thead className="">
+          <tr className="">
+            {table.getFlatHeaders().map((header) => (
+              <th
+                key={header.id}
+                className={cn(
+                  "border bg-[#F5F5F5] p-2",
+                  header.column.getCanSort() && "cursor-pointer select-none",
+                )}
+              >
+                {flexRender(
+                  header.column.columnDef.header,
+                  header.getContext(),
+                )}
+              </th>
             ))}
-          </tbody>
-        </table>
-      </ScrollArea>
+            <div
+              className="w-full cursor-pointer bg-white px-10 border-r border-b border-t py-2 text-xs text-gray-500"
+              onClick={handleAddColumn}
+            >
+              <Plus size={16} strokeWidth={1.5}></Plus>
+            </div>
+          </tr>
+        </thead>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+        <tbody className="overflow-scroll">
+          {table.getRowModel().rows.map((row, index) => (
+            <tr key={row.id} className="">
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id} className="border-x border-b border-gray-100">
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot className="flex w-full">
+          {" "}
+          <div
+            className="w-full cursor-pointer bg-white p-2 text-xs text-gray-500"
+            onClick={handleAddRow}
           >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
-        <span className="text-sm text-muted-foreground">
-          Page {table.getState().pagination.pageIndex + 1} of{" "}
-          {table.getPageCount()}
-        </span>
+            <Plus size={16} strokeWidth={1.5}></Plus>
+          </div>{" "}
+        </tfoot>
+      </table>
+      <div className="w-screen border p-2 text-xs text-gray-500">
+        {table.getRowCount()} records
       </div>
     </div>
   );

@@ -2,12 +2,19 @@ import { ChevronDown, PlusIcon } from "lucide-react";
 import clsx from "clsx";
 import { useAppContext } from "../context";
 
-export default function TableNav({ tableNames }: { tableNames: string[] }) {
-  const { thisTable, setThisTable } = useAppContext();
+export default function TableNav({
+  tableNames,
+  tableIds,
+}: {
+  tableNames: string[];
+  tableIds: string[];
+}) {
+  const { thisTable, setThisTable, thisTableId, setThisTableId } =
+    useAppContext();
   return (
     <div>
       <div className="flex h-max items-center justify-between gap-x-1 text-xs font-normal">
-        <div className="flex w-full -translate-x-4 translate-y-2 items-center rounded-tr-md bg-[#C03D05] px-4">
+        <div className="flex w-full -translate-x-4 translate-y-2 items-center rounded-tr-md bg-[#C03D05] px-4 pb-1">
           {tableNames.map((table) => (
             <div
               key={table}
@@ -20,6 +27,10 @@ export default function TableNav({ tableNames }: { tableNames: string[] }) {
               )}
               onClick={() => {
                 setThisTable(table);
+                const tableId = tableIds[tableNames.indexOf(table)];
+                if (tableId) {
+                  setThisTableId(tableId);
+                }
               }}
             >
               {table}

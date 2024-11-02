@@ -83,9 +83,9 @@ export function EditableCell({
   };
 
   return (
-    <Input
+    <input
       ref={inputRef}
-      className="flex h-8 cursor-text items-center truncate"
+      className="flex h-8 cursor-text items-center truncate p-2 text-xs"
       defaultValue={value}
       onChange={(e) => setValue(e.target.value)}
       onBlur={handleBlur}

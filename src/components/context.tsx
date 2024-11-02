@@ -15,6 +15,10 @@ interface AppContextProps {
   setTableTab: (value: string) => void;
   thisTable: string;
   setThisTable: (value: string) => void;
+  thisTableId: string;
+  setThisTableId: (value: string) => void;
+  rowCounter: number;
+  setRowCounter: (value: number) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -24,6 +28,8 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [listView, setListView] = useState(false);
   const [tableTab, setTableTab] = useState("data");
   const [thisTable, setThisTable] = useState("data");
+  const [thisTableId, setThisTableId] = useState("");
+  const [rowCounter, setRowCounter] = useState(0);
   const value = {
     sidebarOpen,
     setSidebarOpen,
@@ -33,6 +39,10 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setTableTab,
     thisTable,
     setThisTable,
+    thisTableId,
+    setThisTableId,
+    rowCounter,
+    setRowCounter,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

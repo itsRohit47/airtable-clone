@@ -6,6 +6,7 @@ import {
   BoxIcon,
   Users2Icon,
   BellIcon,
+  ChevronDown,
 } from "lucide-react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
@@ -15,9 +16,11 @@ import clsx from "clsx";
 export default function TableTopNav({
   baseName,
   tableNames,
+  tableIds,
 }: {
   baseName: string;
   tableNames: string[];
+  tableIds: string[];
 }) {
   const { data: session } = useSession();
   const { tableTab, setTableTab } = useAppContext();
@@ -31,6 +34,7 @@ export default function TableTopNav({
             {" "}
             <BoxIcon size={20} strokeWidth={1.5} />
             <div className="text-base font-semibold">{name}</div>
+            <ChevronDown size={20} strokeWidth={1.5}></ChevronDown>
           </div>
 
           {/* links */}
@@ -65,6 +69,7 @@ export default function TableTopNav({
             >
               Interfaces
             </div>{" "}
+            <span className="text-white/70">|</span>
             <div
               onClick={() => {
                 setTableTab("forms");
@@ -107,7 +112,9 @@ export default function TableTopNav({
           </div>
         </div>
       </div>
-      {tableTab == "data" && <TableNav tableNames={tableNames}></TableNav>}
+      {tableTab == "data" && (
+        <TableNav tableNames={tableNames} tableIds={tableIds}></TableNav>
+      )}
     </div>
   );
 }
