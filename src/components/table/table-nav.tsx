@@ -38,11 +38,13 @@ export default function TableNav({ baseId }: { baseId: string }) {
                   },
                 )}
               >
-                <div className="text-nowrap">{table.name}</div>
+                <div className="text-nowrap" key={table.id}>
+                  {table.name}
+                </div>
               </Link>
             ))}
             {localTabes.map((table) => (
-              <div className="">
+              <div className="" key={table.id}>
                 {table.baseId === baseId && (
                   <Link
                     href={`/base/${baseId}/table/${table.id}`}
