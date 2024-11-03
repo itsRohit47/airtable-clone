@@ -16,7 +16,8 @@ export default function TableNav({ baseId }: { baseId: string }) {
   const router = useRouter();
   const path = usePathname();
   const [isTableAddOpen, setIsTableAddOpen] = useState(false);
-  const { thisTable, setThisTable, localTabes, editName } = useAppContext();
+  const { thisTable, setThisTable, localTabes, editName, setEditName } =
+    useAppContext();
 
   return (
     <div>
@@ -80,7 +81,10 @@ export default function TableNav({ baseId }: { baseId: string }) {
           <div className="">
             <div
               className="flex cursor-pointer items-center gap-x-3 text-nowrap p-2 hover:text-white"
-              onClick={() => setIsTableAddOpen(!isTableAddOpen)}
+              onClick={() => {
+                setIsTableAddOpen(!isTableAddOpen);
+                setEditName(false);
+              }}
             >
               {isTableAddOpen && (
                 <AddTableDialog

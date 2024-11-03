@@ -45,10 +45,6 @@ export default function AddTableDialog({
       <button
         className="rounded-md bg-gray-100 p-2 text-start text-sm text-black"
         onClick={() => {
-          if (editName) {
-            setEditName(false);
-          }
-
           addTable({
             baseId,
           });

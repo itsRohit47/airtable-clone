@@ -4,7 +4,7 @@ import { type Metadata } from "next";
 import { TRPCReactProvider } from "@/trpc/react";
 import { Toaster } from "@/components/ui/toaster";
 import SessionProviderClientComponent from "@/components/session-client-provider";
-import AppContextProvider from "@/components/context";
+import AppContextProvider, { useAppContext } from "@/components/context";
 
 export const metadata: Metadata = {
   title: "The Platform to build next-gen apps - Airtable",
