@@ -12,7 +12,7 @@ export default function AddTableDialog({
   const router = useRouter();
   const { mutate: addTable } = api.table.addTable.useMutation({
     onSettled: (data) => {
-      ctx.table.getTablesByBaseId.invalidate({ baseId });
+      void ctx.table.getTablesByBaseId.invalidate({ baseId });
       router.push(`/base/${baseId}/table/${data?.id}`);
     },
     onMutate: async (variables) => {
