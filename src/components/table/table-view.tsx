@@ -120,7 +120,6 @@ export function TableView({ tableId }: TableViewProps) {
         variant: "destructive",
       });
     },
-    onSettled: () => {},
   });
 
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
