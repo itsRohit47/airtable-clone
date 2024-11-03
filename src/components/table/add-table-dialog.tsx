@@ -35,6 +35,7 @@ export default function AddTableDialog({
         latestTable.id = data.id;
       }
       router.push(`/base/${baseId}/table/${data.id}`);
+      setEditName(false);
     },
   });
   return (
