@@ -22,7 +22,7 @@ export default function TableNameEdit({
   const [newName, setNewName] = useState(tableName);
 
   return (
-    <div className="flex w-60 flex-col gap-y-2 rounded-md border bg-white p-2 text-black shadow-sm">
+    <div className="flex w-60 flex-col gap-y-2 rounded-md border bg-white px-2 py-2 text-black shadow-sm">
       <input
         className="rounded-md border-2 border-[#125FCC] p-2"
         defaultValue={tableName}
