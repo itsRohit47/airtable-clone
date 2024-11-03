@@ -14,7 +14,7 @@ export default function AddTableDialog({
 }) {
   const ctx = api.useUtils();
   const router = useRouter();
-  const { localTabes, setThisTable, setEditName } = useAppContext();
+  const { localTabes, setThisTable, editName, setEditName } = useAppContext();
   const [tempId, setTempId] = useState(uuidv4());
   const { mutate: addTable } = api.table.addTable.useMutation({
     onMutate: () => {
@@ -35,7 +35,6 @@ export default function AddTableDialog({
         latestTable.id = data.id;
       }
       router.push(`/base/${baseId}/table/${data.id}`);
-      setEditName(false);
     },
   });
   return (
@@ -46,6 +45,10 @@ export default function AddTableDialog({
       <button
         className="rounded-md bg-gray-100 p-2 text-start text-sm text-black"
         onClick={() => {
+          if (editName) {
+            setEditName(false);
+          }
+
           addTable({
             baseId,
           });
