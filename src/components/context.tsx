@@ -17,6 +17,26 @@ interface AppContextProps {
   setThisTable: (value: string) => void;
   thisTableId: string;
   setThisTableId: (value: string) => void;
+  localTabes: {
+    baseId: string;
+    id: string;
+    name: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }[];
+  setLocalTabes: React.Dispatch<
+    React.SetStateAction<
+      {
+        baseId: string;
+        id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+      }[]
+    >
+  >;
+  editName: boolean;
+  setEditName: (value: boolean) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -27,6 +47,16 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [tableTab, setTableTab] = useState("data");
   const [thisTable, setThisTable] = useState("data");
   const [thisTableId, setThisTableId] = useState("");
+  const [editName, setEditName] = useState(false);
+  const [localTabes, setLocalTabes] = useState<
+    {
+      baseId: string;
+      id: string;
+      name: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }[]
+  >([]);
   const value = {
     sidebarOpen,
     setSidebarOpen,
@@ -38,6 +68,10 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setThisTable,
     thisTableId,
     setThisTableId,
+    localTabes,
+    setLocalTabes,
+    editName,
+    setEditName,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

@@ -61,9 +61,18 @@ export const tableRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       return ctx.db.table.create({
         data: {
-          name: `Table ${(await ctx.db.table.count({ where: { baseId: input.baseId } })) + 1}`,
+          name: `Untitled Table`,
           baseId: input.baseId,
         },
+      });
+    }),
+
+  updateTableName: protectedProcedure
+    .input(z.object({ tableId: z.string(), name: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      return ctx.db.table.update({
+        where: { id: input.tableId },
+        data: { name: input.name },
       });
     }),
 

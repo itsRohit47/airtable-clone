@@ -3,68 +3,73 @@ import { ChevronDown, PlusIcon } from "lucide-react";
 import clsx from "clsx";
 import { api } from "@/trpc/react";
 import { GetTableList } from "@/lib/actions/table";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { v4 as uuidv4 } from "uuid";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AddTableDialog from "./add-table-dialog";
+import { useAppContext } from "../context";
+import TableNameEdit from "./table-name-edit";
 
 export default function TableNav({ baseId }: { baseId: string }) {
   const ctx = api.useUtils();
   const tables = GetTableList({ baseId });
+  const router = useRouter();
   const path = usePathname();
   const [isTableAddOpen, setIsTableAddOpen] = useState(false);
-
-  const { mutate: addTable } = api.table.addTable.useMutation({
-    onMutate: async (newTable) => {
-      await ctx.table.getTablesByBaseId.cancel({ baseId });
-
-      const previousTables = ctx.table.getTablesByBaseId.getData({ baseId });
-
-      ctx.table.getTablesByBaseId.setData({ baseId }, (old) => [
-        ...(old ?? []),
-        {
-          ...newTable,
-          id: uuidv4(),
-          name: `Table ${previousTables ? previousTables.length + 1 : 1}`,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          columns: [],
-          rows: [],
-        },
-      ]);
-
-      return { previousTables };
-    },
-    onError: (err, newTable, context) => {
-      if (context?.previousTables) {
-        ctx.table.getTablesByBaseId.setData({ baseId }, context.previousTables);
-      }
-    },
-    onSettled: () => {
-      void ctx.table.getTablesByBaseId.invalidate({ baseId });
-    },
-  });
+  const { thisTable, setThisTable, localTabes, editName } = useAppContext();
 
   return (
     <div>
       <div className="z-0 flex h-max w-full items-center justify-between gap-x-3 bg-[#D54402] text-xs font-normal text-white/90">
         <div className="border-[#C03D05 flex w-full items-center overflow-x-auto rounded-tr-md bg-[#C03D05] px-4">
           <div className="flex gap-x-2 overflow-x-scroll">
-            {tables?.map((table, index) => (
+            {tables?.map((table) => (
               <Link
                 href={`/base/${baseId}/table/${table.id}`}
                 key={table.id}
+                onClick={() => {
+                  setThisTable(table.id);
+                }}
                 className={clsx(
                   "flex w-full flex-nowrap items-center gap-x-1 p-2",
                   {
                     "rounded-t-md border border-white bg-white text-black":
-                      path.includes(table.id),
+                      table.id === thisTable || path.includes(table.id),
                   },
                 )}
               >
                 <div className="text-nowrap">{table.name}</div>
               </Link>
+            ))}
+            {localTabes.map((table) => (
+              <div className="">
+                {table.baseId === baseId && (
+                  <Link
+                    href={`/base/${baseId}/table/${table.id}`}
+                    key={table.id}
+                    onClick={() => {
+                      setThisTable(table.id);
+                    }}
+                    className={clsx(
+                      "flex w-full flex-nowrap items-center gap-x-1 p-2",
+                      {
+                        "rounded-t-md border border-white bg-white text-black":
+                          table.id === thisTable || path.includes(table.id),
+                      },
+                    )}
+                  >
+                    <div className="text-nowrap">{table.name}</div>
+                    {editName && (
+                      <div className="absolute top-[108px] -translate-x-10">
+                        <TableNameEdit
+                          tableName={table.name}
+                          tableId={table.id}
+                        ></TableNameEdit>
+                      </div>
+                    )}
+                  </Link>
+                )}
+              </div>
             ))}
           </div>
           <span className="p-2 font-thin text-gray-50/50">|</span>
@@ -73,10 +78,7 @@ export default function TableNav({ baseId }: { baseId: string }) {
           <div className="">
             <div
               className="flex cursor-pointer items-center gap-x-3 text-nowrap p-2 hover:text-white"
-              onClick={() => {
-                setIsTableAddOpen(!isTableAddOpen);
-                // addTable({ baseId });
-              }}
+              onClick={() => setIsTableAddOpen(!isTableAddOpen)}
             >
               {isTableAddOpen && (
                 <AddTableDialog

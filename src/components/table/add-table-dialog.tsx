@@ -1,6 +1,10 @@
 "use client";
 import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
+import { useAppContext } from "../context";
+import { useState } from "react";
+import { v4 as uuidv4 } from "uuid";
+
 export default function AddTableDialog({
   baseId,
   classList,
@@ -10,33 +14,27 @@ export default function AddTableDialog({
 }) {
   const ctx = api.useUtils();
   const router = useRouter();
+  const { localTabes, setThisTable, setEditName } = useAppContext();
+  const [tempId, setTempId] = useState(uuidv4());
   const { mutate: addTable } = api.table.addTable.useMutation({
-    onSettled: (data) => {
-      void ctx.table.getTablesByBaseId.invalidate({ baseId });
-      router.push(`/base/${baseId}/table/${data?.id}`);
+    onMutate: () => {
+      setThisTable(tempId);
+      localTabes.push({
+        baseId,
+        id: tempId,
+        name: "Untitled Table",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      router.push(`/base/${baseId}/table/${tempId}`);
+      setEditName(true);
     },
-    onMutate: async (variables) => {
-      await ctx.table.getTablesByBaseId.cancel({ baseId });
-
-      const previousTables = ctx.table.getTablesByBaseId.getData({ baseId });
-
-      ctx.table.getTablesByBaseId.setData({ baseId }, (old) => [
-        ...(old ?? []),
-        {
-          id: `Table ${(old?.length ?? 0) + 1}`,
-          name: `Table ${(old?.length ?? 0) + 1}`,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          ...variables,
-        },
-      ]);
-
-      return { previousTables };
-    },
-    onError: (err, variables, context) => {
-      if (context?.previousTables) {
-        ctx.table.getTablesByBaseId.setData({ baseId }, context.previousTables);
+    onSuccess: (data) => {
+      const latestTable = localTabes[localTabes.length - 1];
+      if (latestTable) {
+        latestTable.id = data.id;
       }
+      router.push(`/base/${baseId}/table/${data.id}`);
     },
   });
   return (
@@ -47,7 +45,9 @@ export default function AddTableDialog({
       <button
         className="rounded-md bg-gray-100 p-2 text-start text-sm text-black"
         onClick={() => {
-          addTable({ baseId });
+          addTable({
+            baseId,
+          });
         }}
       >
         Start from scratch
