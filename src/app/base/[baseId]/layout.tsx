@@ -8,16 +8,16 @@ export default function BaseLayout({
   children,
   params,
 }: Readonly<{ children: React.ReactNode; params: { baseId: string } }>) {
-  const { tableTab } = useAppContext();
+  const { tableTab, recordCount } = useAppContext();
   return (
     <>
       <div className="fixed flex w-full flex-col">
         <TableTopNav baseId={params.baseId}></TableTopNav>
         <TableNav baseId={params.baseId}></TableNav>
-        <div className="-z-10 overflow-y-scroll p-44">{children}</div>
+        <div className="-z-10 overflow-y-scroll">{children}</div>
         {tableTab === "data" && (
           <div className="fixed bottom-0 w-full border p-2 text-xs text-gray-500">
-            0 records
+            {recordCount} records
           </div>
         )}
       </div>

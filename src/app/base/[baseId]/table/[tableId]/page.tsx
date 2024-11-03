@@ -1,9 +1,10 @@
+import { TableView } from "@/components/table/table-view";
 export default function Table({
   params,
 }: Readonly<{ params: { tableId: string } }>) {
   return (
     <div className="">
-      <h1>Table{params.tableId}</h1>
+      <TableView tableId={params.tableId}></TableView>
     </div>
   );
 }
