@@ -1,5 +1,6 @@
 import { useAppContext } from "../context";
 import { BookOpen, ShoppingBagIcon, GlobeIcon, PlusIcon } from "lucide-react";
+import CreateBaseButton from "./create-base-button";
 import clsx from "clsx";
 import { Button } from "../ui/button";
 export default function SideMenu() {
@@ -35,10 +36,7 @@ export default function SideMenu() {
               <GlobeIcon strokeWidth={1.5} size={16} />
               Import
             </div>
-            <Button className="bg-blue-500 text-white hover:bg-blue-600">
-              <PlusIcon strokeWidth={1.5} size={16} className="" />
-              Create
-            </Button>
+            <CreateBaseButton className="bg-blue-500 text-white hover:bg-blue-600 p-2 rounded-md" />
           </div>
         </div>
       )}

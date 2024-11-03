@@ -2,13 +2,13 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import z from "zod";
 
 export const tableRouter = createTRPCRouter({
-  // for the dashboard
+  // for the base layout
   getTablesByBaseId: protectedProcedure
     .input(z.object({ baseId: z.string() }))
     .query(async ({ input, ctx }) => {
       return ctx.db.table.findMany({
         where: { baseId: input.baseId },
-        include: { rows: true, columns: true },
+        include: { rows: false, columns: false },
       });
     }),
 

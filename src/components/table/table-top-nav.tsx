@@ -1,5 +1,5 @@
+"use client";
 import { BaseIdToName } from "@/lib/actions/base";
-import TableNav from "@/components/table/table-nav";
 import {
   HistoryIcon,
   CircleHelp,
@@ -7,36 +7,41 @@ import {
   Users2Icon,
   BellIcon,
   ChevronDown,
+  ArrowLeftIcon,
 } from "lucide-react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useAppContext } from "../context";
 import clsx from "clsx";
+import Link from "next/link";
 
-export default function TableTopNav({
-  baseId,
-  tableNames,
-  tableIds,
-}: {
-  baseId: string;
-  tableNames: string[];
-  tableIds: string[];
-}) {
+export default function TableTopNav({ baseId }: { baseId: string }) {
   const { data: session } = useSession();
   const { tableTab, setTableTab } = useAppContext();
   const name = BaseIdToName({ baseId: baseId });
   return (
-    <div className="fixed w-full bg-[#D54402] px-4 pb-2 pt-2 text-white">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="z-0 w-full bg-[#D54402] p-4 text-white">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-x-10">
           {/* logo + base name */}
-          <div className="flex items-center gap-x-3">
+          <div className="flex cursor-pointer items-center gap-x-3">
             {" "}
-            <BoxIcon size={20} strokeWidth={1.5} />
+            <Link href="/dashboard" className="group">
+              <BoxIcon
+                size={28}
+                strokeWidth={1.5}
+                className="p-1 group-hover:hidden"
+              />
+              <ArrowLeftIcon
+                size={28}
+                strokeWidth={1.5}
+                color="gray"
+                className="k hidden rounded-full bg-white p-1 group-hover:block"
+              ></ArrowLeftIcon>
+            </Link>
             <div className="text-base font-semibold">{name}</div>
             <ChevronDown size={20} strokeWidth={1.5}></ChevronDown>
           </div>
-
           {/* links */}
           <div className="flex items-center gap-x-3 text-xs">
             <div
@@ -86,7 +91,7 @@ export default function TableTopNav({
           <span>
             <HistoryIcon size={16} strokeWidth={1.5}></HistoryIcon>
           </span>
-          <div className="flex items-center gap-x-2">
+          <div className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-[#A03305]/80">
             <CircleHelp size={16} strokeWidth={1.5} />
             <span>Help</span>
           </div>
@@ -112,13 +117,6 @@ export default function TableTopNav({
           </div>
         </div>
       </div>
-      {tableTab == "data" && (
-        <TableNav
-          tableNames={tableNames}
-          tableIds={tableIds}
-          baseId={baseId}
-        ></TableNav>
-      )}
     </div>
   );
 }

@@ -51,6 +51,8 @@ model VerificationToken {
     @@unique([identifier, token])
 }
 
+
+
 model Base {
   id        String   @id @default(cuid())
   name      String

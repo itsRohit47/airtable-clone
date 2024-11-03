@@ -6,6 +6,7 @@ export const baseRouter = createTRPCRouter({
   getAllBases: protectedProcedure.query(({ ctx }) => {
     return ctx.db.base.findMany({
       where: { userId: ctx.session.user?.id },
+      include: { tables: { select: { id: true } } },
       orderBy: { updatedAt: "desc" },
     });
   }),
@@ -26,11 +27,10 @@ export const baseRouter = createTRPCRouter({
       data: { name: "Untitled Base", userId: ctx.session.user?.id },
     });
 
-    await ctx.db.table.create({
+    const table = await ctx.db.table.create({
       data: {
         name: `Table ${(await ctx.db.table.count({ where: { baseId: base.id } })) + 1}`,
         baseId: base.id,
-
         columns: {
           create: [
             {
@@ -47,7 +47,7 @@ export const baseRouter = createTRPCRouter({
         },
       },
     });
-    return base;
+    return { base, firstTableId: table.id };
   }),
 
   // to delete a base and all its tables and columns and rows from the database
