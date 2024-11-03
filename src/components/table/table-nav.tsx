@@ -46,32 +46,52 @@ export default function TableNav({ baseId }: { baseId: string }) {
             ))}
             {localTabes.map((table) => (
               <div className="" key={table.id}>
-                {table.baseId === baseId && (
-                  <Link
-                    href={`/base/${baseId}/table/${table.id}`}
-                    key={table.id}
-                    onClick={() => {
-                      setThisTable(table.id);
-                    }}
-                    className={clsx(
-                      "flex w-full flex-nowrap items-center gap-x-1 p-2",
-                      {
-                        "rounded-t-md border border-white bg-white text-black":
-                          table.id === thisTable || path.includes(table.id),
-                      },
-                    )}
-                  >
-                    <div className="text-nowrap">{table.name}</div>
-                    {editName && (
-                      <div className="absolute top-[108px] -translate-x-10">
-                        <TableNameEdit
-                          tableName={table.name}
-                          tableId={table.id}
-                        ></TableNameEdit>
-                      </div>
-                    )}
-                  </Link>
-                )}
+                {table.baseId === baseId &&
+                  (localTabes.indexOf(table) === localTabes.length - 1 ? (
+                    <Link
+                      href={`/base/${baseId}/table/${table.id}`}
+                      key={table.id}
+                      onClick={() => {
+                        setEditName(false);
+                        setThisTable(table.id);
+                      }}
+                      className={clsx(
+                        "flex w-full flex-nowrap items-center gap-x-1 p-2",
+                        {
+                          "rounded-t-md border border-white bg-white text-black":
+                            table.id === thisTable || path.includes(table.id),
+                        },
+                      )}
+                    >
+                      <div className="text-nowrap">{table.name}</div>
+                      {editName && (
+                        <div className="absolute top-[108px] -translate-x-10">
+                          <TableNameEdit
+                            tableName={table.name}
+                            tableId={table.id}
+                          ></TableNameEdit>
+                        </div>
+                      )}
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/base/${baseId}/table/${table.id}`}
+                      key={table.id}
+                      onClick={() => {
+                        setEditName(false);
+                        setThisTable(table.id);
+                      }}
+                      className={clsx(
+                        "flex w-full flex-nowrap items-center gap-x-1 p-2",
+                        {
+                          "rounded-t-md border border-white bg-white text-black":
+                            table.id === thisTable || path.includes(table.id),
+                        },
+                      )}
+                    >
+                      <div className="text-nowrap">{table.name}</div>
+                    </Link>
+                  ))}
               </div>
             ))}
           </div>

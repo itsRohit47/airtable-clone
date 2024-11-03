@@ -12,7 +12,6 @@ export default function AddTableDialog({
   baseId: string;
   classList: string;
 }) {
-  const ctx = api.useUtils();
   const router = useRouter();
   const { localTabes, setThisTable, editName, setEditName } = useAppContext();
   const [tempId, setTempId] = useState(uuidv4());

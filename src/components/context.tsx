@@ -17,6 +17,8 @@ interface AppContextProps {
   setThisTable: (value: string) => void;
   thisTableId: string;
   setThisTableId: (value: string) => void;
+  flag: boolean;
+  setFlag: (value: boolean) => void;
   localTabes: {
     baseId: string;
     id: string;
@@ -48,6 +50,7 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [thisTable, setThisTable] = useState("data");
   const [thisTableId, setThisTableId] = useState("");
   const [editName, setEditName] = useState(false);
+  const [flag, setFlag] = useState(false);
   const [localTabes, setLocalTabes] = useState<
     {
       baseId: string;
@@ -72,6 +75,8 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setLocalTabes,
     editName,
     setEditName,
+    flag,
+    setFlag,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
