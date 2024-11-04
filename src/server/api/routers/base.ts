@@ -34,15 +34,34 @@ export const baseRouter = createTRPCRouter({
         columns: {
           create: [
             {
-              name: "Column 1",
+              name: "Untitled Column",
+              defaultValue: "",
               type: "text",
               order: 0,
             },
             {
-              name: "Column 2",
+              name: "Untitled Column",
+              defaultValue: "",
               type: "number",
               order: 1,
             },
+          ],
+        },
+      },
+    });
+
+    const columns = await ctx.db.column.findMany({
+      where: { tableId: table.id },
+    });
+
+    await ctx.db.row.create({
+      data: {
+        tableId: table.id,
+        order: 0,
+        cells: {
+          create: [
+            { value: "", columnId: columns[0]?.id ?? "", tableId: table.id },
+            { value: "", columnId: columns[1]?.id ?? "", tableId: table.id },
           ],
         },
       },

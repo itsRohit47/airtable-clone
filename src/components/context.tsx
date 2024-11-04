@@ -21,6 +21,8 @@ interface AppContextProps {
   setFlag: (value: boolean) => void;
   recordCount: number;
   setRecordCount: (value: number) => void;
+  loading: boolean;
+  setLoading: (value: boolean) => void;
   localTabes: {
     baseId: string;
     id: string;
@@ -54,6 +56,7 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [editName, setEditName] = useState(false);
   const [flag, setFlag] = useState(false);
   const [recordCount, setRecordCount] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [localTabes, setLocalTabes] = useState<
     {
       baseId: string;
@@ -82,6 +85,8 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setFlag,
     recordCount,
     setRecordCount,
+    loading,
+    setLoading,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

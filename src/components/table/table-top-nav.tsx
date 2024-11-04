@@ -8,6 +8,7 @@ import {
   BellIcon,
   ChevronDown,
   ArrowLeftIcon,
+  Loader,
 } from "lucide-react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
@@ -17,7 +18,7 @@ import Link from "next/link";
 
 export default function TableTopNav({ baseId }: { baseId: string }) {
   const { data: session } = useSession();
-  const { tableTab, setTableTab } = useAppContext();
+  const { tableTab, setTableTab, loading } = useAppContext();
   const name = BaseIdToName({ baseId: baseId });
   return (
     <div className="z-0 w-full bg-[#D54402] p-4 text-white">
@@ -88,6 +89,16 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
           </div>
         </div>
         <div className="flex items-center gap-x-5 text-xs">
+          {loading && (
+            <div className="flex items-center gap-x-1 text-xs text-white/70">
+              <Loader
+                size={20}
+                strokeWidth={1.5}
+                className="animate-spin"
+              ></Loader>
+              <span>Saving...</span>
+            </div>
+          )}
           <span>
             <HistoryIcon size={16} strokeWidth={1.5}></HistoryIcon>
           </span>

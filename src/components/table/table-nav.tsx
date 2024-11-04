@@ -16,8 +16,14 @@ export default function TableNav({ baseId }: { baseId: string }) {
   const router = useRouter();
   const path = usePathname();
   const [isTableAddOpen, setIsTableAddOpen] = useState(false);
-  const { thisTable, setThisTable, localTabes, editName, setEditName } =
-    useAppContext();
+  const {
+    thisTable,
+    setThisTable,
+    localTabes,
+    editName,
+    setEditName,
+    loading,
+  } = useAppContext();
 
   return (
     <div>

@@ -14,7 +14,7 @@ export const tableRouter = createTRPCRouter({
 
   // to add a new column to a table
   addField: protectedProcedure
-    .input(z.object({ tableId: z.string() }))
+    .input(z.object({ tableId: z.string(), type: z.string() }))
     .mutation(async ({ input, ctx }) => {
       // First get the highest order number from existing columns
       const lastColumn = await ctx.db.column.findFirst({
@@ -32,8 +32,9 @@ export const tableRouter = createTRPCRouter({
         // Create the new column with order = last + 1
         const newColumn = await tx.column.create({
           data: {
-            name: "New Column",
-            type: "text",
+            name: "Untitled Column",
+            defaultValue: "",
+            type: input.type as string,
             order: (lastColumn?.order ?? -1) + 1, // If no columns exist, start at 0
             tableId: input.tableId,
           },
@@ -43,7 +44,7 @@ export const tableRouter = createTRPCRouter({
         if (existingRows.length > 0) {
           await tx.cell.createMany({
             data: existingRows.map((row) => ({
-              value: newColumn.type === "number" ? "0" : "New Entry",
+              value: "",
               rowId: row.id,
               columnId: newColumn.id,
               tableId: input.tableId,
@@ -63,6 +64,22 @@ export const tableRouter = createTRPCRouter({
         data: {
           name: `Untitled Table`,
           baseId: input.baseId,
+          columns: {
+            create: [
+              {
+                name: "Untitled Column",
+                defaultValue: "",
+                type: "text",
+                order: 0,
+              },
+              {
+                name: "Untitled Column",
+                defaultValue: "",
+                type: "number",
+                order: 1,
+              },
+            ],
+          },
         },
       });
     }),
@@ -172,8 +189,6 @@ export const tableRouter = createTRPCRouter({
     .input(
       z.object({
         tableId: z.string(),
-        page: z.number().optional().default(0),
-        pageSize: z.number().optional().default(50),
         sortBy: z.string().optional(),
         sortDesc: z.boolean().optional().default(false),
         search: z.string().optional(),
@@ -234,8 +249,6 @@ export const tableRouter = createTRPCRouter({
         orderBy: {
           [input.sortBy ?? "order"]: input.sortDesc ? "desc" : "asc",
         },
-        skip: input.page * input.pageSize,
-        take: input.pageSize,
       });
 
       // Transform the data into a flat structure
@@ -252,12 +265,6 @@ export const tableRouter = createTRPCRouter({
         data,
         columns,
         rows,
-        pagination: {
-          totalRows,
-          totalPages: Math.ceil(totalRows / input.pageSize),
-          page: input.page,
-          pageSize: input.pageSize,
-        },
       };
     }),
 });
