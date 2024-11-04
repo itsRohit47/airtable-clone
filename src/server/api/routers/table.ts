@@ -34,7 +34,7 @@ export const tableRouter = createTRPCRouter({
           data: {
             name: "Untitled Column",
             defaultValue: "",
-            type: input.type as string,
+            type: input.type,
             order: (lastColumn?.order ?? -1) + 1, // If no columns exist, start at 0
             tableId: input.tableId,
           },

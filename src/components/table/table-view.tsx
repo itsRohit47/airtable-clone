@@ -227,7 +227,7 @@ export function TableView({ tableId }: { tableId: string }) {
       <div className="">
         <div>
           {table.getRowModel().rows.map((row) => (
-            <div>
+            <div key={row.id}>
               <div key={row.id} className="flex">
                 {row.getVisibleCells().map((cell) => (
                   <div
