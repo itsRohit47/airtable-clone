@@ -68,3 +68,26 @@
 .tabnav {
   @apply rounded-full bg-[#B63A05] px-3 py-2 shadow-inner;
 }
+
+.resizer {
+  position: "absolute";
+  opacity: 0;
+  top: 0;
+  right: 0;
+  height: "100%";
+  width: "5px";
+  background: "#27bbff";
+  cursor: "col-resize";
+  user-select: "none";
+  touch-action: "none";
+  border-radius: "6px";
+}
+
+.resizer.isResizing {
+  background: red;
+  opacity: 1;
+}
+
+*:hover > .resizer {
+  opacity: 1;
+}

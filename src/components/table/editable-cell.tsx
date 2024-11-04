@@ -6,22 +6,12 @@ interface EditableCellProps {
   value: string;
   onSave: (value: string) => Promise<void>;
   type: "text" | "number";
-  column: {
-    id: string;
-    name: string;
-  };
-  row: {
-    id: string;
-    [key: string]: string | number | null;
-  };
 }
 
 export function EditableCell({
   value: initialValue,
   onSave,
   type,
-  column,
-  row,
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
   const [isLoading, setIsLoading] = useState(false);

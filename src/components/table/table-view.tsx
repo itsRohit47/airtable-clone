@@ -128,13 +128,9 @@ export function TableView({ tableId }: TableViewProps) {
     return tableData.columns.map((col) => ({
       id: col.id,
       accessorKey: col.id,
-      header: ({ column }) => {
-        return (
-          <div className="flex w-max items-center justify-between">
-            <span className="text-xs font-normal">{col.name}</span>
-          </div>
-        );
-      },
+      size: 100,
+      minSize: 100,
+      header: col.name,
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue() as string}
@@ -146,13 +142,6 @@ export function TableView({ tableId }: TableViewProps) {
             });
           }}
           type={col.type as "number" | "text"}
-          column={{
-            id: "",
-            name: "",
-          }}
-          row={{
-            id: "",
-          }}
         />
       ),
     }));
@@ -165,6 +154,7 @@ export function TableView({ tableId }: TableViewProps) {
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    columnResizeMode: "onChange",
     state: {
       globalFilter,
       sorting,
@@ -180,7 +170,8 @@ export function TableView({ tableId }: TableViewProps) {
 
   useEffect(() => {
     setRecordCount(table.getRowModel().rows.length);
-  }, [table.getRowModel().rows.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [table.getRowModel().rows.length, setRecordCount]);
 
   const handleAddRow = async () => {
     await addRow.mutateAsync({ tableId });
@@ -196,7 +187,7 @@ export function TableView({ tableId }: TableViewProps) {
 
   if (isLoading)
     return (
-      <div className="fixed top-0 flex h-svh w-screen items-center justify-center border p-44">
+      <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44">
         <LoaderCircleIcon
           size={32}
           strokeWidth={1.5}
@@ -206,47 +197,68 @@ export function TableView({ tableId }: TableViewProps) {
     );
 
   return (
-    <div className="h-full">
-      <table className="relative">
-        <thead className="">
-          <tr className="">
-            {table.getFlatHeaders().map((header) => (
-              <th
-                key={header.id}
-                className={cn(
-                  "border-x border-b border-gray-300 bg-[#F5F5F5] p-2",
-                  header.column.getCanSort() && "cursor-pointer select-none",
-                )}
-              >
-                {flexRender(
-                  header.column.columnDef.header,
-                  header.getContext(),
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="overflow-scroll">
-          {table.getRowModel().rows.map((row, index) => (
-            <tr key={row.id} className="">
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="border-x border-b border-gray-300">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-        <tfoot className="flex w-full">
-          {" "}
+    <div className="w-full">
+      <div>
+        {table.getHeaderGroups().map((headerGroup) => (
           <div
-            className="w-full cursor-pointer border-b border-r border-gray-300 bg-white p-2 text-xs text-gray-500"
-            onClick={handleAddRow}
+            key={headerGroup.id}
+            className={cn("flex items-center border-b border-gray-300")}
           >
-            <Plus size={16} strokeWidth={1.5}></Plus>
-          </div>{" "}
-        </tfoot>
-      </table>
+            {headerGroup.headers.map((header) => (
+              <div
+                key={header.id}
+                style={{ width: header.getSize() }}
+                className={`relative border-x bg-[#F5F5F5] p-2 text-xs`}
+              >
+                {typeof header.column.columnDef.header === "function"
+                  ? header.column.columnDef.header(header.getContext())
+                  : header.column.columnDef.header}
+                <div
+                  onMouseDown={header.getResizeHandler()}
+                  onTouchStart={header.getResizeHandler()}
+                  className={`absolute -right-0 top-2 z-20 h-5 w-[3px] translate-x-[2px] cursor-col-resize rounded-md bg-blue-500 opacity-0 hover:opacity-100 ${
+                    header.column.getIsResizing()
+                      ? "h-5 w-5 bg-blue-500 opacity-100"
+                      : ""
+                  }`}
+                ></div>
+              </div>
+            ))}
+            <button
+              onClick={handleAddColumn}
+              className="flex items-center justify-center border bg-white p-2 hover:bg-gray-100"
+            >
+              <Plus size={16} className=""></Plus>
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="h-96">
+        {table.getRowModel().rows.map((row) => (
+          <div key={row.id} className="flex">
+            {row.getVisibleCells().map((cell) => (
+              <div
+                key={cell.id}
+                style={{ width: cell.column.getSize() }}
+                className="w-max border-x border-b border-gray-300"
+              >
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="fixed bottom-10 left-3 flex items-center">
+        <button
+          onClick={handleAddRow}
+          className="flex items-center justify-center rounded-l-full border bg-white p-2 hover:bg-gray-100"
+        >
+          <Plus size={16} className=""></Plus>
+        </button>
+        <span className="rounded-r-full border bg-white p-2 text-xs">
+          Add...
+        </span>
+      </div>
     </div>
   );
 }

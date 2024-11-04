@@ -9,7 +9,7 @@ export default function TableNameEdit({
   tableName: string;
   tableId: string;
 }>) {
-  const { setEditName, localTabes } = useAppContext();
+  const { setEditName, localTabes, setThisTable } = useAppContext();
   const { mutate: updateTable } = api.table.updateTableName.useMutation({
     onMutate: () => {
       setEditName(false);

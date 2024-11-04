@@ -17,7 +17,6 @@ export default function AddTableDialog({
   const [tempId, setTempId] = useState(uuidv4());
   const { mutate: addTable } = api.table.addTable.useMutation({
     onMutate: () => {
-      setThisTable(tempId);
       localTabes.push({
         baseId,
         id: tempId,
@@ -25,7 +24,7 @@ export default function AddTableDialog({
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-      router.push(`/base/${baseId}/table/${tempId}`);
+      router.replace(`/base/${baseId}/table/${tempId}`);
       setEditName(true);
     },
     onSuccess: (data) => {
@@ -33,7 +32,8 @@ export default function AddTableDialog({
       if (latestTable) {
         latestTable.id = data.id;
       }
-      router.push(`/base/${baseId}/table/${data.id}`);
+      router.replace(`/base/${baseId}/table/${data.id}`);
+      setThisTable("");
     },
   });
   return (
