@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -47,13 +47,16 @@ export function TableView({ tableId }: { tableId: string }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState<string>("");
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const { setRecordCount } = useAppContext();
   const { toast } = useToast();
   const ctx = api.useUtils();
 
   // Add a custom filter function
   const customFilterFn = (row: unknown, columnId: string, value: string) => {
-    const cellValue = String((row as Record<string, unknown>)[columnId] ?? "").toLowerCase();
+    const cellValue = String(
+      (row as Record<string, unknown>)[columnId] ?? "",
+    ).toLowerCase();
     const filterValue = String(value).toLowerCase();
     return cellValue.includes(filterValue);
   };
@@ -68,10 +71,23 @@ export function TableView({ tableId }: { tableId: string }) {
     setColumnFilters(tableFilters);
   };
 
-  // Get table data
-  const { data: tableData, isLoading } = api.table.getData.useQuery({
-    tableId,
-  });
+  // Use useInfiniteQuery instead of useQuery
+  const {
+    data: tableData,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+  } = api.table.getData.useInfiniteQuery(
+    {
+      tableId,
+      pageSize: 25,
+      sortBy: sorting[0]?.id,
+      sortDesc: sorting[0]?.desc,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    },
+  );
 
   // add column mutation
   const addColumn = api.table.addField.useMutation({
@@ -149,9 +165,9 @@ export function TableView({ tableId }: { tableId: string }) {
   });
 
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
-    if (!tableData?.columns) return [];
+    if (!tableData?.pages[0]?.columns) return [];
 
-    return tableData.columns.map((col) => ({
+    return tableData.pages[0].columns.map((col) => ({
       id: col.id,
       accessorKey: col.id,
       size: 200,
@@ -202,10 +218,10 @@ export function TableView({ tableId }: { tableId: string }) {
         />
       ),
     }));
-  }, [tableData?.columns]);
+  }, [tableData?.pages[0]?.columns]);
 
   const table = useReactTable({
-    data: tableData?.data ?? [],
+    data: tableData?.pages.flatMap((page) => page.data) ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -227,8 +243,6 @@ export function TableView({ tableId }: { tableId: string }) {
   useEffect(() => {
     const fetchData = async () => {
       setRecordCount(table.getRowModel().rows.length);
-      console.log("test");
-      console.log(table.getState().columnFilters);
       await ctx.table.getData.invalidate({ tableId });
     };
     void fetchData();
@@ -242,6 +256,25 @@ export function TableView({ tableId }: { tableId: string }) {
   const handleAddColumn = async ({ _type }: { _type: "text" | "number" }) => {
     await addColumn.mutateAsync({ tableId, type: _type });
   };
+
+  const handleScroll = useCallback(
+    async (e: React.UIEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLDivElement;
+      const scrollPercentage =
+        (target.scrollTop + target.clientHeight) / target.scrollHeight;
+
+      if (
+        scrollPercentage > 0.9 && // Load more when 90% scrolled
+        hasNextPage &&
+        !isFetchingNextPage
+      ) {
+        setIsFetchingNextPage(true);
+        await fetchNextPage();
+        setIsFetchingNextPage(false);
+      }
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage],
+  );
 
   if (isLoading)
     return (
@@ -266,7 +299,7 @@ export function TableView({ tableId }: { tableId: string }) {
           className="m-2 w-max p-2"
         />
         <FilterBar
-          columns={tableData?.columns ?? []}
+          columns={tableData?.pages[0]?.columns ?? []}
           onFilterChange={handleFilterChange}
         />
       </div>
@@ -322,11 +355,11 @@ export function TableView({ tableId }: { tableId: string }) {
           </div>
         ))}
       </div>
-      <div className="max-h-[80vh] overflow-auto">
-        <div className="">
+      <div className="max-h-[80vh] overflow-auto" onScroll={handleScroll}>
+        <div className="mb-96">
           {table.getRowModel().rows.map((row) => (
-            <div key={row.id}>
-              <div key={row.id} className="flex">
+            <div key={row.id} className="">
+              <div key={row.id} className="b flex">
                 {row.getVisibleCells().map((cell) => (
                   <div
                     key={cell.id}
@@ -346,6 +379,11 @@ export function TableView({ tableId }: { tableId: string }) {
           >
             <Plus size={16} className=""></Plus>
           </button>
+          {isFetchingNextPage && (
+            <div className="flex justify-center py-4">
+              <LoaderCircleIcon className="h-6 w-6 animate-spin" />
+            </div>
+          )}
         </div>
       </div>
       <div className="fixed bottom-10 left-3 flex items-center">

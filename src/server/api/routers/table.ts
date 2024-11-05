@@ -189,39 +189,25 @@ export const tableRouter = createTRPCRouter({
     .input(
       z.object({
         tableId: z.string(),
+        cursor: z.string().optional(),
         sortBy: z.string().optional(),
         sortDesc: z.boolean().optional().default(false),
-        search: z.string().optional(),
+        pageSize: z.number().optional().default(25),
       }),
     )
     .query(async ({ ctx, input }) => {
-      // Verify table access
-      const table = await ctx.db.table.findUnique({
-        where: { id: input.tableId },
-        include: { base: true },
-      });
-
-      if (!table || table.base.userId !== ctx.session.user.id) {
-        throw new Error("Table not found or unauthorized");
-      }
-
-      // Get columns first
       const columns = await ctx.db.column.findMany({
         where: { tableId: input.tableId },
         orderBy: { order: "asc" },
       });
 
-      // Build the where clause for search
-      const searchCondition = input.search
+      // Build cursor condition
+      const cursorCondition = input.cursor
         ? {
-            cells: {
-              some: {
-                value: {
-                  contains: input.search,
-                  mode: "insensitive" as const,
-                },
-              },
+            cursor: {
+              id: input.cursor,
             },
+            skip: 1, // Skip the cursor row
           }
         : {};
 
@@ -229,7 +215,6 @@ export const tableRouter = createTRPCRouter({
       const rows = await ctx.db.row.findMany({
         where: {
           tableId: input.tableId,
-          ...searchCondition,
         },
         include: {
           cells: {
@@ -238,9 +223,8 @@ export const tableRouter = createTRPCRouter({
             },
           },
         },
-        orderBy: {
-          [input.sortBy ?? "order"]: input.sortDesc ? "desc" : "asc",
-        },
+        take: input.pageSize,
+        ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
       });
 
       // Transform the data into a flat structure
@@ -256,7 +240,8 @@ export const tableRouter = createTRPCRouter({
       return {
         data,
         columns,
-        rows,
+        nextCursor: rows[rows.length - 1]?.id,
+        hasNextPage: rows.length === input.pageSize,
       };
     }),
 });
