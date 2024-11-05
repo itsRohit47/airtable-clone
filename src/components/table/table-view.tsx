@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useMemo, useEffect } from "react";
 import {
   useReactTable,
@@ -51,10 +52,9 @@ export function TableView({ tableId }: { tableId: string }) {
   const ctx = api.useUtils();
 
   // Add a custom filter function
-  const customFilterFn = (row: any, columnId: string, value: string) => {
-    const cellValue = String(row.getValue(columnId) ?? "").toLowerCase();
+  const customFilterFn = (row: unknown, columnId: string, value: string) => {
+    const cellValue = String((row as Record<string, unknown>)[columnId] ?? "").toLowerCase();
     const filterValue = String(value).toLowerCase();
-
     return cellValue.includes(filterValue);
   };
 
@@ -274,7 +274,7 @@ export function TableView({ tableId }: { tableId: string }) {
         {table.getHeaderGroups().map((headerGroup) => (
           <div
             key={headerGroup.id}
-            className={cn("flex items-center border-t border-gray-300")}
+            className={cn("flex items-center border border-gray-300")}
           >
             {headerGroup.headers.map((header) => (
               <div
@@ -302,7 +302,7 @@ export function TableView({ tableId }: { tableId: string }) {
             ))}
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center justify-center border-r bg-[#F5F5F5] px-6 py-2 hover:bg-gray-200/60">
-                <Plus size={16} className=""></Plus>
+                <Plus size={20} className=""></Plus>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="flex flex-col gap-y-3 text-xs">
                 <button
@@ -322,8 +322,8 @@ export function TableView({ tableId }: { tableId: string }) {
           </div>
         ))}
       </div>
-      <div className="">
-        <div>
+      <div className="max-h-[80vh] overflow-auto">
+        <div className="">
           {table.getRowModel().rows.map((row) => (
             <div key={row.id}>
               <div key={row.id} className="flex">
