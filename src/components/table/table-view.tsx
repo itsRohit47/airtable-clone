@@ -234,7 +234,7 @@ export function TableView({ tableId }: { tableId: string }) {
       setRecordCount(table.getRowModel().rows.length);
       await ctx.table.getData.invalidate({ tableId });
     };
-    void awaitfetchData();
+    void fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table.getRowModel().rows.length, setRecordCount]);
 
