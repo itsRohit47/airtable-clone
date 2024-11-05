@@ -12,8 +12,8 @@ import {
 import { Plus, X } from "lucide-react";
 
 interface FilterCondition {
-  type: any;
-  columnId: any;
+  type: string;
+  columnId: string;
   id: string;
   field: string;
   operator: string;
@@ -64,12 +64,12 @@ export function FilterBar({ columns, onFilterChange }: FilterBarProps) {
   const addCondition = () => {
     const newCondition: FilterCondition = {
       id: Math.random().toString(36).substr(2, 9),
-      field: columns[0]?.id || "",
+      field: columns[0]?.id ?? "",
       operator: "contains",
       value: "",
       logic: conditions.length > 0 ? "and" : undefined,
-      type: undefined,
-      columnId: undefined,
+      type: columns[0]?.type ?? "text",
+      columnId: columns[0]?.id ?? "",
     };
     const newConditions = [...conditions, newCondition];
     setConditions(newConditions);

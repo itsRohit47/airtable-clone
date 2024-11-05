@@ -214,21 +214,27 @@ export function TableView({ tableId }: { tableId: string }) {
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: (columnFilters) => {
       setColumnFilters((prevFilters) =>
-        (columnFilters as any[]).map((filter: { id: any; value: any }) => ({
-          id: filter.id,
-          columnId: filter.id,
-          type: filter.value ? "text" : "number",
-          operator: "gt",
-          value: filter.value ?? "",
-        })),
+        (columnFilters as ColumnFilter[]).map(
+          (filter: { id: string; value: string }) => ({
+            id: filter.id,
+            columnId: filter.id,
+            type: tableData?.columns.find((column) => column.id === filter.id)
+              ?.type as "text" | "number",
+            operator: "gt",
+            value: filter.value ?? "",
+          }),
+        ),
       );
     },
     onSortingChange: setSorting,
   });
 
   useEffect(() => {
-    setRecordCount(table.getRowModel().rows.length);
-    ctx.table.getData.invalidate({ tableId });
+    const fetchData = async () => {
+      setRecordCount(table.getRowModel().rows.length);
+      await ctx.table.getData.invalidate({ tableId });
+    };
+    void awaitfetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table.getRowModel().rows.length, setRecordCount]);
 
@@ -269,7 +275,7 @@ export function TableView({ tableId }: { tableId: string }) {
               columnFilters.map((filter) => ({
                 id: filter.id,
                 columnId: filter.columnId,
-                type: filter.type,
+                type: filter.type as "text" | "number",
                 operator: filter.operator as "gt" | "lt" | "empty" | "notEmpty",
                 value: filter.value,
               })),
@@ -368,4 +374,7 @@ export function TableView({ tableId }: { tableId: string }) {
       </div>
     </div>
   );
+}
+function awaitfetchData() {
+  throw new Error("Function not implemented.");
 }
