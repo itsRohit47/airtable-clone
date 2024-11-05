@@ -7,12 +7,12 @@ import {
   getSortedRowModel,
   type ColumnDef,
   type SortingState,
+  type ColumnFiltersState,
   flexRender,
 } from "@tanstack/react-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -32,21 +32,41 @@ import { useAppContext } from "../context";
 import { Input } from "../ui/input";
 import { FilterBar } from "./filter-bar";
 
-interface ColumnFilter {
-  id: string;
+interface FilterCondition {
+  type: string;
   columnId: string;
-  type: "text" | "number";
-  operator: "gt" | "lt" | "empty" | "notEmpty";
+  id: string;
+  field: string;
+  operator: string;
   value: string;
+  logic?: "and" | "or";
 }
 
 export function TableView({ tableId }: { tableId: string }) {
-  const [columnFilters, setColumnFilters] = useState<ColumnFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState<string>("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const { setRecordCount } = useAppContext();
   const { toast } = useToast();
   const ctx = api.useUtils();
+
+  // Add a custom filter function
+  const customFilterFn = (row: any, columnId: string, value: string) => {
+    const cellValue = String(row.getValue(columnId) ?? "").toLowerCase();
+    const filterValue = String(value).toLowerCase();
+
+    return cellValue.includes(filterValue);
+  };
+
+  const handleFilterChange = (filters: FilterCondition[]) => {
+    // Convert filters to TanStack format
+    const tableFilters = filters.map((filter) => ({
+      id: filter.columnId,
+      value: filter.value,
+    }));
+
+    setColumnFilters(tableFilters);
+  };
 
   // Get table data
   const { data: tableData, isLoading } = api.table.getData.useQuery({
@@ -136,6 +156,7 @@ export function TableView({ tableId }: { tableId: string }) {
       accessorKey: col.id,
       size: 200,
       minSize: 200,
+      filterFn: customFilterFn,
       header: ({ column }) => (
         <span className="flex items-center justify-between gap-x-2 overflow-hidden">
           <span>
@@ -146,7 +167,6 @@ export function TableView({ tableId }: { tableId: string }) {
             )}
           </span>
           <span className="text-nowrap"> {col.name}</span>
-
           {column.getIsSorted() ? (
             column.getIsSorted() === "asc" ? (
               <ArrowDownAZIcon
@@ -196,42 +216,19 @@ export function TableView({ tableId }: { tableId: string }) {
       columnFilters,
       sorting,
     },
-    initialState: {
-      globalFilter,
-      columnFilters: [
-        ...columns.map((col) => ({
-          id: col.id ?? "",
-          columnId: "cm33n4kwl0008u7pgsiys6exa",
-          type:
-            tableData?.columns.find((column) => column.id === col.id)?.type ??
-            "text",
-          operator: "gt",
-          value: "rohi",
-        })),
-      ],
-      sorting,
+    filterFns: {
+      custom: customFilterFn,
     },
     onGlobalFilterChange: setGlobalFilter,
-    onColumnFiltersChange: (columnFilters) => {
-      setColumnFilters((prevFilters) =>
-        (columnFilters as ColumnFilter[]).map(
-          (filter: { id: string; value: string }) => ({
-            id: filter.id,
-            columnId: filter.id,
-            type: tableData?.columns.find((column) => column.id === filter.id)
-              ?.type as "text" | "number",
-            operator: "gt",
-            value: filter.value ?? "",
-          }),
-        ),
-      );
-    },
+    onColumnFiltersChange: setColumnFilters,
     onSortingChange: setSorting,
   });
 
   useEffect(() => {
     const fetchData = async () => {
       setRecordCount(table.getRowModel().rows.length);
+      console.log("test");
+      console.log(table.getState().columnFilters);
       await ctx.table.getData.invalidate({ tableId });
     };
     void fetchData();
@@ -270,17 +267,7 @@ export function TableView({ tableId }: { tableId: string }) {
         />
         <FilterBar
           columns={tableData?.columns ?? []}
-          onFilterChange={(columnFilters) =>
-            setColumnFilters(
-              columnFilters.map((filter) => ({
-                id: filter.id,
-                columnId: filter.columnId,
-                type: filter.type as "text" | "number",
-                operator: filter.operator as "gt" | "lt" | "empty" | "notEmpty",
-                value: filter.value,
-              })),
-            )
-          }
+          onFilterChange={handleFilterChange}
         />
       </div>
       <div>
@@ -374,7 +361,4 @@ export function TableView({ tableId }: { tableId: string }) {
       </div>
     </div>
   );
-}
-function awaitfetchData() {
-  throw new Error("Function not implemented.");
 }

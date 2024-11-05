@@ -61,16 +61,28 @@ interface FilterBarProps {
 export function FilterBar({ columns, onFilterChange }: FilterBarProps) {
   const [conditions, setConditions] = useState<FilterCondition[]>([]);
 
+  const handleFilterChange = (newConditions: FilterCondition[]) => {
+    const tanStackFilters = newConditions.map((condition) => ({
+      ...condition,
+      id: condition.field,
+    }));
+
+    onFilterChange(tanStackFilters);
+    setConditions(newConditions);
+  };
+
   const addCondition = () => {
+    const firstColumn = columns[0];
     const newCondition: FilterCondition = {
       id: Math.random().toString(36).substr(2, 9),
-      field: columns[0]?.id ?? "",
-      operator: "contains",
+      columnId: firstColumn?.id ?? "",
+      field: firstColumn?.id ?? "",
+      operator: firstColumn?.type === "number" ? "equals" : "contains",
       value: "",
+      type: firstColumn?.type ?? "text",
       logic: conditions.length > 0 ? "and" : undefined,
-      type: columns[0]?.type ?? "text",
-      columnId: columns[0]?.id ?? "",
     };
+
     const newConditions = [...conditions, newCondition];
     setConditions(newConditions);
     onFilterChange(newConditions);
@@ -78,10 +90,8 @@ export function FilterBar({ columns, onFilterChange }: FilterBarProps) {
 
   const removeCondition = (id: string) => {
     const newConditions = conditions.filter((c) => c.id !== id);
-    setConditions(newConditions);
-    onFilterChange(newConditions);
+    handleFilterChange(newConditions);
   };
-
   const updateCondition = (
     id: string,
     field: keyof FilterCondition,
@@ -93,11 +103,13 @@ export function FilterBar({ columns, onFilterChange }: FilterBarProps) {
             ...c,
             [field]: value,
             ...(field === "field" && {
-              operator: getDefaultOperator(
-                (columns.find((col) => col.id === value)?.type as
-                  | "text"
-                  | "number") || "text",
-              ),
+              columnId: value,
+              type: columns.find((col) => col.id === value)?.type ?? "text",
+              operator:
+                columns.find((col) => col.id === value)?.type === "number"
+                  ? "equals"
+                  : "contains",
+              value: "",
             }),
           }
         : c,

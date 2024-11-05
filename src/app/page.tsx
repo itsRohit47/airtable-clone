@@ -10,7 +10,7 @@ export default async function Home() {
     <HydrateClient>
       <main className="flex items-center justify-center">
         {session ? (
-          <div className="flex flex-col items-center text-gray-600">
+          <div className="flex flex-col items-center justify-center text-gray-600 h-screen">
             Logged in as <strong>{session.user.email}</strong>
             <Link href="/dashboard" className="text-blue-500">
               Dashboard
@@ -20,7 +20,7 @@ export default async function Home() {
             </button>
           </div>
         ) : (
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center justify-center h-screen">
             Not logged in
             <Link href="/login" className="text-blue-500">
               Login
