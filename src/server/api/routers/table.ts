@@ -225,15 +225,7 @@ export const tableRouter = createTRPCRouter({
           }
         : {};
 
-      // Get total count for pagination
-      const totalRows = await ctx.db.row.count({
-        where: {
-          tableId: input.tableId,
-          ...searchCondition,
-        },
-      });
-
-      // Get rows with pagination
+      // Get rows with cells
       const rows = await ctx.db.row.findMany({
         where: {
           tableId: input.tableId,

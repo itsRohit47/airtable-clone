@@ -12,17 +12,37 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, LoaderCircleIcon, CaseUpperIcon, HashIcon } from "lucide-react";
+import {
+  Plus,
+  LoaderCircleIcon,
+  CaseUpperIcon,
+  HashIcon,
+  ArrowUpDown,
+  ArrowDownAZIcon,
+  ArrowUpZAIcon,
+} from "lucide-react";
 import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "../context";
+import { Input } from "../ui/input";
+import { FilterBar } from "./filter-bar";
+
+interface ColumnFilter {
+  id: string;
+  columnId: string;
+  type: "text" | "number";
+  operator: "gt" | "lt" | "empty" | "notEmpty";
+  value: string;
+}
 
 export function TableView({ tableId }: { tableId: string }) {
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [columnFilters, setColumnFilters] = useState<ColumnFilter[]>([]);
+  const [globalFilter, setGlobalFilter] = useState<string>("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const { setRecordCount } = useAppContext();
   const { toast } = useToast();
@@ -114,10 +134,10 @@ export function TableView({ tableId }: { tableId: string }) {
     return tableData.columns.map((col) => ({
       id: col.id,
       accessorKey: col.id,
-      size: 150,
-      minSize: 150,
-      header: () => (
-        <span className="flex items-center gap-x-2 overflow-hidden">
+      size: 200,
+      minSize: 200,
+      header: ({ column }) => (
+        <span className="flex items-center justify-between gap-x-2 overflow-hidden">
           <span>
             {col.type === "text" ? (
               <CaseUpperIcon size={14} strokeWidth={1.5}></CaseUpperIcon>
@@ -126,6 +146,31 @@ export function TableView({ tableId }: { tableId: string }) {
             )}
           </span>
           <span className="text-nowrap"> {col.name}</span>
+
+          {column.getIsSorted() ? (
+            column.getIsSorted() === "asc" ? (
+              <ArrowDownAZIcon
+                size={20}
+                onClick={() => column.toggleSorting()}
+                className="rounded-md p-1 hover:bg-gray-200/60"
+                strokeWidth={1.5}
+              ></ArrowDownAZIcon>
+            ) : (
+              <ArrowUpZAIcon
+                size={20}
+                strokeWidth={1.5}
+                onClick={() => column.toggleSorting()}
+                className="rounded-md p-1 hover:bg-gray-200/60"
+              ></ArrowUpZAIcon>
+            )
+          ) : (
+            <ArrowUpDown
+              size={20}
+              strokeWidth={1.5}
+              onClick={() => column.toggleSorting()}
+              className="rounded-md p-1 hover:bg-gray-200/60"
+            ></ArrowUpDown>
+          )}
         </span>
       ),
       cell: ({ row, getValue }) => (
@@ -143,14 +188,47 @@ export function TableView({ tableId }: { tableId: string }) {
     data: tableData?.data ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     columnResizeMode: "onChange",
+    state: {
+      globalFilter,
+      columnFilters,
+      sorting,
+    },
+    initialState: {
+      globalFilter,
+      columnFilters: [
+        ...columns.map((col) => ({
+          id: col.id ?? "",
+          columnId: "cm33n4kwl0008u7pgsiys6exa",
+          type:
+            tableData?.columns.find((column) => column.id === col.id)?.type ??
+            "text",
+          operator: "gt",
+          value: "rohi",
+        })),
+      ],
+      sorting,
+    },
+    onGlobalFilterChange: setGlobalFilter,
+    onColumnFiltersChange: (columnFilters) => {
+      setColumnFilters((prevFilters) =>
+        (columnFilters as any[]).map((filter: { id: any; value: any }) => ({
+          id: filter.id,
+          columnId: filter.id,
+          type: filter.value ? "text" : "number",
+          operator: "gt",
+          value: filter.value ?? "",
+        })),
+      );
+    },
+    onSortingChange: setSorting,
   });
 
   useEffect(() => {
     setRecordCount(table.getRowModel().rows.length);
-    console.log(tableData?.rows);
+    ctx.table.getData.invalidate({ tableId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table.getRowModel().rows.length, setRecordCount]);
 
@@ -175,22 +253,49 @@ export function TableView({ tableId }: { tableId: string }) {
 
   return (
     <div className="w-full">
+      <div className="flex items-center gap-x-3">
+        <Input
+          placeholder="Search all columns..."
+          value={globalFilter}
+          onChange={(e) => {
+            setGlobalFilter(e.target.value);
+          }}
+          className="m-2 w-max p-2"
+        />
+        <FilterBar
+          columns={tableData?.columns ?? []}
+          onFilterChange={(columnFilters) =>
+            setColumnFilters(
+              columnFilters.map((filter) => ({
+                id: filter.id,
+                columnId: filter.columnId,
+                type: filter.type,
+                operator: filter.operator as "gt" | "lt" | "empty" | "notEmpty",
+                value: filter.value,
+              })),
+            )
+          }
+        />
+      </div>
       <div>
         {table.getHeaderGroups().map((headerGroup) => (
           <div
             key={headerGroup.id}
-            className={cn("flex items-center border-b border-gray-300")}
+            className={cn("flex items-center border-t border-gray-300")}
           >
             {headerGroup.headers.map((header) => (
               <div
                 key={header.id}
                 style={{ width: header.getSize() }}
-                className={`relative border-x bg-[#F5F5F5] p-2 text-xs`}
+                className={cn(
+                  "relative border-b border-r border-gray-300 bg-[#F5F5F5] p-2 text-left text-xs",
+                  header.column.getCanSort() && "cursor-pointer select-none",
+                )}
               >
-                {typeof header.column.columnDef.header === "function"
-                  ? header.column.columnDef.header(header.getContext())
-                  : header.column.columnDef.header}
-
+                {flexRender(
+                  header.column.columnDef.header,
+                  header.getContext(),
+                )}
                 <div
                   onMouseDown={header.getResizeHandler()}
                   onTouchStart={header.getResizeHandler()}
@@ -233,7 +338,7 @@ export function TableView({ tableId }: { tableId: string }) {
                   <div
                     key={cell.id}
                     style={{ width: cell.column.getSize() }}
-                    className="w-max border-b border-r text-xs"
+                    className="w-max border-b border-r border-gray-300 text-xs"
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </div>
@@ -243,7 +348,7 @@ export function TableView({ tableId }: { tableId: string }) {
           ))}
           <button
             onClick={handleAddRow}
-            style={{ width: "150px" }}
+            style={{ width: "200px" }}
             className="flex items-center justify-center border-x border-b bg-white px-6 py-2 hover:bg-gray-100/60"
           >
             <Plus size={16} className=""></Plus>

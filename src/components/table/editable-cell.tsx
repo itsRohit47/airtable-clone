@@ -14,7 +14,7 @@ export function EditableCell({
   columnId,
   rowId,
 }: EditableCellProps) {
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(initialValue);
   const { mutate } = api.table.updateCell.useMutation({
     onSuccess: () => {
       setLoading(false);
@@ -29,7 +29,7 @@ export function EditableCell({
   return (
     <input
       className={`flex h-8 w-full cursor-text items-center truncate p-2 text-xs outline-none ${loading ? "bg-gray-50" : "bg-white"} ${type === "number" ? "text-right" : "text-left"} focus:ring-2 focus:ring-blue-500`}
-      defaultValue={value}
+      value={value}
       onChange={(e) => {
         setValue(e.target.value);
       }}

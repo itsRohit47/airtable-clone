@@ -36,6 +36,7 @@ export default function TableNav({ baseId }: { baseId: string }) {
                 key={table.id}
                 onClick={() => {
                   setThisTable(table.id);
+                  ctx.table.getData.invalidate();
                 }}
                 className={clsx(
                   "flex w-full flex-nowrap items-center gap-x-1 p-2",
@@ -61,6 +62,7 @@ export default function TableNav({ baseId }: { baseId: string }) {
                         onClick={() => {
                           setEditName(false);
                           setThisTable(table.id);
+                          ctx.table.getData.invalidate();
                         }}
                         className={clsx(
                           "flex w-full flex-nowrap items-center gap-x-1 p-2",
