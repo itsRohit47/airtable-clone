@@ -161,6 +161,19 @@ export function TableView({ tableId }: { tableId: string }) {
     }));
   }, [localColumns]);
 
+  // ----------- add column handler -----------
+  const handleAddRow = async () => {
+    table.resetSorting();
+    await addRow.mutateAsync({ tableId });
+    setRecordCount(recordCount + 1);
+  };
+
+  // ----------- add column handler -----------
+  const handleAddColumn = async ({ _type }: { _type: "text" | "number" }) => {
+    table.resetSorting();
+    await addColumn.mutateAsync({ tableId, type: _type });
+  };
+
   // ----------- react-table -----------
   const table = useReactTable({
     data: localData,
@@ -173,20 +186,12 @@ export function TableView({ tableId }: { tableId: string }) {
       globalFilter,
       sorting,
     },
+    meta: {
+      totalRecords: recordCount,
+      addColumn: handleAddColumn,
+      addRow: handleAddRow,
+    },
   });
-
-  // ----------- add column handler -----------
-  const handleAddRow = async () => {
-    table.resetSorting();
-    setRecordCount(recordCount + 1);
-    await addRow.mutateAsync({ tableId });
-  };
-
-  // ----------- add column handler -----------
-  const handleAddColumn = async ({ _type }: { _type: "text" | "number" }) => {
-    table.resetSorting();
-    await addColumn.mutateAsync({ tableId, type: _type });
-  };
 
   // ----------- when loading -----------
   if (isLoading) {
@@ -230,7 +235,7 @@ export function TableView({ tableId }: { tableId: string }) {
             </tr>
           ))}{" "}
           <button
-            className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 mr-28 text-xs"
+            className="mr-28 border-b border-r border-gray-300 bg-[#F5F5F5] px-10 text-xs"
             onClick={() => handleAddColumn({ _type: "text" })}
           >
             <Plus size={16} strokeWidth={1} />
@@ -245,7 +250,9 @@ export function TableView({ tableId }: { tableId: string }) {
                 "relative flex w-max items-center hover:bg-gray-100",
               )}
             >
-              <div className="absolute text-xs text-gray-500 left-2">{index}</div>
+              <div className="absolute left-2 text-xs text-gray-500">
+                {index}
+              </div>
               {row.getVisibleCells().map((cell) => (
                 <td
                   key={cell.id}
@@ -263,7 +270,7 @@ export function TableView({ tableId }: { tableId: string }) {
             <button
               key={footerGroup.id}
               onClick={() => handleAddRow()}
-              className="flex h-8 w-max -translate-x-[1px] items-center border-r hover:bg-gray-100"
+              className="group flex w-max -translate-x-[1px] items-center border-r hover:bg-gray-100"
             >
               {footerGroup.headers.map((column, index) => (
                 <td
@@ -271,7 +278,13 @@ export function TableView({ tableId }: { tableId: string }) {
                   style={{ width: column.getSize() }}
                   className="h-full w-max border-b p-2 text-xs"
                 >
-                  {index === 0 && <Plus size={16} strokeWidth={1} />}
+                  {index === 0 && (
+                    <Plus
+                      size={20}
+                      strokeWidth={1}
+                      className="rounded-md p-1 group-hover:bg-gray-200"
+                    />
+                  )}
                   {index !== 0 && <div className=""></div>}
                 </td>
               ))}

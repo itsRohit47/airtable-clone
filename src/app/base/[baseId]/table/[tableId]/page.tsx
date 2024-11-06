@@ -11,11 +11,18 @@ export default function Table({
   return (
     <div className="fixed flex min-h-dvh w-full flex-col">
       <TableTopNav baseId={params.baseId}></TableTopNav>
-      <TableNav baseId={params.baseId}></TableNav>
-      <TableHead tableId={params.tableId}></TableHead>
-      <div className="-z-10 flex h-full w-max flex-grow flex-col">
-        <TableView tableId={params.tableId}></TableView>
-      </div>
+      {tableTab === "data" && (
+        <>
+          <TableNav baseId={params.baseId}></TableNav>
+          <TableHead tableId={params.tableId}></TableHead>
+          <div className="-z-10 flex h-full w-max flex-grow flex-col">
+            <TableView tableId={params.tableId}></TableView>
+          </div>
+        </>
+      )}
+      {["Automations", "Interfaces", "Forms"].includes(tableTab) && (
+        <div className="m-auto">{tableTab} coming soon</div>
+      )}
       {tableTab === "data" && (
         <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500">
           {recordCount} records

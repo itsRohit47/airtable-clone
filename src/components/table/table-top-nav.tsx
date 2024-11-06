@@ -57,20 +57,20 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
             </div>
             <div
               onClick={() => {
-                setTableTab("auto");
+                setTableTab("Automations");
               }}
               className={clsx("cursor-pointer px-3 py-2", {
-                tabnav: tableTab == "auto",
+                tabnav: tableTab == "Automations",
               })}
             >
               Automations
             </div>{" "}
             <div
               onClick={() => {
-                setTableTab("interfaces");
+                setTableTab("Interfaces");
               }}
               className={clsx("cursor-pointer px-3 py-2", {
-                tabnav: tableTab == "interfaces",
+                tabnav: tableTab == "Interfaces",
               })}
             >
               Interfaces
@@ -78,10 +78,10 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
             <span className="text-white/70">|</span>
             <div
               onClick={() => {
-                setTableTab("forms");
+                setTableTab("Forms");
               }}
               className={clsx("cursor-pointer px-3 py-2", {
-                tabnav: tableTab == "forms",
+                tabnav: tableTab == "Forms",
               })}
             >
               Forms
