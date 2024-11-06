@@ -38,7 +38,7 @@ export default function AddTableDialog({
   });
   return (
     <div
-      className={`top-2 flex min-w-72 flex-col gap-y-2 rounded-md border bg-white p-4 text-black shadow-sm ${classList}`}
+      className={`flex min-w-72 flex-col gap-y-2 rounded-md border bg-white p-4 text-black shadow-sm ${classList}`}
     >
       <span className="px-2 text-gray-500">Add a blank table</span>
       <button

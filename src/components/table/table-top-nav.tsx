@@ -21,7 +21,7 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
   const { tableTab, setTableTab, loading } = useAppContext();
   const name = BaseIdToName({ baseId: baseId });
   return (
-    <div className="z-0 w-full bg-[#D54402] p-4 text-white">
+    <div className="top-0 z-0 min-h-[56px] bg-[#176EE1] p-2 text-white">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-x-10">
           {/* logo + base name */}
@@ -106,15 +106,15 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
             <CircleHelp size={16} strokeWidth={1.5} />
             <span>Help</span>
           </div>
-          <div className="flex items-center gap-x-2 rounded-full bg-[#A03305] px-3 py-2">
+          <div className="flex items-center gap-x-2 rounded-full bg-[#0F53A9] px-3 py-2">
             <BoxIcon size={16} strokeWidth={1.5} />
             <span>Upgrade</span>
           </div>
-          <div className="flex items-center gap-x-2 rounded-full bg-white px-3 py-2 text-[#D54402]">
+          <div className="flex items-center gap-x-2 rounded-full bg-white px-3 py-2 text-[#0F53A9]">
             <Users2Icon size={16} strokeWidth={1.5} />
             <span>Share</span>
           </div>
-          <div className="border-1 w-max rounded-full border bg-white p-[6px] text-[#D54402]">
+          <div className="border-1 w-max rounded-full border bg-white p-[6px] text-[#0F53A9]">
             <BellIcon size={16} strokeWidth={1.5} />
           </div>
           <div className="rounded-full border-2 border-white">

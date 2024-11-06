@@ -1,6 +1,6 @@
-// Component code
 "use client";
-import { useState, useMemo, useEffect } from "react";
+// ----------- import -----------
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -10,16 +10,16 @@ import {
   type SortingState,
   flexRender,
 } from "@tanstack/react-table";
-
 import {
   Plus,
-  LoaderCircleIcon,
+  LoaderIcon,
   CaseUpperIcon,
   HashIcon,
   ArrowDownAZIcon,
   ArrowUpZAIcon,
   ArrowUpDown,
 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
@@ -27,32 +27,31 @@ import { cn } from "@/lib/utils";
 import { useAppContext } from "../context";
 
 export function TableView({ tableId }: { tableId: string }) {
+  // ----------- useState -----------
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const { toast } = useToast();
-  const ctx = api.useUtils();
   const {
     localColumns,
     setLocalColumns,
     localData,
     setLocalData,
     setRecordCount,
+    recordCount,
   } = useAppContext();
 
-  // Fetch initial table data
+  // ----------- fetch data -----------
   const { data: tableData, isLoading } = api.table.getData.useQuery({
     tableId,
   });
 
+  // ----------- side effects -----------
   useEffect(() => {
-    // Initialize local data when tableData changes
-    if (tableData) {
-      setLocalColumns(tableData.columns);
-      setLocalData(tableData.data);
-    }
-  }, [tableData]);
-
-  // Column addition handler
+    setLocalColumns(tableData?.columns ?? []);
+    setLocalData(tableData?.data ?? []);
+    setRecordCount(tableData?.data?.length ?? 0);
+  }, [tableData, setLocalData, setLocalColumns]);
+  // ----------- add column mutation -----------
   const addColumn = api.table.addField.useMutation({
     onMutate: async ({ type }) => {
       const newColumn = {
@@ -84,7 +83,7 @@ export function TableView({ tableId }: { tableId: string }) {
     },
   });
 
-  // Row addition handler
+  // ----------- add row mutation -----------
   const addRow = api.table.addRow.useMutation({
     onMutate: async () => {
       const newRow: Record<string, string> = { id: "temp-id" };
@@ -106,6 +105,7 @@ export function TableView({ tableId }: { tableId: string }) {
     },
   });
 
+  // ----------- columns -----------
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
     return localColumns.map((col) => ({
       id: col.id,
@@ -114,36 +114,38 @@ export function TableView({ tableId }: { tableId: string }) {
       minSize: 200,
       header: ({ column }) => (
         <span className="flex items-center justify-between gap-x-2 overflow-hidden">
-          <span>
-            {col.type === "text" ? (
-              <CaseUpperIcon size={14} strokeWidth={1.5} />
-            ) : (
-              <HashIcon size={12} strokeWidth={1.5} />
-            )}
-          </span>
-          <span className="text-nowrap"> {col.name}</span>
+          <div className="flex items-center gap-x-2">
+            <span>
+              {col.type === "text" ? (
+                <CaseUpperIcon size={16} strokeWidth={1.5} />
+              ) : (
+                <HashIcon size={14} strokeWidth={1.5} />
+              )}
+            </span>
+            <span className="text-nowrap"> {col.name}</span>
+          </div>
           {column.getIsSorted() ? (
             column.getIsSorted() === "asc" ? (
               <ArrowDownAZIcon
-                size={24}
+                size={20}
                 onClick={() => column.toggleSorting()}
-                className="rounded-md p-1 hover:bg-gray-200/60"
+                className="cursor-pointer rounded-md p-1 hover:bg-gray-200/60"
                 strokeWidth={1.5}
               ></ArrowDownAZIcon>
             ) : (
               <ArrowUpZAIcon
-                size={24}
+                size={20}
                 strokeWidth={1.5}
                 onClick={() => column.toggleSorting()}
-                className="rounded-md p-1 hover:bg-gray-200/60"
+                className="cursor-pointer rounded-md p-1 hover:bg-gray-200/60"
               ></ArrowUpZAIcon>
             )
           ) : (
             <ArrowUpDown
-              size={24}
+              size={20}
               strokeWidth={1.5}
               onClick={() => column.toggleSorting()}
-              className="rounded-md p-1 hover:bg-gray-200/60"
+              className="cursor-pointer rounded-md p-1 hover:bg-gray-200/60"
             ></ArrowUpDown>
           )}
         </span>
@@ -159,6 +161,7 @@ export function TableView({ tableId }: { tableId: string }) {
     }));
   }, [localColumns]);
 
+  // ----------- react-table -----------
   const table = useReactTable({
     data: localData,
     columns,
@@ -166,117 +169,116 @@ export function TableView({ tableId }: { tableId: string }) {
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     columnResizeMode: "onChange",
-    meta: {
-      addRow: addRow.mutate,
-      addColumn: addColumn.mutate,
+    state: {
+      globalFilter,
+      sorting,
     },
   });
 
-  useEffect(() => {
-    setRecordCount(table.getRowModel().rows.length);
-  }, [table.getRowModel().rows.length]);
-
+  // ----------- add column handler -----------
   const handleAddRow = async () => {
     table.resetSorting();
+    setRecordCount(recordCount + 1);
     await addRow.mutateAsync({ tableId });
   };
 
+  // ----------- add column handler -----------
   const handleAddColumn = async ({ _type }: { _type: "text" | "number" }) => {
     table.resetSorting();
     await addColumn.mutateAsync({ tableId, type: _type });
   };
 
+  // ----------- when loading -----------
   if (isLoading) {
     return (
       <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44">
-        <LoaderCircleIcon
-          size={32}
-          strokeWidth={1.5}
-          className="animate-spin"
-        />
+        <LoaderIcon size={20} strokeWidth={1} className="animate-spin" />
       </div>
     );
   }
 
+  // ----------- return -----------
   return (
-    <div className="w-full">
-      <div>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <div
-            key={headerGroup.id}
-            className={cn("flex items-center border-b border-gray-300")}
-          >
-            {headerGroup.headers.map((header) => (
-              <div
-                key={header.id}
-                style={{ width: header.getSize() }}
-                className={`relative border-x bg-[#F5F5F5] p-2 text-xs`}
-              >
-                {typeof header.column.columnDef.header === "function"
-                  ? header.column.columnDef.header(header.getContext())
-                  : header.column.columnDef.header}
+    <main className="max-h-[90vh] max-w-[100vw] flex-grow overflow-auto">
+      <table className="w-max border-l">
+        <thead className="sticky top-0 z-10 flex">
+          {table.getHeaderGroups().map((headerGroup) => (
+            // ----------- header row -----------
+            <tr key={headerGroup.id} className={cn("flex w-max items-center")}>
+              {headerGroup.headers.map((header) => (
+                <td
+                  key={header.id}
+                  style={{ width: header.getSize() }}
+                  className={`relative border-b border-r border-gray-300 bg-[#F5F5F5] p-2 text-xs`}
+                >
+                  {typeof header.column.columnDef.header === "function"
+                    ? header.column.columnDef.header(header.getContext())
+                    : header.column.columnDef.header}
 
-                <div
-                  onMouseDown={header.getResizeHandler()}
-                  onTouchStart={header.getResizeHandler()}
-                  className={`absolute -right-0 top-2 z-20 h-5 w-[3px] translate-x-[2px] cursor-col-resize rounded-md bg-blue-500 opacity-0 hover:opacity-100 ${
-                    header.column.getIsResizing()
-                      ? "h-5 w-5 bg-blue-500 opacity-100"
-                      : ""
-                  }`}
-                />
-              </div>
-            ))}
-            <button
-              className="flex items-center border-r border-gray-300 p-2 hover:bg-gray-100"
-              onClick={() => handleAddColumn({ _type: "text" })}
+                  {/* ----------- add column button ----------- */}
+                  <div
+                    onMouseDown={header.getResizeHandler()}
+                    onTouchStart={header.getResizeHandler()}
+                    className={`absolute -right-0 top-2 z-20 h-5 w-[3px] translate-x-[2px] cursor-col-resize rounded-md bg-blue-500 opacity-0 hover:opacity-100 ${
+                      header.column.getIsResizing()
+                        ? "h-5 w-5 bg-blue-500 opacity-100"
+                        : ""
+                    }`}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}{" "}
+          <button
+            className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 mr-28 text-xs"
+            onClick={() => handleAddColumn({ _type: "text" })}
+          >
+            <Plus size={16} strokeWidth={1} />
+          </button>
+        </thead>
+        <tbody className="">
+          {table.getRowModel().rows.map((row, index) => (
+            // data row
+            <tr
+              key={row.id}
+              className={cn(
+                "relative flex w-max items-center hover:bg-gray-100",
+              )}
             >
-              <CaseUpperIcon size={24} strokeWidth={1} />
-            </button>
-            <button
-              className="flex items-center border-r border-gray-300 p-2 hover:bg-gray-100"
-              onClick={() => handleAddColumn({ _type: "number" })}
-            >
-              <HashIcon size={24} strokeWidth={1} />
-            </button>
-          </div>
-        ))}
-      </div>
-      <div className="max-h-[80vh] overflow-auto">
-        <div className="mb-96">
-          {table.getRowModel().rows.map((row) => (
-            <div key={row.id} className="flex">
+              <div className="absolute text-xs text-gray-500 left-2">{index}</div>
               {row.getVisibleCells().map((cell) => (
-                <div
+                <td
                   key={cell.id}
                   style={{ width: cell.column.getSize() }}
-                  className="w-max border-b border-r border-gray-300 text-xs"
+                  className="w-max border-b border-r p-[2px] text-xs"
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </div>
+                </td>
               ))}
-            </div>
+            </tr>
           ))}
-          <button
-            onClick={handleAddRow}
-            style={{ width: "200px" }}
-            className="flex items-center justify-center border-x border-b border-gray-300 bg-white px-6 py-2 hover:bg-gray-100/60"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      </div>
-      <div className="fixed bottom-10 left-3 flex items-center">
-        <button
-          onClick={handleAddRow}
-          className="flex items-center justify-center rounded-l-full border bg-white p-2 hover:bg-gray-100"
-        >
-          <Plus size={16} className=""></Plus>
-        </button>
-        <span className="rounded-r-full border bg-white p-2 text-xs">
-          Add...
-        </span>
-      </div>
-    </div>
+        </tbody>
+        <tfoot className="mb-44 flex">
+          {table.getFooterGroups().map((footerGroup) => (
+            <button
+              key={footerGroup.id}
+              onClick={() => handleAddRow()}
+              className="flex h-8 w-max -translate-x-[1px] items-center border-r hover:bg-gray-100"
+            >
+              {footerGroup.headers.map((column, index) => (
+                <td
+                  key={column.id}
+                  style={{ width: column.getSize() }}
+                  className="h-full w-max border-b p-2 text-xs"
+                >
+                  {index === 0 && <Plus size={16} strokeWidth={1} />}
+                  {index !== 0 && <div className=""></div>}
+                </td>
+              ))}
+            </button>
+          ))}
+        </tfoot>
+      </table>
+    </main>
   );
 }

@@ -7,6 +7,6 @@ export function GetBaseList() {
 }
 
 export function BaseIdToName({ baseId }: { baseId: string }) {
-  const { data } = api.base.baseIdToName.useQuery({ baseId });
-  return data?.name;
+  const { data, isLoading } = api.base.baseIdToName.useQuery({ baseId });
+  return isLoading ? "Loading..." : data?.name;
 }

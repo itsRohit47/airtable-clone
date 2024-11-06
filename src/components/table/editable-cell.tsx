@@ -28,7 +28,7 @@ export function EditableCell({
 
   return (
     <input
-      className={`flex h-8 w-full cursor-text items-center truncate p-2 text-xs outline-none ${loading ? "bg-gray-50" : "bg-white"} ${type === "number" ? "text-right" : "text-left"} focus:ring-2 focus:ring-blue-500`}
+      className={`flex h-6 w-full cursor-default items-center truncate rounded-[1px] p-2 text-xs outline-none transition duration-100 ease-linear ${loading ? "bg-gray-50" : "bg-transparent"} text-right focus:ring-2 focus:ring-blue-500`}
       value={value}
       onChange={(e) => {
         setValue(e.target.value);

@@ -18,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${GeistSans.variable} flex h-screen w-full flex-col bg-[#F9FAFB] font-sans`}
+        className={`${GeistSans.variable} flex min-h-screen w-full flex-col bg-[#F9FAFB] font-sans`}
       >
         <Toaster />
         <SessionProviderClientComponent>
