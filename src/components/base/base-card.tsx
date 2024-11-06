@@ -17,11 +17,13 @@ interface BaseCardProps {
 export function BaseCard({ base }: BaseCardProps) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const router = useRouter();
+  const ctx = api.useUtils();
 
   return (
     <div
       onClick={() => {
         router.push(`/base/${base.id}/table/${base.firsTableId}`);
+        void ctx.table.getData.invalidate();
       }}
       className="group relative w-full max-w-96 cursor-pointer rounded-md border border-gray-300 bg-white p-4 shadow-none hover:shadow-md"
     >

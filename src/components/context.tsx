@@ -6,6 +6,17 @@ import React, {
   useContext,
 } from "react";
 
+interface Column {
+  id: string;
+  name: string;
+  type: string;
+  tableId: string;
+  order: number;
+  defaultValue: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 interface AppContextProps {
   sidebarOpen: boolean;
   setSidebarOpen: (value: boolean) => void;
@@ -43,6 +54,12 @@ interface AppContextProps {
   >;
   editName: boolean;
   setEditName: (value: boolean) => void;
+  localColumns: Column[];
+  setLocalColumns: React.Dispatch<React.SetStateAction<Column[]>>;
+  localData: Record<string, string | number>[];
+  setLocalData: React.Dispatch<
+    React.SetStateAction<Record<string, string | number>[]>
+  >;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -57,6 +74,10 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [flag, setFlag] = useState(false);
   const [recordCount, setRecordCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [localColumns, setLocalColumns] = useState<Column[]>([]);
+  const [localData, setLocalData] = useState<Record<string, string | number>[]>(
+    [],
+  );
   const [localTabes, setLocalTabes] = useState<
     {
       baseId: string;
@@ -87,6 +108,10 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setRecordCount,
     loading,
     setLoading,
+    localColumns,
+    setLocalColumns,
+    localData,
+    setLocalData,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

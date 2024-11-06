@@ -1,6 +1,6 @@
+// Component code
 "use client";
-
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -8,192 +8,131 @@ import {
   getSortedRowModel,
   type ColumnDef,
   type SortingState,
-  type ColumnFiltersState,
   flexRender,
 } from "@tanstack/react-table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import {
   Plus,
   LoaderCircleIcon,
   CaseUpperIcon,
   HashIcon,
-  ArrowUpDown,
   ArrowDownAZIcon,
   ArrowUpZAIcon,
+  ArrowUpDown,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "../context";
-import { Input } from "../ui/input";
-import { FilterBar } from "./filter-bar";
-
-interface FilterCondition {
-  type: string;
-  columnId: string;
-  id: string;
-  field: string;
-  operator: string;
-  value: string;
-  logic?: "and" | "or";
-}
 
 export function TableView({ tableId }: { tableId: string }) {
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = useState<string>("");
+  const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
-  const { setRecordCount } = useAppContext();
   const { toast } = useToast();
   const ctx = api.useUtils();
-
-  // Add a custom filter function
-  const customFilterFn = (row: unknown, columnId: string, value: string) => {
-    const cellValue = String(
-      (row as Record<string, unknown>)[columnId] ?? "",
-    ).toLowerCase();
-    const filterValue = String(value).toLowerCase();
-    return cellValue.includes(filterValue);
-  };
-
-  const handleFilterChange = (filters: FilterCondition[]) => {
-    // Convert filters to TanStack format
-    const tableFilters = filters.map((filter) => ({
-      id: filter.columnId,
-      value: filter.value,
-    }));
-
-    setColumnFilters(tableFilters);
-  };
-
-  // Use useInfiniteQuery instead of useQuery
   const {
-    data: tableData,
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-  } = api.table.getData.useInfiniteQuery(
-    {
-      tableId,
-      pageSize: 25,
-      sortBy: sorting[0]?.id,
-      sortDesc: sorting[0]?.desc,
-    },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-    },
-  );
+    localColumns,
+    setLocalColumns,
+    localData,
+    setLocalData,
+    setRecordCount,
+  } = useAppContext();
 
-  // add column mutation
+  // Fetch initial table data
+  const { data: tableData, isLoading } = api.table.getData.useQuery({
+    tableId,
+  });
+
+  useEffect(() => {
+    // Initialize local data when tableData changes
+    if (tableData) {
+      setLocalColumns(tableData.columns);
+      setLocalData(tableData.data);
+    }
+  }, [tableData]);
+
+  // Column addition handler
   const addColumn = api.table.addField.useMutation({
-    onMutate: async (_variables) => {
-      await ctx.table.getData.cancel({ tableId });
-      const previousTableData = ctx.table.getData.getData({ tableId });
-
-      ctx.table.getData.setData({ tableId }, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          columns: [
-            ...old.columns,
-            {
-              id: "temp-id",
-              name: "Untitled Column",
-              type: _variables.type,
-              tableId: tableId,
-              order: old.columns.length,
-              defaultValue: null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          ],
-        };
-      });
-
-      return { previousTableData };
+    onMutate: async ({ type }) => {
+      const newColumn = {
+        id: "temp-id",
+        name: "Untitled Column",
+        type,
+        tableId,
+        order: localColumns.length,
+        defaultValue: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      setLocalColumns((prev) => [...prev, newColumn]);
     },
-    onError: (_error, _variables, context) => {
-      if (context?.previousTableData) {
-        ctx.table.getData.setData({ tableId }, context.previousTableData);
-      }
+    onSuccess: (data) => {
+      // Update the temporary column ID to the real ID returned from the backend
+      setLocalColumns((prev) =>
+        prev.map((col) =>
+          col.id === "temp-id" ? { ...col, id: data.id } : col,
+        ),
+      );
+    },
+    onError: (_error) => {
       toast({
         title: "Error",
         description: "Failed to add column",
         variant: "destructive",
       });
     },
-    onSettled: () => {
-      void ctx.table.getData.invalidate({ tableId });
-    },
   });
 
-  // Add row mutation
+  // Row addition handler
   const addRow = api.table.addRow.useMutation({
     onMutate: async () => {
-      await ctx.table.getData.cancel({ tableId });
-      const previousTableData = ctx.table.getData.getData({ tableId });
-
-      const newRowData: Record<string, string | number> = {};
-      ctx.table.getData.setData({ tableId }, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          data: [...old.data, { id: "temp-id", ...newRowData }],
-        };
-      });
-
-      return { previousTableData };
+      const newRow: Record<string, string> = { id: "temp-id" };
+      setLocalData((prev) => [...prev, { ...newRow }]);
     },
-    onError: (_error, _variables, context) => {
-      if (context?.previousTableData) {
-        ctx.table.getData.setData({ tableId }, context.previousTableData);
-      }
+    onSuccess: (data) => {
+      setLocalData((prev) =>
+        prev.map((row) =>
+          row.id === "temp-id" ? { ...row, id: data.id } : row,
+        ),
+      );
+    },
+    onError: (_error) => {
       toast({
         title: "Error",
         description: "Failed to add row",
         variant: "destructive",
       });
     },
-    onSettled: () => {
-      void ctx.table.getData.invalidate({ tableId });
-    },
   });
 
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
-    if (!tableData?.pages[0]?.columns) return [];
-
-    return tableData.pages[0].columns.map((col) => ({
+    return localColumns.map((col) => ({
       id: col.id,
       accessorKey: col.id,
       size: 200,
       minSize: 200,
-      filterFn: customFilterFn,
       header: ({ column }) => (
         <span className="flex items-center justify-between gap-x-2 overflow-hidden">
           <span>
             {col.type === "text" ? (
-              <CaseUpperIcon size={14} strokeWidth={1.5}></CaseUpperIcon>
+              <CaseUpperIcon size={14} strokeWidth={1.5} />
             ) : (
-              <HashIcon size={12} strokeWidth={1.5}></HashIcon>
+              <HashIcon size={12} strokeWidth={1.5} />
             )}
           </span>
           <span className="text-nowrap"> {col.name}</span>
           {column.getIsSorted() ? (
             column.getIsSorted() === "asc" ? (
               <ArrowDownAZIcon
-                size={20}
+                size={24}
                 onClick={() => column.toggleSorting()}
                 className="rounded-md p-1 hover:bg-gray-200/60"
                 strokeWidth={1.5}
               ></ArrowDownAZIcon>
             ) : (
               <ArrowUpZAIcon
-                size={20}
+                size={24}
                 strokeWidth={1.5}
                 onClick={() => column.toggleSorting()}
                 className="rounded-md p-1 hover:bg-gray-200/60"
@@ -201,7 +140,7 @@ export function TableView({ tableId }: { tableId: string }) {
             )
           ) : (
             <ArrowUpDown
-              size={20}
+              size={24}
               strokeWidth={1.5}
               onClick={() => column.toggleSorting()}
               className="rounded-md p-1 hover:bg-gray-200/60"
@@ -218,110 +157,65 @@ export function TableView({ tableId }: { tableId: string }) {
         />
       ),
     }));
-  }, [tableData?.pages[0]?.columns]);
+  }, [localColumns]);
 
   const table = useReactTable({
-    data: tableData?.pages.flatMap((page) => page.data) ?? [],
+    data: localData,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     columnResizeMode: "onChange",
-    state: {
-      globalFilter,
-      columnFilters,
-      sorting,
+    meta: {
+      addRow: addRow.mutate,
+      addColumn: addColumn.mutate,
     },
-    filterFns: {
-      custom: customFilterFn,
-    },
-    onGlobalFilterChange: setGlobalFilter,
-    onColumnFiltersChange: setColumnFilters,
-    onSortingChange: setSorting,
   });
 
   useEffect(() => {
-    const fetchData = async () => {
-      setRecordCount(table.getRowModel().rows.length);
-      await ctx.table.getData.invalidate({ tableId });
-    };
-    void fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table.getRowModel().rows.length, setRecordCount]);
+    setRecordCount(table.getRowModel().rows.length);
+  }, [table.getRowModel().rows.length]);
 
   const handleAddRow = async () => {
+    table.resetSorting();
     await addRow.mutateAsync({ tableId });
   };
 
   const handleAddColumn = async ({ _type }: { _type: "text" | "number" }) => {
+    table.resetSorting();
     await addColumn.mutateAsync({ tableId, type: _type });
   };
 
-  const handleScroll = useCallback(
-    async (e: React.UIEvent<HTMLDivElement>) => {
-      const target = e.target as HTMLDivElement;
-      const scrollPercentage =
-        (target.scrollTop + target.clientHeight) / target.scrollHeight;
-
-      if (
-        scrollPercentage > 0.9 && // Load more when 90% scrolled
-        hasNextPage &&
-        !isFetchingNextPage
-      ) {
-        setIsFetchingNextPage(true);
-        await fetchNextPage();
-        setIsFetchingNextPage(false);
-      }
-    },
-    [hasNextPage, isFetchingNextPage, fetchNextPage],
-  );
-
-  if (isLoading)
+  if (isLoading) {
     return (
       <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44">
         <LoaderCircleIcon
           size={32}
           strokeWidth={1.5}
           className="animate-spin"
-        ></LoaderCircleIcon>
+        />
       </div>
     );
+  }
 
   return (
     <div className="w-full">
-      <div className="flex items-center gap-x-3">
-        <Input
-          placeholder="Search all columns..."
-          value={globalFilter}
-          onChange={(e) => {
-            setGlobalFilter(e.target.value);
-          }}
-          className="m-2 w-max p-2"
-        />
-        <FilterBar
-          columns={tableData?.pages[0]?.columns ?? []}
-          onFilterChange={handleFilterChange}
-        />
-      </div>
       <div>
         {table.getHeaderGroups().map((headerGroup) => (
           <div
             key={headerGroup.id}
-            className={cn("flex items-center border border-gray-300")}
+            className={cn("flex items-center border-b border-gray-300")}
           >
             {headerGroup.headers.map((header) => (
               <div
                 key={header.id}
                 style={{ width: header.getSize() }}
-                className={cn(
-                  "relative border-b border-r border-gray-300 bg-[#F5F5F5] p-2 text-left text-xs",
-                  header.column.getCanSort() && "cursor-pointer select-none",
-                )}
+                className={`relative border-x bg-[#F5F5F5] p-2 text-xs`}
               >
-                {flexRender(
-                  header.column.columnDef.header,
-                  header.getContext(),
-                )}
+                {typeof header.column.columnDef.header === "function"
+                  ? header.column.columnDef.header(header.getContext())
+                  : header.column.columnDef.header}
+
                 <div
                   onMouseDown={header.getResizeHandler()}
                   onTouchStart={header.getResizeHandler()}
@@ -330,60 +224,46 @@ export function TableView({ tableId }: { tableId: string }) {
                       ? "h-5 w-5 bg-blue-500 opacity-100"
                       : ""
                   }`}
-                ></div>
+                />
               </div>
             ))}
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center justify-center border-r bg-[#F5F5F5] px-6 py-2 hover:bg-gray-200/60">
-                <Plus size={20} className=""></Plus>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="flex flex-col gap-y-3 text-xs">
-                <button
-                  className="p-2 hover:bg-gray-100"
-                  onClick={() => handleAddColumn({ _type: "text" })}
-                >
-                  <CaseUpperIcon></CaseUpperIcon>
-                </button>
-                <button
-                  className="p-2 hover:bg-gray-100"
-                  onClick={() => handleAddColumn({ _type: "number" })}
-                >
-                  <HashIcon></HashIcon>
-                </button>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <button
+              className="flex items-center border-r border-gray-300 p-2 hover:bg-gray-100"
+              onClick={() => handleAddColumn({ _type: "text" })}
+            >
+              <CaseUpperIcon size={24} strokeWidth={1} />
+            </button>
+            <button
+              className="flex items-center border-r border-gray-300 p-2 hover:bg-gray-100"
+              onClick={() => handleAddColumn({ _type: "number" })}
+            >
+              <HashIcon size={24} strokeWidth={1} />
+            </button>
           </div>
         ))}
       </div>
-      <div className="max-h-[80vh] overflow-auto" onScroll={handleScroll}>
+      <div className="max-h-[80vh] overflow-auto">
         <div className="mb-96">
           {table.getRowModel().rows.map((row) => (
-            <div key={row.id} className="">
-              <div key={row.id} className="b flex">
-                {row.getVisibleCells().map((cell) => (
-                  <div
-                    key={cell.id}
-                    style={{ width: cell.column.getSize() }}
-                    className="w-max border-b border-r border-gray-300 text-xs"
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </div>
-                ))}
-              </div>
+            <div key={row.id} className="flex">
+              {row.getVisibleCells().map((cell) => (
+                <div
+                  key={cell.id}
+                  style={{ width: cell.column.getSize() }}
+                  className="w-max border-b border-r border-gray-300 text-xs"
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </div>
+              ))}
             </div>
           ))}
           <button
             onClick={handleAddRow}
             style={{ width: "200px" }}
-            className="flex items-center justify-center border-x border-b bg-white px-6 py-2 hover:bg-gray-100/60"
+            className="flex items-center justify-center border-x border-b border-gray-300 bg-white px-6 py-2 hover:bg-gray-100/60"
           >
-            <Plus size={16} className=""></Plus>
+            <Plus size={16} />
           </button>
-          {isFetchingNextPage && (
-            <div className="flex justify-center py-4">
-              <LoaderCircleIcon className="h-6 w-6 animate-spin" />
-            </div>
-          )}
         </div>
       </div>
       <div className="fixed bottom-10 left-3 flex items-center">
