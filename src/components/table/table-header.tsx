@@ -22,6 +22,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
   const ctx = api.useUtils();
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [searchMenuOpen, setSearchMenuOpen] = useState(false);
+  const [rowHeightMenuOpen, setRowHeightMenuOpen] = useState(false);
 
   return (
     <div className="flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
@@ -65,14 +66,11 @@ export default function TableHead({ tableId }: { tableId: string }) {
         <div
           className="relative flex cursor-pointer items-center justify-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60"
           onClick={() => {
-            const rowHeightMenu = document.getElementById("row-height-menu");
-            if (rowHeightMenu) {
-              rowHeightMenu.classList.toggle("hidden");
-            }
+            setRowHeightMenuOpen(!rowHeightMenuOpen);
           }}
         >
           <HeightIcon />
-          <RowHeightMenu />
+          {rowHeightMenuOpen && <RowHeightMenu />}
         </div>
         <div className="h- flex cursor-pointer items-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60">
           <ShareIcon size={16} />
@@ -89,7 +87,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
         >
           <SearchIcon size={16} />
         </div>
-        <SearchInput />
+        {searchMenuOpen && <SearchInput />}
       </div>
     </div>
   );
@@ -135,7 +133,7 @@ function SearchInput() {
   const { setGlobalFilter } = useAppContext();
   const ctx = api.useUtils();
   return (
-    <div className="absolute right-0 top-full mt-2 hidden bg-white shadow-sm">
+    <div className="absolute right-0 top-full mt-2 bg-white shadow-sm">
       <div className="flex w-80 items-center border p-2">
         <input
           className="h-full w-full text-xs focus:outline-none"
@@ -174,7 +172,7 @@ function SearchInput() {
 function RowHeightMenu() {
   const { setRowHeight, rowHeight } = useAppContext();
   return (
-    <div className="absolute top-full mt-1 hidden" id="row-height-menu">
+    <div className="absolute top-full mt-1">
       <div className="w-60 rounded-sm border bg-white shadow-sm">
         <div className="p-2">select a row height</div>
         <div

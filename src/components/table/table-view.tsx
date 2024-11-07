@@ -190,12 +190,8 @@ export function TableView({ tableId }: { tableId: string }) {
     getSortedRowModel: getSortedRowModel(),
     columnResizeMode: "onChange",
     state: {
-      sorting: [
-        {
-          id: columns[1]?.id ?? "",
-          desc: true,
-        },
-      ],
+      sorting,
+      globalFilter,
     },
     onSortingChange: (newSorting) => {
       setSorting(newSorting);
