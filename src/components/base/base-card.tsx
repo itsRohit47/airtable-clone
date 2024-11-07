@@ -12,7 +12,6 @@ interface BaseCardProps {
     id: string;
     name: string;
     createdAt: Date;
-    color: string;
     updatedAt: Date;
     firsTableId: string;
   };
@@ -20,7 +19,6 @@ interface BaseCardProps {
 
 export function BaseCard({ base }: BaseCardProps) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
-  const { baseColor, setBaseColor } = useAppContext();
   const router = useRouter();
   const ctx = api.useUtils();
 
@@ -34,7 +32,7 @@ export function BaseCard({ base }: BaseCardProps) {
     >
       <div className="flex h-full gap-x-3">
         <div
-          className={`flex h-full w-14 items-center justify-center rounded-md border text-white bg-${base.color}-500`}
+          className={`flex h-full w-14 items-center justify-center rounded-md border bg-blue-500 text-white`}
         >
           {base.name.slice(0, 2)}
         </div>

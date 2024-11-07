@@ -55,7 +55,6 @@ model VerificationToken {
 model Base {
   id        String   @id @default(cuid())
   name      String
-  color     String?
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade) 
   userId    String
   tables    Table[]

@@ -28,7 +28,6 @@ export const baseRouter = createTRPCRouter({
     const base = await ctx.db.base.create({
       data: {
         name: "Untitled Base",
-        color: colors[Math.floor(Math.random() * colors.length)],
         userId: ctx.session.user?.id ?? "",
       },
     });

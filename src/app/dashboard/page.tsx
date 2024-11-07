@@ -46,11 +46,11 @@ export default function DashboardPage() {
           <br></br>
           <div className="flex items-center justify-between text-gray-600">
             <div className="flex items-center gap-x-3">
-              <div className="flex items-center gap-x-2 text-sm hover:text-black cursor-pointer">
+              <div className="flex cursor-pointer items-center gap-x-2 text-sm hover:text-black">
                 <p>Opened by you</p>
                 <ChevronDown size={20} />
               </div>
-              <div className="flex items-center gap-x-2 text-sm hover:text-black cursor-pointer">
+              <div className="flex cursor-pointer items-center gap-x-2 text-sm hover:text-black">
                 <p>Show all types</p>
                 <ChevronDown size={20} />
               </div>

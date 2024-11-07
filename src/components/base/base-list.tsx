@@ -25,7 +25,6 @@ export function BaseList() {
                 base={{
                   ...base,
                   firsTableId: base.tables[0]?.id ?? "",
-                  color: base.color ?? "red",
                 }}
               />
             )) ?? <BaseSkeleton />}

@@ -15,16 +15,13 @@ import { useSession } from "next-auth/react";
 import { useAppContext } from "../context";
 import clsx from "clsx";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
 
 export default function TableTopNav({ baseId }: { baseId: string }) {
   const { data: session } = useSession();
   const { tableTab, setTableTab, loading } = useAppContext();
   const base = BaseIdToNameAndColor({ baseId: baseId });
   return (
-    <div
-      className={`top-0 z-0 min-h-[56px] bg-${base.data?.color}-500 p-2 text-white`}
-    >
+    <div className="top-0 z-0 min-h-[56px] bg-blue-500 p-2 text-white">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-x-10">
           {/* logo + base name */}
@@ -55,8 +52,7 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
                 setTableTab("data");
               }}
               className={clsx("cursor-pointer px-3 py-2", {
-                [`rounded-full bg-${base.data?.color}-700 px-3 py-2 shadow-inner`]:
-                  tableTab == "data",
+                tabnav: tableTab == "data",
               })}
             >
               Data
@@ -66,8 +62,7 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
                 setTableTab("Automations");
               }}
               className={clsx("cursor-pointer px-3 py-2", {
-                [`rounded-full bg-${base.data?.color}-700 px-3 py-2 shadow-inner`]:
-                  tableTab == "Automations",
+                tabnav: tableTab == "Automations",
               })}
             >
               Automations
@@ -77,8 +72,7 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
                 setTableTab("Interfaces");
               }}
               className={clsx("cursor-pointer px-3 py-2", {
-                [`rounded-full bg-${base.data?.color}-700 px-3 py-2 shadow-inner`]:
-                  tableTab == "Interfaces",
+                tabnav: tableTab == "Interfaces",
               })}
             >
               Interfaces
@@ -89,8 +83,7 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
                 setTableTab("Forms");
               }}
               className={clsx("cursor-pointer px-3 py-2", {
-                [`rounded-full bg-${base.data?.color}-700 px-3 py-2 shadow-inner`]:
-                  tableTab == "Forms",
+                tabnav: tableTab == "Forms",
               })}
             >
               Forms
@@ -108,28 +101,22 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
               <span>Saving...</span>
             </div>
           )}
-          <span className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2">
+          <span className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-blue-700/80">
             <HistoryIcon size={16} strokeWidth={1.5}></HistoryIcon>
           </span>
-          <div className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2">
+          <div className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-blue-700/80">
             <CircleHelp size={16} strokeWidth={1.5} />
             <span>Help</span>
           </div>
-          <div
-            className={`flex items-center gap-x-2 rounded-full bg-${base.data?.color}-700 px-3 py-2`}
-          >
+          <div className="flex items-center gap-x-2 rounded-full bg-blue-700 px-3 py-2">
             <BoxIcon size={16} strokeWidth={1.5} />
             <span>Upgrade</span>
           </div>
-          <div
-            className={`flex items-center gap-x-2 rounded-full bg-white px-3 py-2 text-${base.data?.color}-500`}
-          >
+          <div className="flex items-center gap-x-2 rounded-full bg-white px-3 py-2 text-blue-700">
             <Users2Icon size={16} strokeWidth={1.5} />
             <span>Share</span>
           </div>
-          <div
-            className={`border-1 w-max rounded-full border p-[6px] bg-${base.data?.color}-500`}
-          >
+          <div className="border-1 w-max rounded-full border bg-white p-[6px] text-blue-700">
             <BellIcon size={16} strokeWidth={1.5} />
           </div>
           <div className="rounded-full border-2 border-white">
