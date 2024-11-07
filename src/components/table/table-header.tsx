@@ -21,6 +21,7 @@ import { useAppContext } from "../context";
 export default function TableHead({ tableId }: { tableId: string }) {
   const ctx = api.useUtils();
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [searchMenuOpen, setSearchMenuOpen] = useState(false);
 
   return (
     <div className="flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
@@ -83,11 +84,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
           className="h- flex cursor-pointer items-center gap-x-2 rounded-md p-2 text-gray-500 hover:text-gray-900"
           onClick={() => {
             void ctx.table.getData.invalidate({ tableId });
-            const searchInput = document.getElementById("search-input");
-            if (searchInput) {
-              searchInput.classList.toggle("hidden");
-              searchInput.querySelector("input")?.focus();
-            }
+            setSearchMenuOpen(!searchMenuOpen);
           }}
         >
           <SearchIcon size={16} />
@@ -136,13 +133,9 @@ function SortMenu() {
 
 function SearchInput() {
   const { setGlobalFilter } = useAppContext();
-  const searchInput = document.getElementById("search-input");
   const ctx = api.useUtils();
   return (
-    <div
-      id="search-input"
-      className="absolute right-0 top-full mt-2 hidden bg-white shadow-sm"
-    >
+    <div className="absolute right-0 top-full mt-2 hidden bg-white shadow-sm">
       <div className="flex w-80 items-center border p-2">
         <input
           className="h-full w-full text-xs focus:outline-none"
@@ -156,9 +149,6 @@ function SearchInput() {
               void ctx.table.getData.invalidate();
               setGlobalFilter("");
               (e.target as HTMLInputElement).value = "";
-              if (searchInput) {
-                searchInput.classList.toggle("hidden");
-              }
             }
           }}
           onChange={(e) => {

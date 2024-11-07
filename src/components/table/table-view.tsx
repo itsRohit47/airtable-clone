@@ -2,7 +2,6 @@
 // ----------- import -----------
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useInView } from "react-intersection-observer";
-
 import {
   useReactTable,
   getCoreRowModel,
@@ -28,7 +27,6 @@ import { useAppContext } from "../context";
 export function TableView({ tableId }: { tableId: string }) {
   // ----------- useState -----------
   const [sorting, setSorting] = useState<SortingState>([]);
-
   const { toast } = useToast();
   const {
     localColumns,
@@ -192,8 +190,12 @@ export function TableView({ tableId }: { tableId: string }) {
     getSortedRowModel: getSortedRowModel(),
     columnResizeMode: "onChange",
     state: {
-      globalFilter,
-      sorting,
+      sorting: [
+        {
+          id: columns[1]?.id ?? "",
+          desc: true,
+        },
+      ],
     },
     onSortingChange: (newSorting) => {
       setSorting(newSorting);
