@@ -19,15 +19,14 @@ export function EditableCell({
   const [value, setValue] = useState(initialValue);
   const [isInvalid, setIsInvalid] = useState(false);
   const ctx = api.useUtils();
+  const { setLoading, setGlobalFilter, localCells, setLocalCells } =
+    useAppContext();
+
   const { mutate } = api.table.updateCell.useMutation({
-    onSettled: () => {
-      void ctx.table.getData.invalidate();
+    onSuccess: () => {
       setLoading(false);
     },
   });
-
-  const { loading, setLoading, globalFilter, setGlobalFilter, rowHeight } =
-    useAppContext();
 
   useEffect(() => {
     setValue(initialValue);
@@ -52,12 +51,18 @@ export function EditableCell({
       className={`flex h-full w-full cursor-default items-center truncate rounded-[1px] bg-transparent p-2 text-right text-xs outline-none transition duration-100 ease-linear focus:ring-2 ${isInvalid ? "focus:ring-red-500" : "focus:ring-blue-500"}`}
       value={value}
       onChange={(e) => {
+        setLoading(true);
         setValue(e.target.value);
         setIsInvalid(false);
+        mutate({
+          value: e.target.value,
+          columnId,
+          rowId,
+        });
       }}
       onBlur={() => {
-        setLoading(true);
         setGlobalFilter("");
+        setLoading(true);
         mutate({
           value,
           columnId,

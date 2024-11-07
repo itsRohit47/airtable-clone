@@ -9,19 +9,30 @@ import {
   ChevronDown,
   ArrowLeftIcon,
   Loader,
+  Flag,
 } from "lucide-react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useAppContext } from "../context";
 import clsx from "clsx";
 import Link from "next/link";
+import { useEffect } from "react";
 
 export default function TableTopNav({ baseId }: { baseId: string }) {
   const { data: session } = useSession();
-  const { tableTab, setTableTab, loading } = useAppContext();
+  const { tableTab, setTableTab, loading, setLoading } = useAppContext();
   const base = BaseIdToNameAndColor({ baseId: baseId });
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const saved = document.getElementById("saved");
+      if (saved) {
+        saved.style.display = "none";
+      }
+    }, 3000);
+  }, [loading]);
+
   return (
-    <div className="top-0 z-0 min-h-[56px] bg-blue-500 p-2 text-white">
+    <div className="top-0 z-0 min-h-[56px] bg-gray-500 p-2 text-white">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-x-10">
           {/* logo + base name */}
@@ -91,7 +102,7 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
           </div>
         </div>
         <div className="flex items-center gap-x-5 text-xs">
-          {loading && (
+          {loading ? (
             <div className="flex items-center gap-x-1 text-xs text-white/70">
               <Loader
                 size={20}
@@ -100,23 +111,43 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
               ></Loader>
               <span>Saving...</span>
             </div>
+          ) : (
+            <div className="flex items-center gap-x-1 text-xs text-white/70">
+              {loading ? (
+                <div className="flex items-center gap-x-1 text-xs text-white/70">
+                  <Loader
+                    size={20}
+                    strokeWidth={1.5}
+                    className="animate-spin"
+                  ></Loader>
+                  <span>Saving...</span>
+                </div>
+              ) : (
+                <div
+                  id="saved"
+                  className="flex items-center gap-x-1 text-xs text-white/70"
+                >
+                  <span>All changes saved</span>
+                </div>
+              )}
+            </div>
           )}
-          <span className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-blue-700/80">
+          <span className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-gray-700/80">
             <HistoryIcon size={16} strokeWidth={1.5}></HistoryIcon>
           </span>
-          <div className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-blue-700/80">
+          <div className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-gray-700/80">
             <CircleHelp size={16} strokeWidth={1.5} />
             <span>Help</span>
           </div>
-          <div className="flex items-center gap-x-2 rounded-full bg-blue-700 px-3 py-2">
+          <div className="flex items-center gap-x-2 rounded-full bg-gray-700 px-3 py-2">
             <BoxIcon size={16} strokeWidth={1.5} />
             <span>Upgrade</span>
           </div>
-          <div className="flex items-center gap-x-2 rounded-full bg-white px-3 py-2 text-blue-700">
+          <div className="flex items-center gap-x-2 rounded-full bg-white px-3 py-2 text-gray-700">
             <Users2Icon size={16} strokeWidth={1.5} />
             <span>Share</span>
           </div>
-          <div className="border-1 w-max rounded-full border bg-white p-[6px] text-blue-700">
+          <div className="border-1 w-max rounded-full border bg-white p-[6px] text-gray-700">
             <BellIcon size={16} strokeWidth={1.5} />
           </div>
           <div className="rounded-full border-2 border-white">

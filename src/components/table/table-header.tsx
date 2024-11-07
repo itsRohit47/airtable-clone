@@ -1,3 +1,4 @@
+"use client";
 import {
   ListIcon,
   Grid2X2Icon,
@@ -13,9 +14,14 @@ import {
   EyeOffIcon,
   XIcon,
 } from "lucide-react";
+import { api } from "@/trpc/react";
+import { useState } from "react";
 import { LineHeightIcon, HeightIcon } from "@radix-ui/react-icons";
 import { useAppContext } from "../context";
 export default function TableHead({ tableId }: { tableId: string }) {
+  const ctx = api.useUtils();
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+
   return (
     <div className="flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
       <div className="flex items-center gap-x-3">
@@ -41,9 +47,15 @@ export default function TableHead({ tableId }: { tableId: string }) {
           <GroupIcon size={16} />
           <div>Group</div>
         </div>
-        <div className="flex cursor-pointer items-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60">
+        <div
+          className="relative flex cursor-pointer items-center justify-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60"
+          onClick={() => {
+            setSortMenuOpen(!sortMenuOpen);
+          }}
+        >
           <ArrowUpDownIcon size={16} />
           <div>Sort</div>
+          {sortMenuOpen && <SortMenu />}
         </div>
         <div className="flex cursor-pointer items-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60">
           <PaintBucketIcon size={16} />
@@ -70,6 +82,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
         <div
           className="h- flex cursor-pointer items-center gap-x-2 rounded-md p-2 text-gray-500 hover:text-gray-900"
           onClick={() => {
+            void ctx.table.getData.invalidate({ tableId });
             const searchInput = document.getElementById("search-input");
             if (searchInput) {
               searchInput.classList.toggle("hidden");
@@ -85,8 +98,46 @@ export default function TableHead({ tableId }: { tableId: string }) {
   );
 }
 
+function SortMenu() {
+  const { localColumns } = useAppContext();
+  const [filteredColumns, setFilteredColumns] = useState(localColumns);
+  return (
+    <div className="absolute top-full mt-1 flex w-80 flex-col gap-y-1 rounded-sm border bg-white p-4 text-xs shadow-sm">
+      <div className="text-xs font-semibold text-gray-600">Sort by</div>
+      <hr></hr>
+      <div className="flex items-center gap-x-2">
+        <SearchIcon size={16} className="text-blue-500" />
+        <input
+          placeholder="Find a field"
+          className="w-full p-2 focus:outline-none"
+          autoFocus
+          onChange={(e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filteredColumns = localColumns.filter((column) =>
+              column.name.toLowerCase().includes(searchTerm),
+            );
+            setFilteredColumns(filteredColumns);
+          }}
+        ></input>
+      </div>
+      <div className="flex max-h-80 flex-col overflow-auto">
+        {filteredColumns.map((column) => (
+          <div
+            key={column.id}
+            className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60"
+          >
+            <div>{column.name}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SearchInput() {
   const { setGlobalFilter } = useAppContext();
+  const searchInput = document.getElementById("search-input");
+  const ctx = api.useUtils();
   return (
     <div
       id="search-input"
@@ -96,6 +147,20 @@ function SearchInput() {
         <input
           className="h-full w-full text-xs focus:outline-none"
           placeholder="Find in view"
+          onFocus={(e) => {
+            setGlobalFilter("");
+            void ctx.table.getData.invalidate();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              void ctx.table.getData.invalidate();
+              setGlobalFilter("");
+              (e.target as HTMLInputElement).value = "";
+              if (searchInput) {
+                searchInput.classList.toggle("hidden");
+              }
+            }
+          }}
           onChange={(e) => {
             setGlobalFilter(e.target.value);
           }}
@@ -122,7 +187,6 @@ function RowHeightMenu() {
     <div className="absolute top-full mt-1 hidden" id="row-height-menu">
       <div className="w-60 rounded-sm border bg-white shadow-sm">
         <div className="p-2">select a row height</div>
-
         <div
           className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${
             rowHeight === 2 ? "text-blue-500" : ""

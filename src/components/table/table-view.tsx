@@ -17,9 +17,6 @@ import {
   LoaderIcon,
   CaseUpperIcon,
   HashIcon,
-  ArrowDownAZIcon,
-  ArrowUpZAIcon,
-  ArrowUpDown,
   ChevronDown,
 } from "lucide-react";
 import { api } from "@/trpc/react";
@@ -27,7 +24,6 @@ import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "../context";
-import { set } from "zod";
 
 export function TableView({ tableId }: { tableId: string }) {
   // ----------- useState -----------
@@ -62,7 +58,7 @@ export function TableView({ tableId }: { tableId: string }) {
   } = api.table.getData.useInfiniteQuery(
     {
       tableId,
-      pageSize: 30,
+      pageSize: 200,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -203,7 +199,7 @@ export function TableView({ tableId }: { tableId: string }) {
       setSorting(newSorting);
     },
     onGlobalFilterChange: (newFilter) => {
-      setGlobalFilter(typeof newFilter === 'string' ? newFilter : '');
+      setGlobalFilter(typeof newFilter === "string" ? newFilter : "");
     },
   });
 
@@ -347,3 +343,5 @@ export function TableView({ tableId }: { tableId: string }) {
     </div>
   );
 }
+
+export default TableView;
