@@ -12,6 +12,7 @@ export default function Table({
   const { data, isLoading } = api.table.getTableCount.useQuery({
     tableId: params.tableId,
   });
+
   return (
     <div className="fixed flex min-h-dvh w-full flex-col">
       <TableTopNav baseId={params.baseId}></TableTopNav>
@@ -26,11 +27,6 @@ export default function Table({
       )}
       {["Automations", "Interfaces", "Forms"].includes(tableTab) && (
         <div className="m-auto">{tableTab} coming soon</div>
-      )}
-      {tableTab === "data" && (
-        <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500">
-          {isLoading ? "Loading..." : data} records
-        </div>
       )}
     </div>
   );

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Base" ALTER COLUMN "color" DROP NOT NULL;

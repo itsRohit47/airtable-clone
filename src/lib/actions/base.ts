@@ -3,10 +3,11 @@ import { api } from "@/trpc/react";
 
 export function GetBaseList() {
   const { data } = api.base.getAllBases.useQuery();
+  console.log(data);
   return data;
 }
 
-export function BaseIdToName({ baseId }: { baseId: string }) {
+export function BaseIdToNameAndColor({ baseId }: { baseId: string }) {
   const { data, isLoading } = api.base.baseIdToName.useQuery({ baseId });
-  return isLoading ? "Loading..." : data?.name;
+  return { data, isLoading };
 }

@@ -1,14 +1,18 @@
 "use client";
 import { api } from "@/trpc/react";
 import { StarIcon, Ellipsis } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import BaseCardMenu from "@/components/base/base-card-menu";
+import { cn } from "@/lib/utils";
+import { useAppContext } from "../context";
 
 interface BaseCardProps {
   base: {
     id: string;
     name: string;
+    createdAt: Date;
+    color: string;
     updatedAt: Date;
     firsTableId: string;
   };
@@ -16,6 +20,7 @@ interface BaseCardProps {
 
 export function BaseCard({ base }: BaseCardProps) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const { baseColor, setBaseColor } = useAppContext();
   const router = useRouter();
   const ctx = api.useUtils();
 
@@ -29,7 +34,7 @@ export function BaseCard({ base }: BaseCardProps) {
     >
       <div className="flex h-full gap-x-3">
         <div
-          className={`flex h-full w-14 items-center justify-center rounded-md border bg-[#B63A05] text-white`}
+          className={`flex h-full w-14 items-center justify-center rounded-md border text-white bg-${base.color}-500`}
         >
           {base.name.slice(0, 2)}
         </div>

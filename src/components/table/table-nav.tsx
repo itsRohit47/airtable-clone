@@ -27,8 +27,8 @@ export default function TableNav({ baseId }: { baseId: string }) {
 
   return (
     <div>
-      <div className="z-0 flex h-max w-full items-center justify-between gap-x-3 bg-[#176EE1] text-xs font-normal text-white/90">
-        <div className="border-[#C03D05 flex w-full items-center overflow-x-auto rounded-tr-md bg-[#1463CA] px-4">
+      <div className="z-0 flex h-max w-full items-center justify-between gap-x-3 bg-blue-500 text-xs font-normal text-white/90">
+        <div className="border-[#C03D05 flex w-full items-center overflow-x-auto rounded-tr-md bg-blue-600 px-4">
           <div className="flex gap-x-2 overflow-x-scroll">
             {tables?.map((table) => (
               <Link
@@ -125,7 +125,7 @@ export default function TableNav({ baseId }: { baseId: string }) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-x-10 rounded-tl-md bg-[#1463CA] p-2">
+        <div className="flex items-center gap-x-10 rounded-tl-md bg-blue-600 p-2">
           <span>Extensions</span>
           <span className="flex items-center gap-x-3">
             Tools <ChevronDown strokeWidth={1.5} size={18}></ChevronDown>

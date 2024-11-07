@@ -65,9 +65,7 @@
   }
 }
 
-.tabnav {
-  @apply rounded-full bg-[#0F53A9] px-3 py-2 shadow-inner;
-}
+
 
 .resizer {
   position: "absolute";

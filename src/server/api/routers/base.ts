@@ -1,6 +1,8 @@
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import z from "zod";
 
+const colors = ["blue", "yellow", "gray", "red", "pink"];
+
 export const baseRouter = createTRPCRouter({
   // for the dashboard
   getAllBases: protectedProcedure.query(({ ctx }) => {
@@ -24,7 +26,11 @@ export const baseRouter = createTRPCRouter({
   // to create a new base for the user to work with tables
   createBase: protectedProcedure.mutation(async ({ input, ctx }) => {
     const base = await ctx.db.base.create({
-      data: { name: "Untitled Base", userId: ctx.session.user?.id },
+      data: {
+        name: "Untitled Base",
+        color: colors[Math.floor(Math.random() * colors.length)],
+        userId: ctx.session.user?.id ?? "",
+      },
     });
 
     const table = await ctx.db.table.create({

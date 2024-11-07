@@ -22,7 +22,11 @@ export function BaseList() {
             {bases?.map((base) => (
               <BaseCard
                 key={base.id}
-                base={{ ...base, firsTableId: base.tables[0]?.id ?? "" }}
+                base={{
+                  ...base,
+                  firsTableId: base.tables[0]?.id ?? "",
+                  color: base.color ?? "red",
+                }}
               />
             )) ?? <BaseSkeleton />}
             {bases?.length === 0 && (

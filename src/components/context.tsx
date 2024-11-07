@@ -60,6 +60,12 @@ interface AppContextProps {
   setLocalData: React.Dispatch<
     React.SetStateAction<Record<string, string | number>[]>
   >;
+  globalFilter: string;
+  setGlobalFilter: (value: string) => void;
+  rowHeight: number;
+  setRowHeight: (value: number) => void;
+  baseColor: string;
+  setBaseColor: (value: string) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -75,6 +81,9 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [recordCount, setRecordCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [localColumns, setLocalColumns] = useState<Column[]>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [rowHeight, setRowHeight] = useState(8);
+  const [baseColor, setBaseColor] = useState("");
   const [localData, setLocalData] = useState<Record<string, string | number>[]>(
     [],
   );
@@ -112,6 +121,12 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setLocalColumns,
     localData,
     setLocalData,
+    globalFilter,
+    setGlobalFilter,
+    rowHeight,
+    setRowHeight,
+    baseColor,
+    setBaseColor,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

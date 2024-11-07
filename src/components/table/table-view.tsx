@@ -20,23 +20,35 @@ import {
   ArrowDownAZIcon,
   ArrowUpZAIcon,
   ArrowUpDown,
+  ChevronDown,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "../context";
+import { set } from "zod";
 
 export function TableView({ tableId }: { tableId: string }) {
   // ----------- useState -----------
-  const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const { toast } = useToast();
-  const { localColumns, setLocalColumns, localData, setLocalData } =
-    useAppContext();
+  const {
+    localColumns,
+    setLocalColumns,
+    localData,
+    setLocalData,
+    globalFilter,
+    setGlobalFilter,
+    recordCount,
+    setRecordCount,
+  } = useAppContext();
 
   const { ref, inView } = useInView({});
+  const { data: count } = api.table.getTableCount.useQuery({
+    tableId,
+  });
 
   // ----------- fetch data -----------
   const {
@@ -49,7 +61,7 @@ export function TableView({ tableId }: { tableId: string }) {
   } = api.table.getData.useInfiniteQuery(
     {
       tableId,
-      pageSize: 500,
+      pageSize: 30,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -62,7 +74,8 @@ export function TableView({ tableId }: { tableId: string }) {
     const allData = tableData?.pages.flatMap((page) => page.data) ?? [];
     setLocalColumns(tableData?.pages[0]?.columns ?? []);
     setLocalData(allData);
-  }, [tableData, setLocalColumns, setLocalData]);
+    setRecordCount(count ?? 0);
+  }, [tableData, setLocalColumns, setLocalData, setRecordCount, count]);
 
   useEffect(() => {
     console.log("inView", inView);
@@ -87,7 +100,6 @@ export function TableView({ tableId }: { tableId: string }) {
       setLocalColumns((prev) => [...prev, newColumn]);
     },
     onSuccess: (data) => {
-      // Update the temporary column ID to the real ID returned from the backend
       setLocalColumns((prev) =>
         prev.map((col) =>
           col.id === "temp-id" ? { ...col, id: data.id } : col,
@@ -144,30 +156,9 @@ export function TableView({ tableId }: { tableId: string }) {
             </span>
             <span className="text-nowrap"> {col.name}</span>
           </div>
-          {column.getIsSorted() ? (
-            column.getIsSorted() === "asc" ? (
-              <ArrowDownAZIcon
-                size={20}
-                onClick={() => column.toggleSorting()}
-                className="cursor-pointer rounded-md p-1 hover:bg-gray-200/60"
-                strokeWidth={1.5}
-              ></ArrowDownAZIcon>
-            ) : (
-              <ArrowUpZAIcon
-                size={20}
-                strokeWidth={1.5}
-                onClick={() => column.toggleSorting()}
-                className="cursor-pointer rounded-md p-1 hover:bg-gray-200/60"
-              ></ArrowUpZAIcon>
-            )
-          ) : (
-            <ArrowUpDown
-              size={20}
-              strokeWidth={1.5}
-              onClick={() => column.toggleSorting()}
-              className="cursor-pointer rounded-md p-1 hover:bg-gray-200/60"
-            ></ArrowUpDown>
-          )}
+          <div>
+            <ChevronDown size={16} strokeWidth={1.5} />
+          </div>
         </span>
       ),
       cell: ({ row, getValue }) => (
@@ -184,6 +175,8 @@ export function TableView({ tableId }: { tableId: string }) {
   // ----------- add column handler -----------
   const handleAddRow = async () => {
     table.resetSorting();
+    table.resetGlobalFilter();
+    setRecordCount(recordCount + 1);
     await addRow.mutateAsync({ tableId });
   };
 
@@ -204,6 +197,9 @@ export function TableView({ tableId }: { tableId: string }) {
     state: {
       globalFilter,
       sorting,
+    },
+    onSortingChange: (newSorting) => {
+      setSorting(newSorting);
     },
   });
 
@@ -259,7 +255,7 @@ export function TableView({ tableId }: { tableId: string }) {
                 className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-2 text-xs"
                 onClick={() => handleAddColumn({ _type: "text" })}
               >
-                <Plus size={20} strokeWidth={1} />
+                <Plus size={16} strokeWidth={1.5} />
               </button>
             </tr>
           ))}{" "}
@@ -270,17 +266,21 @@ export function TableView({ tableId }: { tableId: string }) {
             <tr
               key={row?.id}
               className={cn(
-                "relative flex w-max items-center hover:bg-gray-100",
+                "relative flex w-max items-center bg-white hover:bg-gray-100",
               )}
             >
               <div className="absolute left-2 text-xs text-gray-500">
-                {index}
+                {index + 1}
               </div>
               {row?.getVisibleCells().map((cell) => (
                 <td
                   key={cell.id}
                   style={{ width: cell.column.getSize() }}
-                  className="w-max border-b border-r p-[2px] text-xs"
+                  className={cn("w-max border-b border-r p-[2px] text-xs", {
+                    "bg-yellow-300 border-yellow-500 hover:bg-white text-yellow-800":
+                      globalFilter &&
+                      String(cell.getValue()).includes(globalFilter),
+                  })}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
@@ -293,7 +293,7 @@ export function TableView({ tableId }: { tableId: string }) {
             <button
               key={footerGroup.id}
               onClick={() => handleAddRow()}
-              className="group flex w-max -translate-x-[1px] items-center border-r hover:bg-gray-100"
+              className="group flex w-max -translate-x-[1px] items-center border-r bg-white hover:bg-gray-100"
             >
               {footerGroup.headers.map((column, index) => (
                 <td
@@ -314,12 +314,26 @@ export function TableView({ tableId }: { tableId: string }) {
             </button>
           ))}
         </tfoot>
+        <div className="fixed bottom-10 left-3 flex items-center">
+          <button
+            onClick={handleAddRow}
+            className="flex items-center justify-center rounded-l-full border bg-white p-2 hover:bg-gray-100"
+          >
+            <Plus size={16} className=""></Plus>
+          </button>
+          <span className="rounded-r-full border bg-white p-2 text-xs">
+            Add...
+          </span>
+        </div>
         <div
           ref={ref}
-          className="flex w-screen justify-center p-2 text-xs text-gray-500"
+          className="mb-20 flex w-screen flex-col items-center justify-center p-2 text-xs text-gray-500"
         >
           <div> {isFetching ? "Loading..." : ""}</div>
-          <div> {hasNextPage ? "" : " (End of list)"}</div>
+          <div> {hasNextPage ? "" : " No more data"}</div>
+        </div>
+        <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500">
+          {isLoading ? "Loading..." : recordCount} records
         </div>
       </table>
     </div>
