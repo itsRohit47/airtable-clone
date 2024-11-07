@@ -1,4 +1,5 @@
 "use client";
+import { SortingState } from "@tanstack/react-table";
 import React, {
   createContext,
   useState,
@@ -67,9 +68,16 @@ interface AppContextProps {
   baseColor: string;
   setBaseColor: (value: string) => void;
   localCells: Record<string, string | number>[];
+
   setLocalCells: React.Dispatch<
     React.SetStateAction<Record<string, string | number>[]>
   >;
+  sorting: SortingState;
+  setSorting: (value: SortingState) => void;
+  sortViewOpen: boolean;
+  setSortViewOpen: (value: boolean) => void;
+  tempCol: { id: string; name: string; type: string };
+  setTempCol: (value: { id: string; name: string; type: string }) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -88,6 +96,9 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [globalFilter, setGlobalFilter] = useState("");
   const [rowHeight, setRowHeight] = useState(2);
   const [baseColor, setBaseColor] = useState("");
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sortViewOpen, setSortViewOpen] = useState(false);
+  const [tempCol, setTempCol] = useState({ id: "", name: "", type: "" });
   const [localCells, setLocalCells] = useState<
     Record<string, string | number>[]
   >([]);
@@ -136,6 +147,12 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setBaseColor,
     localCells,
     setLocalCells,
+    sorting,
+    setSorting,
+    sortViewOpen,
+    setSortViewOpen,
+    tempCol,
+    setTempCol,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

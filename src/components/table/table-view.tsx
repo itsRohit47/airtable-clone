@@ -1,6 +1,6 @@
 "use client";
 // ----------- import -----------
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 import {
   useReactTable,
@@ -8,8 +8,8 @@ import {
   getFilteredRowModel,
   getSortedRowModel,
   type ColumnDef,
-  type SortingState,
   flexRender,
+  SortingState,
 } from "@tanstack/react-table";
 import {
   Plus,
@@ -26,7 +26,6 @@ import { useAppContext } from "../context";
 
 export function TableView({ tableId }: { tableId: string }) {
   // ----------- useState -----------
-  const [sorting, setSorting] = useState<SortingState>([]);
   const { toast } = useToast();
   const {
     localColumns,
@@ -38,6 +37,8 @@ export function TableView({ tableId }: { tableId: string }) {
     recordCount,
     setRecordCount,
     rowHeight,
+    sorting,
+    setSorting,
   } = useAppContext();
 
   const { ref, inView } = useInView({});
@@ -56,7 +57,7 @@ export function TableView({ tableId }: { tableId: string }) {
   } = api.table.getData.useInfiniteQuery(
     {
       tableId,
-      pageSize: 200,
+      pageSize: 18,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -139,6 +140,7 @@ export function TableView({ tableId }: { tableId: string }) {
       accessorKey: col.id,
       size: 200,
       minSize: 200,
+      enableSorting: true,
       header: ({ column }) => (
         <span className="flex items-center justify-between gap-x-2 overflow-hidden">
           <div className="flex items-center gap-x-2">
@@ -193,8 +195,8 @@ export function TableView({ tableId }: { tableId: string }) {
       sorting,
       globalFilter,
     },
-    onSortingChange: (newSorting) => {
-      setSorting(newSorting);
+    onSortingChange: (updaterOrValue) => {
+      setSorting(updaterOrValue as SortingState);
     },
     onGlobalFilterChange: (newFilter) => {
       setGlobalFilter(typeof newFilter === "string" ? newFilter : "");
