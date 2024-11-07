@@ -1,6 +1,8 @@
 "use client";
 // ----------- import -----------
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useInView } from "react-intersection-observer";
+
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,7 +21,6 @@ import {
   ArrowUpZAIcon,
   ArrowUpDown,
 } from "lucide-react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
@@ -30,27 +31,46 @@ export function TableView({ tableId }: { tableId: string }) {
   // ----------- useState -----------
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
+
   const { toast } = useToast();
-  const {
-    localColumns,
-    setLocalColumns,
-    localData,
-    setLocalData,
-    setRecordCount,
-    recordCount,
-  } = useAppContext();
+  const { localColumns, setLocalColumns, localData, setLocalData } =
+    useAppContext();
+
+  const { ref, inView } = useInView({});
 
   // ----------- fetch data -----------
-  const { data: tableData, isLoading } = api.table.getData.useQuery({
-    tableId,
-  });
+  const {
+    data: tableData,
+    isLoading,
+    isFetching,
+    fetchNextPage,
+    hasNextPage,
+    status,
+  } = api.table.getData.useInfiniteQuery(
+    {
+      tableId,
+      pageSize: 500,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      refetchOnWindowFocus: false,
+    },
+  );
 
   // ----------- side effects -----------
   useEffect(() => {
-    setLocalColumns(tableData?.columns ?? []);
-    setLocalData(tableData?.data ?? []);
-    setRecordCount(tableData?.data?.length ?? 0);
-  }, [tableData, setLocalData, setLocalColumns]);
+    const allData = tableData?.pages.flatMap((page) => page.data) ?? [];
+    setLocalColumns(tableData?.pages[0]?.columns ?? []);
+    setLocalData(allData);
+  }, [tableData, setLocalColumns, setLocalData]);
+
+  useEffect(() => {
+    console.log("inView", inView);
+    if (inView && hasNextPage) {
+      void fetchNextPage();
+    }
+  }, [fetchNextPage, hasNextPage, inView]);
+
   // ----------- add column mutation -----------
   const addColumn = api.table.addField.useMutation({
     onMutate: async ({ type }) => {
@@ -165,7 +185,6 @@ export function TableView({ tableId }: { tableId: string }) {
   const handleAddRow = async () => {
     table.resetSorting();
     await addRow.mutateAsync({ tableId });
-    setRecordCount(recordCount + 1);
   };
 
   // ----------- add column handler -----------
@@ -186,15 +205,10 @@ export function TableView({ tableId }: { tableId: string }) {
       globalFilter,
       sorting,
     },
-    meta: {
-      totalRecords: recordCount,
-      addColumn: handleAddColumn,
-      addRow: handleAddRow,
-    },
   });
 
   // ----------- when loading -----------
-  if (isLoading) {
+  if (isLoading && status === "pending") {
     return (
       <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44">
         <LoaderIcon size={20} strokeWidth={1} className="animate-spin" />
@@ -202,10 +216,19 @@ export function TableView({ tableId }: { tableId: string }) {
     );
   }
 
+  // ------------ error block ------
+  if (status === "error") {
+    return (
+      <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44 text-red-500">
+        Error
+      </div>
+    );
+  }
+
   // ----------- return -----------
   return (
-    <main className="max-h-[90vh] max-w-[100vw] flex-grow overflow-auto">
-      <table className="w-max border-l">
+    <div className="max-h-[90vh] max-w-[100vw] flex-grow overflow-auto">
+      <table className="mb-20 w-max border-l">
         <thead className="sticky top-0 z-10 flex">
           {table.getHeaderGroups().map((headerGroup) => (
             // ----------- header row -----------
@@ -232,20 +255,20 @@ export function TableView({ tableId }: { tableId: string }) {
                   />
                 </td>
               ))}
+              <button
+                className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-2 text-xs"
+                onClick={() => handleAddColumn({ _type: "text" })}
+              >
+                <Plus size={20} strokeWidth={1} />
+              </button>
             </tr>
           ))}{" "}
-          <button
-            className="mr-28 border-b border-r border-gray-300 bg-[#F5F5F5] px-10 text-xs"
-            onClick={() => handleAddColumn({ _type: "text" })}
-          >
-            <Plus size={16} strokeWidth={1} />
-          </button>
         </thead>
-        <tbody className="">
+        <tbody className="w-max">
           {table.getRowModel().rows.map((row, index) => (
             // data row
             <tr
-              key={row.id}
+              key={row?.id}
               className={cn(
                 "relative flex w-max items-center hover:bg-gray-100",
               )}
@@ -253,7 +276,7 @@ export function TableView({ tableId }: { tableId: string }) {
               <div className="absolute left-2 text-xs text-gray-500">
                 {index}
               </div>
-              {row.getVisibleCells().map((cell) => (
+              {row?.getVisibleCells().map((cell) => (
                 <td
                   key={cell.id}
                   style={{ width: cell.column.getSize() }}
@@ -265,7 +288,7 @@ export function TableView({ tableId }: { tableId: string }) {
             </tr>
           ))}
         </tbody>
-        <tfoot className="mb-44 flex">
+        <tfoot className="flex">
           {table.getFooterGroups().map((footerGroup) => (
             <button
               key={footerGroup.id}
@@ -291,7 +314,14 @@ export function TableView({ tableId }: { tableId: string }) {
             </button>
           ))}
         </tfoot>
+        <div
+          ref={ref}
+          className="flex w-screen justify-center p-2 text-xs text-gray-500"
+        >
+          <div> {isFetching ? "Loading..." : ""}</div>
+          <div> {hasNextPage ? "" : " (End of list)"}</div>
+        </div>
       </table>
-    </main>
+    </div>
   );
 }

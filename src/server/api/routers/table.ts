@@ -12,6 +12,15 @@ export const tableRouter = createTRPCRouter({
       });
     }),
 
+  // given a tableid, get total records
+  getTableCount: protectedProcedure
+    .input(z.object({ tableId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      return ctx.db.row.count({
+        where: { tableId: input.tableId },
+      });
+    }),
+
   // to add a new column to a table
   addField: protectedProcedure
     .input(z.object({ tableId: z.string(), type: z.string() }))
@@ -192,7 +201,7 @@ export const tableRouter = createTRPCRouter({
         cursor: z.string().optional(),
         sortBy: z.string().optional(),
         sortDesc: z.boolean().optional().default(false),
-        pageSize: z.number().optional().default(25),
+        pageSize: z.number().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -200,16 +209,6 @@ export const tableRouter = createTRPCRouter({
         where: { tableId: input.tableId },
         orderBy: { order: "asc" },
       });
-
-      // Build cursor condition
-      const cursorCondition = input.cursor
-        ? {
-            cursor: {
-              id: input.cursor,
-            },
-            skip: 1, // Skip the cursor row
-          }
-        : {};
 
       // Get rows with cells
       const rows = await ctx.db.row.findMany({
