@@ -203,7 +203,7 @@ export function TableView({ tableId }: { tableId: string }) {
       setSorting(newSorting);
     },
     onGlobalFilterChange: (newFilter) => {
-      setGlobalFilter(newFilter);
+      setGlobalFilter(typeof newFilter === 'string' ? newFilter : '');
     },
   });
 

@@ -20,28 +20,6 @@ export function EditableCell({
   const [isInvalid, setIsInvalid] = useState(false);
   const ctx = api.useUtils();
   const { mutate } = api.table.updateCell.useMutation({
-    onMutate: async (newData) => {
-      await ctx.table.getData.cancel();
-      const previousData = ctx.table.getData.getData();
-      ctx.table.getData.setData({ tableId: "temp-id" }, (old) =>
-        old
-          ? {
-              ...old,
-              data: old.data.map((row) =>
-                row.id === newData.rowId
-                  ? { ...row, [newData.columnId]: newData.value }
-                  : row,
-              ),
-            }
-          : old,
-      );
-      return { previousData };
-    },
-    onError: (err, newData, context) => {
-      if (context) {
-        ctx.table.getData.setData({ tableId: "temp-id" }, context.previousData);
-      }
-    },
     onSettled: () => {
       void ctx.table.getData.invalidate();
       setLoading(false);
