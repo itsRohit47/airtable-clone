@@ -125,36 +125,36 @@ function RowHeightMenu() {
 
         <div
           className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${
-            rowHeight === 6 ? "text-blue-500" : ""
+            rowHeight === 2 ? "text-blue-500" : ""
           }`}
-          onClick={() => setRowHeight(6)}
+          onClick={() => setRowHeight(2)}
         >
           <Rows4Icon size={16} />
           <div>Short</div>
         </div>
         <div
           className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${
-            rowHeight === 8 ? "text-blue-500" : ""
+            rowHeight === 4 ? "text-blue-500" : ""
           }`}
-          onClick={() => setRowHeight(8)}
+          onClick={() => setRowHeight(4)}
         >
           <Rows3Icon size={16} />
           <div>Medium</div>
         </div>
         <div
           className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${
-            rowHeight === 12 ? "text-blue-500" : ""
+            rowHeight === 6 ? "text-blue-500" : ""
           }`}
-          onClick={() => setRowHeight(12)}
+          onClick={() => setRowHeight(6)}
         >
           <Rows2Icon size={16} />
           <div>Tall</div>
         </div>
         <div
           className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${
-            rowHeight === 20 ? "text-blue-500" : ""
+            rowHeight === 8 ? "text-blue-500" : ""
           }`}
-          onClick={() => setRowHeight(20)}
+          onClick={() => setRowHeight(8)}
         >
           <LineHeightIcon />
           <div>Extra Tall</div>

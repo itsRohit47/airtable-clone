@@ -43,6 +43,7 @@ export function TableView({ tableId }: { tableId: string }) {
     setGlobalFilter,
     recordCount,
     setRecordCount,
+    rowHeight,
   } = useAppContext();
 
   const { ref, inView } = useInView({});
@@ -201,6 +202,9 @@ export function TableView({ tableId }: { tableId: string }) {
     onSortingChange: (newSorting) => {
       setSorting(newSorting);
     },
+    onGlobalFilterChange: (newFilter) => {
+      setGlobalFilter(newFilter);
+    },
   });
 
   // ----------- when loading -----------
@@ -265,6 +269,7 @@ export function TableView({ tableId }: { tableId: string }) {
             // data row
             <tr
               key={row?.id}
+              style={{ height: `${rowHeight}rem` }}
               className={cn(
                 "relative flex w-max items-center bg-white hover:bg-gray-100",
               )}
@@ -276,11 +281,14 @@ export function TableView({ tableId }: { tableId: string }) {
                 <td
                   key={cell.id}
                   style={{ width: cell.column.getSize() }}
-                  className={cn("w-max border-b border-r p-[2px] text-xs", {
-                    "bg-yellow-300 border-yellow-500 hover:bg-white text-yellow-800":
-                      globalFilter &&
-                      String(cell.getValue()).includes(globalFilter),
-                  })}
+                  className={cn(
+                    "h-full w-max border-b border-r p-[2px] text-xs",
+                    {
+                      "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-white":
+                        globalFilter &&
+                        String(cell.getValue()).includes(globalFilter),
+                    },
+                  )}
                 >
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>

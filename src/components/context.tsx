@@ -82,7 +82,7 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(false);
   const [localColumns, setLocalColumns] = useState<Column[]>([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [rowHeight, setRowHeight] = useState(8);
+  const [rowHeight, setRowHeight] = useState(2);
   const [baseColor, setBaseColor] = useState("");
   const [localData, setLocalData] = useState<Record<string, string | number>[]>(
     [],
