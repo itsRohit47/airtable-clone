@@ -1,8 +1,6 @@
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc";
 import z from "zod";
 
-const colors = ["blue", "yellow", "gray", "red", "pink"];
-
 export const baseRouter = createTRPCRouter({
   // for the dashboard
   getAllBases: protectedProcedure.query(({ ctx }) => {
@@ -49,6 +47,19 @@ export const baseRouter = createTRPCRouter({
               defaultValue: "",
               type: "number",
               order: 1,
+            },
+          ],
+        },
+        views: {
+          create: [
+            {
+              name: "Grid View",
+              filters: {
+                create: [],
+              },
+              sorts: {
+                create: [],
+              },
             },
           ],
         },

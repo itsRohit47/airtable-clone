@@ -4,11 +4,12 @@ import TableNav from "@/components/table/table-nav";
 import { TableView } from "@/components/table/table-view";
 import TableHead from "@/components/table/table-header";
 import { useAppContext } from "@/components/context";
+import ViewMenu from "@/components/views/view-menu";
 import { api } from "@/trpc/react";
 export default function Table({
   params,
 }: Readonly<{ params: { tableId: string; baseId: string } }>) {
-  const { tableTab, recordCount } = useAppContext();
+  const { tableTab, recordCount, isViewsOpen } = useAppContext();
   const { data, isLoading } = api.table.getTableCount.useQuery({
     tableId: params.tableId,
   });
@@ -20,7 +21,8 @@ export default function Table({
         <>
           <TableNav baseId={params.baseId}></TableNav>
           <TableHead tableId={params.tableId}></TableHead>
-          <div className="-z-10 flex h-full w-max flex-grow flex-col">
+          <div className="-z-10 flex h-full w-max flex-grow transition duration-150 ease-in-out">
+            <ViewMenu _tableId={params.tableId}></ViewMenu>
             <TableView tableId={params.tableId}></TableView>
           </div>
         </>

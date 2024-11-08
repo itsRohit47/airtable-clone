@@ -1,5 +1,5 @@
 "use client";
-import { SortingState } from "@tanstack/react-table";
+import { type SortingState } from "@tanstack/react-table";
 import React, {
   createContext,
   useState,
@@ -16,6 +16,15 @@ interface Column {
   defaultValue: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface View {
+  id: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+  tableId: string;
+  selected?: boolean;
 }
 
 interface AppContextProps {
@@ -78,6 +87,12 @@ interface AppContextProps {
   setSortViewOpen: (value: boolean) => void;
   tempCol: { id: string; name: string; type: string };
   setTempCol: (value: { id: string; name: string; type: string }) => void;
+  sortItems: JSX.Element[];
+  setSortItems: (value: JSX.Element[]) => void;
+  isViewsOpen: boolean;
+  setIsViewsOpen: (value: boolean) => void;
+  selectedView: View | null;
+  setSelectedView: (value: View | null) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -99,6 +114,9 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [sortViewOpen, setSortViewOpen] = useState(false);
   const [tempCol, setTempCol] = useState({ id: "", name: "", type: "" });
+  const [sortItems, setSortItems] = useState<JSX.Element[]>([]);
+  const [isViewsOpen, setIsViewsOpen] = useState(false);
+  const [selectedView, setSelectedView] = useState<View | null>(null);
   const [localCells, setLocalCells] = useState<
     Record<string, string | number>[]
   >([]);
@@ -153,6 +171,12 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setSortViewOpen,
     tempCol,
     setTempCol,
+    sortItems,
+    setSortItems,
+    isViewsOpen,
+    setIsViewsOpen,
+    selectedView,
+    setSelectedView,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

@@ -17,10 +17,10 @@ import {
   PlusIcon,
 } from "lucide-react";
 import { api } from "@/trpc/react";
-import { useState, createContext, useEffect } from "react";
-import { LineHeightIcon, HeightIcon } from "@radix-ui/react-icons";
+import { useState, useEffect } from "react";
+import { LineHeightIcon } from "@radix-ui/react-icons";
 import { useAppContext } from "../context";
-import { SortingState } from "@tanstack/react-table";
+import { useSortColumn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,46 +33,72 @@ export default function TableHead({ tableId }: { tableId: string }) {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [searchMenuOpen, setSearchMenuOpen] = useState(false);
   const [rowHeightMenuOpen, setRowHeightMenuOpen] = useState(false);
+  const {
+    isViewsOpen,
+    setIsViewsOpen,
+    selectedView,
+    setSelectedView,
+    sorting,
+  } = useAppContext();
+  const views = api.table.getViewsByTableId.useQuery({ tableId });
+  setSelectedView(
+    views.data?.find((view) => view.selected) ?? views.data?.[0] ?? null,
+  );
 
   return (
     <div className="flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
       <div className="flex items-center gap-x-3">
-        <button className="flex cursor-pointer items-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60">
+        <button
+          onClick={() => {
+            setIsViewsOpen(!isViewsOpen);
+          }}
+          style={{ backgroundColor: isViewsOpen ? "#f0f0f0" : "" }}
+          className={`flex cursor-pointer items-center gap-x-2 rounded-sm border border-gray-200/10 p-2 hover:bg-gray-200/60 ${isViewsOpen ? "hover:border-gray-300" : ""}`}
+        >
           {" "}
           <ListIcon size={16} />
           <div>View</div>
         </button>
-        <div className="flex cursor-pointer items-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60">
+        <button className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
+          <Grid2X2Icon size={16} />
+          <div>{selectedView?.name}</div>
+        </button>
+        <div>|</div>
+        <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <EyeOffIcon size={16} />
           <div>Hide</div>
         </div>
-        <div className="flex cursor-pointer items-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60">
+        <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <ListFilterIcon size={16} />
           <div>Filter</div>
         </div>
-        <div className="flex cursor-pointer items-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60">
+        <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <GroupIcon size={16} />
           <div>Group</div>
         </div>
         <div className="relative">
           <button
-            className="flex cursor-pointer items-center justify-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60"
+            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${sorting.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
             onClick={() => {
               void ctx.table.getData.invalidate({ tableId });
               setSortMenuOpen(!sortMenuOpen);
             }}
           >
             <ArrowUpDownIcon size={16} />
-            <div>Sort</div>
+            <div>
+              {sorting.length > 0
+                ? `Sorted by ${sorting.length} ${sorting.length > 1 ? "fields" : "field"}`
+                : "Sort"}
+            </div>
           </button>
           {sortMenuOpen && <SortMenu />}
         </div>
-        <div className="flex cursor-pointer items-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60">
+        <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <PaintBucketIcon size={16} />
           <div>Color</div>
         </div>
         <button
-          className="relative flex cursor-pointer items-center justify-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60"
+          className="relative flex cursor-pointer items-center justify-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60"
           onClick={() => {
             setRowHeightMenuOpen(!rowHeightMenuOpen);
           }}
@@ -80,14 +106,14 @@ export default function TableHead({ tableId }: { tableId: string }) {
           <LineHeightIcon />
           {rowHeightMenuOpen && <RowHeightMenu />}
         </button>
-        <div className="h- flex cursor-pointer items-center gap-x-2 rounded-md p-2 hover:bg-gray-200/60">
+        <div className="h- flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <ShareIcon size={16} />
           <div>Share</div>
         </div>
       </div>
       <div className="relative">
         <button
-          className="h- flex cursor-pointer items-center gap-x-2 rounded-md p-2 text-gray-500 hover:text-gray-900"
+          className="h- flex cursor-pointer items-center gap-x-2 rounded-sm p-2 text-gray-500 hover:text-gray-900"
           onClick={() => {
             void ctx.table.getData.invalidate({ tableId });
             setSearchMenuOpen(!searchMenuOpen);
@@ -114,7 +140,7 @@ function SearchableList({
   );
 
   return (
-    <div className="flex flex-col">
+    <div className="flex max-h-52 flex-col">
       <div className="flex items-center gap-x-2">
         <SearchIcon size={16} className="text-blue-500" />
         <input
@@ -140,9 +166,16 @@ function SearchableList({
 }
 
 function SortMenu() {
-  const { localColumns, sortViewOpen, setSortViewOpen, tempCol, setTempCol } =
-    useAppContext();
+  const {
+    localColumns,
+    sortViewOpen,
+    setSortViewOpen,
+    tempCol,
+    setTempCol,
+    setSortItems,
+  } = useAppContext();
   const [filteredColumns, setFilteredColumns] = useState(localColumns);
+  const { toggleSort, setSort, clearSort } = useSortColumn();
 
   return (
     <div className="absolute top-full z-40 mt-1 flex min-w-80 flex-col gap-y-3 rounded-sm border bg-white p-4 text-xs shadow-lg">
@@ -155,6 +188,8 @@ function SortMenu() {
           onItemSelect={(column) => {
             setSortViewOpen(!sortViewOpen);
             setTempCol(column);
+            setSortItems([<SortItem key={column.id} />]);
+            setSort(column.id, "asc");
           }}
         />
       )}
@@ -172,28 +207,60 @@ function SortView({
   col: { id: string; name: string; type: string };
   filteredColumns: { id: string; name: string; type: string }[];
 }) {
-  const { setTempCol, localColumns } = useAppContext();
-  const [sortItems, setSortItems] = useState<JSX.Element[]>([
-    <SortItem key={0} />,
-  ]);
+  const {
+    setTempCol,
+    tempCol,
+    localColumns,
+    setLocalColumns,
+    sortItems,
+    setSortItems,
+    flag,
+    setFlag,
+    sortViewOpen,
+    setSortViewOpen,
+  } = useAppContext();
+  const { toggleSort, setSort, clearSort } = useSortColumn();
 
   return (
-    <div className="flex h-max w-max flex-col gap-y-2">
+    <div className="flex h-max w-full flex-col gap-y-2">
       {sortItems.map((item, index) => (
         <SortItem key={index} />
       ))}
-      <button
-        onClick={() => {
-          if (localColumns[0]) {
-            setTempCol(localColumns[0]);
-          }
-          setSortItems([...sortItems, <SortItem key={sortItems.length} />]);
-        }}
-        className="flex w-max items-center gap-x-2 rounded-sm p-2 text-gray-500 hover:text-gray-700"
-      >
-        <PlusIcon size={16} />
-        <div className="flex items-center gap-x-2">Add another sort</div>
-      </button>
+      <div className="flex w-full items-center justify-between gap-x-2">
+        <button
+          onClick={() => {
+            const currentIndex = localColumns.findIndex(
+              (col) => col.id === tempCol.id,
+            );
+            const newIndex = (currentIndex + 1) % localColumns.length;
+            const newTempCol = localColumns[newIndex];
+            if (newTempCol) {
+              setTempCol(newTempCol);
+            }
+            if (!sortItems.some((item) => item.key === tempCol.id)) {
+              setSortItems([...sortItems, <SortItem key={sortItems.length} />]);
+            }
+            setFlag(!flag);
+          }}
+          className="flex w-max items-center gap-x-2 rounded-sm p-2 text-gray-500 hover:text-gray-700"
+        >
+          <PlusIcon size={16} />
+          <div className="flex items-center gap-x-2">Add another sort</div>
+        </button>
+        <button
+          className="flex w-max items-center gap-x-2 rounded-sm p-2 text-gray-500 hover:text-gray-700"
+          onClick={() => {
+            setSortItems([]);
+            setTempCol({ id: "", name: "", type: "" });
+            setFlag(!flag);
+            setSortViewOpen(!sortViewOpen);
+            clearSort();
+          }}
+        >
+          <XIcon size={16} />
+          Clear all sorts
+        </button>
+      </div>
     </div>
   );
 }
@@ -297,47 +364,21 @@ function SortItem() {
     setTempCol,
     sorting,
     setSorting,
+    sortItems,
+    setSortItems,
     flag,
     setFlag,
   } = useAppContext();
   const [filteredColumns, setFilteredColumns] = useState(localColumns);
   const [selectedColumn, setSelectedColumn] = useState(tempCol);
   const [isColumnSelectOpen, setIsColumnSelectOpen] = useState(false);
+  const { toggleSort, setSort, clearSort } = useSortColumn();
 
-  // Toggle sort direction for a column
-  const toggleSort = (columnId: string) => {
-    const currentSort = sorting.find((sort) => sort.id === columnId);
-
-    if (!currentSort) {
-      // If not currently sorting by this column, add ascending sort
-      setSorting([...sorting, { id: columnId, desc: false }]);
-    } else if (!currentSort.desc) {
-      // If sorting ascending, change to descending
-      setSorting(
-        sorting.map((sort) =>
-          sort.id === columnId ? { ...sort, desc: true } : sort,
-        ),
-      );
-    } else {
-      // If sorting descending, remove sort
-      setSorting(sorting.filter((sort) => sort.id !== columnId));
-    }
-  };
-
-  // Set sort direction for a column
-  const setSort = (columnId: string, direction: "asc" | "desc" | "none") => {
-    if (direction === "none") {
-      setSorting(sorting.filter((sort) => sort.id !== columnId));
-    } else {
-      const newSort: SortingState = [
-        { id: columnId, desc: direction === "desc" },
-      ];
-      setSorting(newSort);
-    }
-  };
-
-  // clear all sorts
-  const clearSort = () => setSorting([]);
+  useEffect(() => {
+    setSort(selectedColumn.id, "asc");
+    console.log("sort item", selectedColumn.name);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flag]);
 
   return (
     <div className="relative flex w-full items-center gap-x-2">
@@ -351,12 +392,16 @@ function SortItem() {
         <ChevronDown size={16} />
       </button>
       {isColumnSelectOpen && (
-        <div className="absolute top-full mt-1 w-60 rounded-md border bg-white p-2 shadow-md">
+        <div className="absolute top-full z-20 mt-1 w-60 rounded-md border bg-white p-2 shadow-md">
           <SearchableList
-            items={filteredColumns}
+            items={filteredColumns.filter(
+              (col) => !sorting.some((sort) => sort.id === col.id),
+            )}
             onItemSelect={(column) => {
+              sorting.pop();
               setSelectedColumn(column);
               setIsColumnSelectOpen(!isColumnSelectOpen);
+              setSort(column.id, "asc");
             }}
           />
         </div>
@@ -409,7 +454,12 @@ function SortItem() {
       <button
         className="flex items-center gap-x-2 rounded-sm p-2 hover:bg-gray-100"
         onClick={() => {
-          clearSort();
+          sortItems.pop();
+          sorting.pop();
+          setSortItems([...sortItems]);
+          if (sortItems.length === 0) {
+            setSortViewOpen(!sortViewOpen);
+          }
         }}
       >
         <XIcon size={16} />

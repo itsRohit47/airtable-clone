@@ -9,7 +9,7 @@ import {
   getSortedRowModel,
   type ColumnDef,
   flexRender,
-  SortingState,
+  type SortingState,
 } from "@tanstack/react-table";
 import {
   Plus,
@@ -71,7 +71,15 @@ export function TableView({ tableId }: { tableId: string }) {
     setLocalColumns(tableData?.pages[0]?.columns ?? []);
     setLocalData(allData);
     setRecordCount(count ?? 0);
-  }, [tableData, setLocalColumns, setLocalData, setRecordCount, count]);
+    console.log(sorting);
+  }, [
+    tableData,
+    setLocalColumns,
+    setLocalData,
+    setRecordCount,
+    count,
+    sorting,
+  ]);
 
   useEffect(() => {
     console.log("inView", inView);
@@ -224,7 +232,7 @@ export function TableView({ tableId }: { tableId: string }) {
   // ----------- return -----------
   return (
     <div className="max-h-[90vh] max-w-[100vw] flex-grow overflow-auto">
-      <table className="mb-20 w-max border-l">
+      <table className="mb-20 w-max">
         <thead className="sticky top-0 z-10 flex">
           {table.getHeaderGroups().map((headerGroup) => (
             // ----------- header row -----------
@@ -233,13 +241,26 @@ export function TableView({ tableId }: { tableId: string }) {
                 <td
                   key={header.id}
                   style={{ width: header.getSize() }}
-                  className={`relative border-b border-r border-gray-300 bg-[#F5F5F5] p-2 text-xs`}
+                  className={`relative border-b border-r border-gray-300 p-2 text-xs ${
+                    header.column.getIsSorted()
+                      ? "bg-blue-100" // Sorted column header background
+                      : "bg-[#F5F5F5]"
+                  }`} // Your existing background
                 >
-                  {typeof header.column.columnDef.header === "function"
-                    ? header.column.columnDef.header(header.getContext())
-                    : header.column.columnDef.header}
+                  <div className="flex items-center gap-1">
+                    {typeof header.column.columnDef.header === "function"
+                      ? header.column.columnDef.header(header.getContext())
+                      : header.column.columnDef.header}
 
-                  {/* ----------- add column button ----------- */}
+                    {/* Add sort indicator */}
+                    {header.column.getIsSorted() && (
+                      <span className="text-blue-600">
+                        {header.column.getIsSorted() === "asc" ? "↑" : "↓"}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Your existing resize handler */}
                   <div
                     onMouseDown={header.getResizeHandler()}
                     onTouchStart={header.getResizeHandler()}
@@ -283,6 +304,8 @@ export function TableView({ tableId }: { tableId: string }) {
                       "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-white":
                         globalFilter &&
                         String(cell.getValue()).includes(globalFilter),
+                      // Add sorted column styling
+                      "bg-blue-50": cell.column.getIsSorted(),
                     },
                   )}
                 >
@@ -292,12 +315,12 @@ export function TableView({ tableId }: { tableId: string }) {
             </tr>
           ))}
         </tbody>
-        <tfoot className="flex">
+        <tfoot className="flex border-r w-max">
           {table.getFooterGroups().map((footerGroup) => (
             <button
               key={footerGroup.id}
               onClick={() => handleAddRow()}
-              className="group flex w-max -translate-x-[1px] items-center border-r bg-white hover:bg-gray-100"
+              className="group flex items-center bg-white hover:bg-gray-100"
             >
               {footerGroup.headers.map((column, index) => (
                 <td
@@ -318,7 +341,7 @@ export function TableView({ tableId }: { tableId: string }) {
             </button>
           ))}
         </tfoot>
-        <div className="fixed bottom-10 left-3 flex items-center">
+        <div className="fixed bottom-10 ml-3  flex items-center">
           <button
             onClick={handleAddRow}
             className="flex items-center justify-center rounded-l-full border bg-white p-2 hover:bg-gray-100"

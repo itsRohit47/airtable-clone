@@ -116,17 +116,18 @@ model Cell {
 model View {
   id        String       @id @default(cuid())
   name      String
-  table     Table        @relation(fields: [tableId], references: [id])
+  table     Table        @relation(fields: [tableId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   tableId   String
   filters   ViewFilter[]
   sorts     ViewSort[]
+  selected     Boolean      @default(false)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 }
 
 model ViewFilter {
   id        String   @id @default(cuid())
-  view      View     @relation(fields: [viewId], references: [id])
+  view      View     @relation(fields: [viewId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   viewId    String
   columnId  String
   operator  String   
@@ -137,7 +138,7 @@ model ViewFilter {
 
 model ViewSort {
   id        String   @id @default(cuid())
-  view      View     @relation(fields: [viewId], references: [id])
+  view      View     @relation(fields: [viewId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   viewId    String
   columnId  String
   direction String  

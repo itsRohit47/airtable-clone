@@ -89,7 +89,79 @@ export const tableRouter = createTRPCRouter({
               },
             ],
           },
+          views: {
+            create: [
+              {
+                name: "Grid View",
+                selected: true,
+                filters: {
+                  create: [],
+                },
+                sorts: {
+                  create: [],
+                },
+              },
+            ],
+          },
         },
+      });
+    }),
+
+  // to get views for a table
+  getViewsByTableId: protectedProcedure
+    .input(z.object({ tableId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      return ctx.db.view.findMany({
+        where: { tableId: input.tableId },
+      });
+    }),
+
+  // to create a new view for a table
+  addView: protectedProcedure
+    .input(z.object({ tableId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const viewCount = await ctx.db.view.count({
+        where: { tableId: input.tableId },
+      });
+      return ctx.db.view.create({
+        data: {
+          name: `Grid View ${viewCount + 1}`,
+          tableId: input.tableId,
+          selected: true,
+          filters: {
+            create: [],
+          },
+          sorts: {
+            create: [],
+          },
+        },
+      });
+    }),
+
+  // to update a view selected status
+  updateViewSelected: protectedProcedure
+    .input(z.object({ viewId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      // Get the tableId from the view
+      const view = await ctx.db.view.findUnique({
+        where: { id: input.viewId },
+        select: { tableId: true },
+      });
+
+      if (!view) {
+        throw new Error("View not found");
+      }
+
+      // Set all views for the table to false
+      await ctx.db.view.updateMany({
+        where: { tableId: view.tableId },
+        data: { selected: false },
+      });
+
+      // Set the selected view to true
+      return ctx.db.view.update({
+        where: { id: input.viewId },
+        data: { selected: true },
       });
     }),
 
