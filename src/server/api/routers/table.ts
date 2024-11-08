@@ -138,6 +138,16 @@ export const tableRouter = createTRPCRouter({
       });
     }),
 
+  // to update col name
+  updateColumnName: protectedProcedure
+    .input(z.object({ columnId: z.string(), name: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      return ctx.db.column.update({
+        where: { id: input.columnId },
+        data: { name: input.name },
+      });
+    }),
+
   // to update a view selected status
   updateViewSelected: protectedProcedure
     .input(z.object({ viewId: z.string() }))

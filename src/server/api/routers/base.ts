@@ -91,4 +91,14 @@ export const baseRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       return ctx.db.base.delete({ where: { id: input.baseId } });
     }),
+
+  // to update the base name
+  updateBase: protectedProcedure
+    .input(z.object({ baseId: z.string(), name: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      return ctx.db.base.update({
+        where: { id: input.baseId },
+        data: { name: input.name },
+      });
+    }),
 });

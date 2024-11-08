@@ -1,6 +1,6 @@
 "use client";
 // ----------- import -----------
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import {
   useReactTable,
@@ -17,7 +17,14 @@ import {
   CaseUpperIcon,
   HashIcon,
   ChevronDown,
+  EditIcon,
+  SaveIcon,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
@@ -39,7 +46,10 @@ export function TableView({ tableId }: { tableId: string }) {
     rowHeight,
     sorting,
     setSorting,
+    setLoading,
   } = useAppContext();
+  const [isColNameEditing, setIsColNameEditing] = useState(false);
+  const [editColId, setEditColId] = useState("");
 
   const { ref, inView } = useInView({});
   const { data: count } = api.table.getTableCount.useQuery({
@@ -64,6 +74,31 @@ export function TableView({ tableId }: { tableId: string }) {
       refetchOnWindowFocus: false,
     },
   );
+
+  const { mutate: updateColName } = api.table.updateColumnName.useMutation({
+    onMutate: async ({ columnId, name }) => {
+      setLocalColumns((prev) =>
+        prev.map((c) => (c.id === columnId ? { ...c, name } : c)),
+      );
+    },
+    onSettled: (data, error, { columnId }) => {
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update column name",
+          variant: "destructive",
+        });
+        if (data) {
+          setLoading(false);
+          setLocalColumns((prev) =>
+            prev.map((c) =>
+              c.id === columnId ? { ...c, name: data.name } : c,
+            ),
+          );
+        }
+      }
+    },
+  });
 
   // ----------- side effects -----------
   useEffect(() => {
@@ -150,7 +185,7 @@ export function TableView({ tableId }: { tableId: string }) {
       minSize: 200,
       enableSorting: true,
       header: ({ column }) => (
-        <span className="flex items-center justify-between gap-x-2 overflow-hidden">
+        <span className="flex w-full items-center justify-between gap-x-2 overflow-hidden">
           <div className="flex items-center gap-x-2">
             <span>
               {col.type === "text" ? (
@@ -159,10 +194,68 @@ export function TableView({ tableId }: { tableId: string }) {
                 <HashIcon size={14} strokeWidth={1.5} />
               )}
             </span>
-            <span className="text-nowrap"> {col.name}</span>
+            <div className="w-max px-2">
+              {isColNameEditing && editColId === col.id ? (
+                <input
+                  type="text"
+                  defaultValue={col.name}
+                  className={`w-max max-w-24 overflow-auto bg-transparent focus:outline-none focus:ring-0 ${
+                    isColNameEditing ? "text-red-500" : ""
+                  }`}
+                  autoFocus
+                  onFocus={(e) => e.target.select()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setLoading(true);
+                      updateColName({
+                        columnId: col.id,
+                        name: (e.target as HTMLInputElement).value,
+                      });
+                      setIsColNameEditing(false);
+                    }
+                    if (e.key === "Escape") {
+                      setIsColNameEditing(false);
+                    }
+                  }}
+                  onChange={(e) => {
+                    setLoading(true);
+                    updateColName({ columnId: col.id, name: e.target.value });
+                    setLocalColumns((prev) =>
+                      prev.map((c) =>
+                        c.id === col.id ? { ...c, name: e.target.value } : c,
+                      ),
+                    );
+                  }}
+                  onBlur={() => {
+                    setIsColNameEditing(false);
+                    setLoading(false);
+                  }}
+                />
+              ) : (
+                <span>{col.name}</span>
+              )}
+            </div>
           </div>
           <div>
-            <ChevronDown size={16} strokeWidth={1.5} />
+            {isColNameEditing && editColId === col.id ? (
+              <button
+                onClick={() => {
+                  setEditColId(col.id);
+                  setIsColNameEditing(!isColNameEditing);
+                }}
+              >
+                <SaveIcon size={14} strokeWidth={1.5} />
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setEditColId(col.id);
+                  setIsColNameEditing(!isColNameEditing);
+                }}
+              >
+                <EditIcon size={14} strokeWidth={1.5} />
+              </button>
+            )}
           </div>
         </span>
       ),
@@ -175,7 +268,7 @@ export function TableView({ tableId }: { tableId: string }) {
         />
       ),
     }));
-  }, [localColumns]);
+  }, [isColNameEditing, localColumns]);
 
   // ----------- add column handler -----------
   const handleAddRow = async () => {
@@ -272,18 +365,34 @@ export function TableView({ tableId }: { tableId: string }) {
                   />
                 </td>
               ))}
-              <button
-                className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-2 text-xs"
-                onClick={() => handleAddColumn({ _type: "text" })}
-              >
-                <Plus size={16} strokeWidth={1.5} />
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger>
+                  <button className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-2 text-xs">
+                    <Plus size={18} strokeWidth={1.5} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="flex flex-col">
+                  <button
+                    className="flex w-full px-4 py-2 text-left text-xs hover:bg-gray-100"
+                    onClick={() => handleAddColumn({ _type: "text" })}
+                  >
+                    <CaseUpperIcon size={16} strokeWidth={1.5} />
+                    <span className="ml-2">Add Text Column</span>
+                  </button>
+                  <button
+                    className="flex w-full px-4 py-2 text-left text-xs hover:bg-gray-100"
+                    onClick={() => handleAddColumn({ _type: "number" })}
+                  >
+                    <HashIcon size={14} strokeWidth={1.5} />
+                    <span className="ml-2">Add Number Column</span>
+                  </button>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </tr>
           ))}{" "}
         </thead>
         <tbody className="w-max">
-          {table.getRowModel().rows.map((row, index) => (
-            // data row
+          {table.getRowModel().rows.map((row) => (
             <tr
               key={row?.id}
               style={{ height: `${rowHeight}rem` }}
@@ -292,7 +401,7 @@ export function TableView({ tableId }: { tableId: string }) {
               )}
             >
               <div className="absolute left-2 text-xs text-gray-500">
-                {index + 1}
+                {row.index + 1}
               </div>
               {row?.getVisibleCells().map((cell) => (
                 <td
@@ -315,7 +424,7 @@ export function TableView({ tableId }: { tableId: string }) {
             </tr>
           ))}
         </tbody>
-        <tfoot className="flex border-r w-max">
+        <tfoot className="flex w-max border-r">
           {table.getFooterGroups().map((footerGroup) => (
             <button
               key={footerGroup.id}
@@ -341,7 +450,7 @@ export function TableView({ tableId }: { tableId: string }) {
             </button>
           ))}
         </tfoot>
-        <div className="fixed bottom-10 ml-3  flex items-center">
+        <div className="fixed bottom-10 ml-3 flex items-center">
           <button
             onClick={handleAddRow}
             className="flex items-center justify-center rounded-l-full border bg-white p-2 hover:bg-gray-100"

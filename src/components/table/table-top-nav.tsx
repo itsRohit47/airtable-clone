@@ -6,22 +6,61 @@ import {
   BoxIcon,
   Users2Icon,
   BellIcon,
-  ChevronDown,
   ArrowLeftIcon,
   Loader,
-  Flag,
+  EditIcon,
+  SaveIcon,
 } from "lucide-react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useAppContext } from "../context";
+import { useState } from "react";
 import clsx from "clsx";
 import Link from "next/link";
 import { useEffect } from "react";
+import { api } from "@/trpc/react";
 
 export default function TableTopNav({ baseId }: { baseId: string }) {
   const { data: session } = useSession();
   const { tableTab, setTableTab, loading, setLoading } = useAppContext();
   const base = BaseIdToNameAndColor({ baseId: baseId });
+  const [isEditing, setIsEditing] = useState(false);
+  const [baseName, setBaseName] = useState(base.data?.name);
+  const ctx = api.useUtils();
+  const { mutate } = api.base.updateBase.useMutation({
+    onMutate: async (newBase) => {
+      await ctx.base.baseIdToName.cancel({ baseId });
+
+      const previousBase = ctx.base.baseIdToName.getData({ baseId });
+
+      ctx.base.baseIdToName.setData({ baseId }, (old) =>
+        old
+          ? {
+              ...old,
+              name: newBase.name,
+            }
+          : old,
+      );
+      return { previousBase };
+    },
+    onError: (err, newBase, context) => {
+      if (context?.previousBase) {
+        ctx.base.baseIdToName.setData({ baseId }, context.previousBase);
+      }
+    },
+    onSettled: (data) => {
+      if (data) {
+        ctx.base.baseIdToName.setData({ baseId }, (old) =>
+          old
+            ? {
+                ...old,
+                name: data.name,
+              }
+            : old,
+        );
+      }
+    },
+  });
   useEffect(() => {
     const timer = setTimeout(() => {
       const saved = document.getElementById("saved");
@@ -51,10 +90,58 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
                 className="k hidden rounded-full bg-white p-1 group-hover:block"
               ></ArrowLeftIcon>
             </Link>
-            <div className="text-base font-semibold">
-              {base.isLoading ? "Loading..." : base.data?.name}
+            <div className="max-w-32 overflow-hidden">
+              {isEditing ? (
+                <input
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      if (baseName) {
+                        mutate({ baseId, name: baseName });
+                      }
+                      setIsEditing(false);
+                    }
+                    if (e.key === "Escape") {
+                      setBaseName(base.data?.name);
+                      setIsEditing(false);
+                    }
+                  }}
+                  onChange={(e) => {
+                    setBaseName(e.target.value);
+                  }}
+                  onFocus={(e) => {
+                    e.target.select();
+                  }}
+                  defaultValue={base.data?.name}
+                  className="w-max border-none bg-transparent text-base font-semibold focus:outline-none focus:ring-0"
+                />
+              ) : (
+                <div className="w-max text-base font-semibold">
+                  {base.isLoading ? "Loading..." : base.data?.name}
+                </div>
+              )}
             </div>
-            <ChevronDown size={20} strokeWidth={1.5}></ChevronDown>
+            {isEditing ? (
+              <button
+                onClick={async () => {
+                  if (baseName) {
+                    mutate({ baseId, name: baseName });
+                  }
+                  setIsEditing(false);
+                }}
+              >
+                <SaveIcon size={16} strokeWidth={1.5} />
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setIsEditing(!isEditing);
+                }}
+              >
+                {" "}
+                <EditIcon size={16} strokeWidth={1.5} />
+              </button>
+            )}
           </div>
           {/* links */}
           <div className="flex items-center gap-x-3 text-xs">
