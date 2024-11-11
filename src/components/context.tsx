@@ -24,7 +24,6 @@ interface View {
   createdAt: Date;
   updatedAt: Date;
   tableId: string;
-  selected?: boolean;
 }
 
 interface AppContextProps {
@@ -93,6 +92,10 @@ interface AppContextProps {
   setIsViewsOpen: (value: boolean) => void;
   selectedView: View | null;
   setSelectedView: (value: View | null) => void;
+  viewSorting: SortingState;
+  setViewSorting: (value: SortingState) => void;
+  colsNotInSort: Column[];
+  setColsNotInSort: (value: Column[]) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -117,6 +120,8 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [sortItems, setSortItems] = useState<JSX.Element[]>([]);
   const [isViewsOpen, setIsViewsOpen] = useState(false);
   const [selectedView, setSelectedView] = useState<View | null>(null);
+  const [viewSorting, setViewSorting] = useState<SortingState>([]);
+  const [colsNotInSort, setColsNotInSort] = useState<Column[]>([]);
   const [localCells, setLocalCells] = useState<
     Record<string, string | number>[]
   >([]);
@@ -177,6 +182,10 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setIsViewsOpen,
     selectedView,
     setSelectedView,
+    viewSorting,
+    setViewSorting,
+    colsNotInSort,
+    setColsNotInSort,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

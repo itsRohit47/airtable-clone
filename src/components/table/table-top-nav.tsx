@@ -20,13 +20,20 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { api } from "@/trpc/react";
 
-export default function TableTopNav({ baseId }: { baseId: string }) {
+export default function TableTopNav({
+  baseId,
+  tableId,
+}: {
+  baseId: string;
+  tableId: string;
+}) {
   const { data: session } = useSession();
   const { tableTab, setTableTab, loading, setLoading } = useAppContext();
   const base = BaseIdToNameAndColor({ baseId: baseId });
   const [isEditing, setIsEditing] = useState(false);
   const [baseName, setBaseName] = useState(base.data?.name);
   const ctx = api.useUtils();
+
   const { mutate } = api.base.updateBase.useMutation({
     onMutate: async (newBase) => {
       await ctx.base.baseIdToName.cancel({ baseId });
@@ -219,6 +226,7 @@ export default function TableTopNav({ baseId }: { baseId: string }) {
               )}
             </div>
           )}
+
           <span className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-gray-700/80">
             <HistoryIcon size={16} strokeWidth={1.5}></HistoryIcon>
           </span>

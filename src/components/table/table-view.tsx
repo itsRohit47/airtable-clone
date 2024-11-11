@@ -16,7 +16,6 @@ import {
   LoaderIcon,
   CaseUpperIcon,
   HashIcon,
-  ChevronDown,
   EditIcon,
   SaveIcon,
 } from "lucide-react";
@@ -31,7 +30,13 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "../context";
 
-export function TableView({ tableId }: { tableId: string }) {
+export function TableView({
+  tableId,
+  viewId,
+}: {
+  tableId: string;
+  viewId: string;
+}) {
   // ----------- useState -----------
   const { toast } = useToast();
   const {
@@ -47,10 +52,11 @@ export function TableView({ tableId }: { tableId: string }) {
     sorting,
     setSorting,
     setLoading,
+    selectedView,
+    setSelectedView,
   } = useAppContext();
   const [isColNameEditing, setIsColNameEditing] = useState(false);
   const [editColId, setEditColId] = useState("");
-
   const { ref, inView } = useInView({});
   const { data: count } = api.table.getTableCount.useQuery({
     tableId,
@@ -67,7 +73,7 @@ export function TableView({ tableId }: { tableId: string }) {
   } = api.table.getData.useInfiniteQuery(
     {
       tableId,
-      pageSize: 18,
+      pageSize: 300,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -75,6 +81,21 @@ export function TableView({ tableId }: { tableId: string }) {
     },
   );
 
+  // Fetch view sorts
+  const { data: viewSorts } = api.table.getViewSorts.useQuery({
+    viewId: viewId,
+  });
+
+  // Effect to apply view sorts when view changes
+  useEffect(() => {
+    console.log("viewSorts", viewSorts);
+    setSorting(
+      viewSorts?.map((sort) => ({ id: sort.columnId, desc: sort.desc })) ?? [],
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewSorts]);
+
+  // to update column name
   const { mutate: updateColName } = api.table.updateColumnName.useMutation({
     onMutate: async ({ columnId, name }) => {
       setLocalColumns((prev) =>
@@ -100,13 +121,18 @@ export function TableView({ tableId }: { tableId: string }) {
     },
   });
 
+  // to get view by id
+  const { data: view } = api.table.getViewById.useQuery({
+    viewId: viewId,
+  });
+
   // ----------- side effects -----------
   useEffect(() => {
     const allData = tableData?.pages.flatMap((page) => page.data) ?? [];
     setLocalColumns(tableData?.pages[0]?.columns ?? []);
     setLocalData(allData);
     setRecordCount(count ?? 0);
-    console.log(sorting);
+    setSelectedView(view ?? null);
   }, [
     tableData,
     setLocalColumns,
@@ -114,6 +140,9 @@ export function TableView({ tableId }: { tableId: string }) {
     setRecordCount,
     count,
     sorting,
+    selectedView?.id,
+    view,
+    setSelectedView,
   ]);
 
   useEffect(() => {
@@ -268,6 +297,7 @@ export function TableView({ tableId }: { tableId: string }) {
         />
       ),
     }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isColNameEditing, localColumns]);
 
   // ----------- add column handler -----------
@@ -297,7 +327,12 @@ export function TableView({ tableId }: { tableId: string }) {
       globalFilter,
     },
     onSortingChange: (updaterOrValue) => {
-      setSorting(updaterOrValue as SortingState);
+      const newSorting =
+        typeof updaterOrValue === "function"
+          ? updaterOrValue(sorting)
+          : updaterOrValue;
+
+      setSorting(newSorting);
     },
     onGlobalFilterChange: (newFilter) => {
       setGlobalFilter(typeof newFilter === "string" ? newFilter : "");

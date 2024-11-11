@@ -6,7 +6,9 @@ export const baseRouter = createTRPCRouter({
   getAllBases: protectedProcedure.query(({ ctx }) => {
     return ctx.db.base.findMany({
       where: { userId: ctx.session.user?.id },
-      include: { tables: { select: { id: true } } },
+      include: {
+        tables: { select: { id: true, views: true } },
+      },
       orderBy: { updatedAt: "desc" },
     });
   }),
@@ -48,6 +50,36 @@ export const baseRouter = createTRPCRouter({
               type: "number",
               order: 1,
             },
+            {
+              name: "Untitled Column",
+              defaultValue: "",
+              type: "text",
+              order: 2,
+            },
+            {
+              name: "Untitled Column",
+              defaultValue: "",
+              type: "text",
+              order: 3,
+            },
+            {
+              name: "Untitled Column",
+              defaultValue: "",
+              type: "text",
+              order: 4,
+            },
+            {
+              name: "Untitled Column",
+              defaultValue: "",
+              type: "text",
+              order: 5,
+            },
+            {
+              name: "Untitled Column",
+              defaultValue: "",
+              type: "text",
+              order: 6,
+            },
           ],
         },
         views: {
@@ -64,6 +96,9 @@ export const baseRouter = createTRPCRouter({
           ],
         },
       },
+      include: {
+        views: true,
+      },
     });
 
     const columns = await ctx.db.column.findMany({
@@ -78,11 +113,21 @@ export const baseRouter = createTRPCRouter({
           create: [
             { value: "", columnId: columns[0]?.id ?? "", tableId: table.id },
             { value: "", columnId: columns[1]?.id ?? "", tableId: table.id },
+            { value: "", columnId: columns[2]?.id ?? "", tableId: table.id },
+            { value: "", columnId: columns[3]?.id ?? "", tableId: table.id },
+            { value: "", columnId: columns[4]?.id ?? "", tableId: table.id },
+            { value: "", columnId: columns[5]?.id ?? "", tableId: table.id },
+            { value: "", columnId: columns[6]?.id ?? "", tableId: table.id },
           ],
         },
       },
     });
-    return { base, firstTableId: table.id };
+
+    return {
+      base,
+      firstTableId: table.id,
+      firstViewId: table.views[0]?.id ?? "",
+    };
   }),
 
   // to delete a base and all its tables and columns and rows from the database

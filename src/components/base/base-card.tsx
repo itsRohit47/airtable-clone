@@ -1,11 +1,9 @@
 "use client";
 import { api } from "@/trpc/react";
 import { StarIcon, Ellipsis } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import BaseCardMenu from "@/components/base/base-card-menu";
-import { cn } from "@/lib/utils";
-import { useAppContext } from "../context";
 
 interface BaseCardProps {
   base: {
@@ -14,6 +12,7 @@ interface BaseCardProps {
     createdAt: Date;
     updatedAt: Date;
     firsTableId: string;
+    firstViewId: string;
   };
 }
 
@@ -25,7 +24,7 @@ export function BaseCard({ base }: BaseCardProps) {
   return (
     <div
       onClick={() => {
-        router.push(`/base/${base.id}/table/${base.firsTableId}`);
+        router.push(`/${base.id}/${base.firsTableId}/${base.firstViewId}`);
         void ctx.table.getData.invalidate();
       }}
       className="group relative w-full max-w-96 cursor-pointer rounded-md border border-gray-300 bg-white p-4 shadow-none hover:shadow-md"

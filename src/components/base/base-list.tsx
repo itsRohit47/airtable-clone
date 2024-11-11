@@ -25,6 +25,7 @@ export function BaseList() {
                 base={{
                   ...base,
                   firsTableId: base.tables[0]?.id ?? "",
+                  firstViewId: base.tables[0]?.views[0]?.id ?? "",
                 }}
               />
             )) ?? <BaseSkeleton />}

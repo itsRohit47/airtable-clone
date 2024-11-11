@@ -1,3 +1,4 @@
+import { skip } from "node:test";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import z from "zod";
 
@@ -93,7 +94,6 @@ export const tableRouter = createTRPCRouter({
             create: [
               {
                 name: "Grid View",
-                selected: true,
                 filters: {
                   create: [],
                 },
@@ -116,6 +116,15 @@ export const tableRouter = createTRPCRouter({
       });
     }),
 
+  // to get a view by id
+  getViewById: protectedProcedure
+    .input(z.object({ viewId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      return ctx.db.view.findUnique({
+        where: { id: input.viewId },
+      });
+    }),
+
   // to create a new view for a table
   addView: protectedProcedure
     .input(z.object({ tableId: z.string() }))
@@ -127,7 +136,6 @@ export const tableRouter = createTRPCRouter({
         data: {
           name: `Grid View ${viewCount + 1}`,
           tableId: input.tableId,
-          selected: true,
           filters: {
             create: [],
           },
@@ -145,33 +153,6 @@ export const tableRouter = createTRPCRouter({
       return ctx.db.column.update({
         where: { id: input.columnId },
         data: { name: input.name },
-      });
-    }),
-
-  // to update a view selected status
-  updateViewSelected: protectedProcedure
-    .input(z.object({ viewId: z.string() }))
-    .mutation(async ({ input, ctx }) => {
-      // Get the tableId from the view
-      const view = await ctx.db.view.findUnique({
-        where: { id: input.viewId },
-        select: { tableId: true },
-      });
-
-      if (!view) {
-        throw new Error("View not found");
-      }
-
-      // Set all views for the table to false
-      await ctx.db.view.updateMany({
-        where: { tableId: view.tableId },
-        data: { selected: false },
-      });
-
-      // Set the selected view to true
-      return ctx.db.view.update({
-        where: { id: input.viewId },
-        data: { selected: true },
       });
     }),
 
@@ -284,6 +265,7 @@ export const tableRouter = createTRPCRouter({
         sortBy: z.string().optional(),
         sortDesc: z.boolean().optional().default(false),
         pageSize: z.number().optional(),
+        skip: z.number().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -324,5 +306,54 @@ export const tableRouter = createTRPCRouter({
         nextCursor: rows[rows.length - 1]?.id,
         hasNextPage: rows.length === input.pageSize,
       };
+    }),
+
+  // to sorts for a view
+  getViewSorts: protectedProcedure
+    .input(z.object({ viewId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      return ctx.db.viewSort.findMany({
+        where: { viewId: input.viewId },
+      });
+    }),
+
+  // to delete a sort for a view
+  deleteSort: protectedProcedure
+    .input(z.object({ viewId: z.string(), columnId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.viewSort.delete({
+        where: {
+          viewId_columnId: {
+            viewId: input.viewId,
+            columnId: input.columnId,
+          },
+        },
+      });
+    }),
+
+  // to delete all sorts for a view
+  deleteAllSorts: protectedProcedure
+    .input(z.object({ viewId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.viewSort.deleteMany({
+        where: {
+          viewId: input.viewId,
+        },
+      });
+    }),
+
+  // to add a sort for a view
+  addSort: protectedProcedure
+    .input(
+      z.object({ viewId: z.string(), columnId: z.string(), desc: z.boolean() }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.viewSort.create({
+        data: {
+          viewId: input.viewId,
+          columnId: input.columnId,
+          desc: input.desc,
+        },
+      });
     }),
 });

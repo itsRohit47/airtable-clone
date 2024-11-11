@@ -13,7 +13,9 @@ export default function CreateBaseButton({
   const { mutate, isPending } = api.base.createBase.useMutation({
     onSuccess: (data) => {
       void ctx.base.getAllBases.invalidate();
-      void router.push(`/base/${data.base.id}/table/${data.firstTableId}`);
+      void router.push(
+        `/${data.base.id}/${data.firstTableId}/${data.firstViewId}`,
+      );
     },
   });
   return (

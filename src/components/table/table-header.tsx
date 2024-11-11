@@ -17,10 +17,9 @@ import {
   PlusIcon,
 } from "lucide-react";
 import { api } from "@/trpc/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { LineHeightIcon } from "@radix-ui/react-icons";
 import { useAppContext } from "../context";
-import { useSortColumn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,13 +36,15 @@ export default function TableHead({ tableId }: { tableId: string }) {
     isViewsOpen,
     setIsViewsOpen,
     selectedView,
-    setSelectedView,
-    sorting,
+    sortItems,
+    setSortItems,
+    sortViewOpen,
+    setSortViewOpen,
   } = useAppContext();
-  const views = api.table.getViewsByTableId.useQuery({ tableId });
-  setSelectedView(
-    views.data?.find((view) => view.selected) ?? views.data?.[0] ?? null,
-  );
+
+  const viewSorts = api.table.getViewSorts.useQuery({
+    viewId: selectedView?.id ?? "",
+  });
 
   return (
     <div className="flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
@@ -78,16 +79,29 @@ export default function TableHead({ tableId }: { tableId: string }) {
         </div>
         <div className="relative">
           <button
-            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${sorting.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
+            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewSorts.data && viewSorts.data.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
             onClick={() => {
               void ctx.table.getData.invalidate({ tableId });
+              if (viewSorts.data && viewSorts.data.length > 0) {
+                setSortViewOpen(!sortViewOpen);
+                setSortItems(
+                  viewSorts.data.map((sort) => (
+                    <SortItem
+                      key={sort.columnId}
+                      colId={sort.columnId}
+                      colName={sort.columnId}
+                      colType={sort.columnId}
+                    />
+                  )),
+                );
+              }
               setSortMenuOpen(!sortMenuOpen);
             }}
           >
             <ArrowUpDownIcon size={16} />
             <div>
-              {sorting.length > 0
-                ? `Sorted by ${sorting.length} ${sorting.length > 1 ? "fields" : "field"}`
+              {viewSorts.data && viewSorts.data.length > 0
+                ? `Sorted by ${viewSorts.data.length} ${viewSorts.data.length > 1 ? "fields" : "field"}`
                 : "Sort"}
             </div>
           </button>
@@ -170,12 +184,42 @@ function SortMenu() {
     localColumns,
     sortViewOpen,
     setSortViewOpen,
-    tempCol,
-    setTempCol,
+    sortItems,
     setSortItems,
+    selectedView,
   } = useAppContext();
-  const [filteredColumns, setFilteredColumns] = useState(localColumns);
-  const { toggleSort, setSort, clearSort } = useSortColumn();
+  const ctx = api.useUtils();
+
+  const { mutate: addSort } = api.table.addSort.useMutation({
+    onMutate: async (variables) => {
+      await ctx.table.getViewSorts.cancel();
+      const previousSorts = ctx.table.getViewSorts.getData({
+        viewId: selectedView?.id ?? "",
+      });
+      ctx.table.getViewSorts.setData(
+        { viewId: selectedView?.id ?? "" },
+        (old) => [
+          ...(old ?? []),
+          {
+            ...variables,
+            id: Date.now().toString(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      );
+      return { previousSorts };
+    },
+    onError: (err, variables, context) => {
+      ctx.table.getViewSorts.setData(
+        { viewId: selectedView?.id ?? "" },
+        context?.previousSorts,
+      );
+    },
+    onSettled: () => {
+      void ctx.table.getViewSorts.invalidate();
+    },
+  });
 
   return (
     <div className="absolute top-full z-40 mt-1 flex min-w-80 flex-col gap-y-3 rounded-sm border bg-white p-4 text-xs shadow-lg">
@@ -184,61 +228,106 @@ function SortMenu() {
       </div>
       {!sortViewOpen && (
         <SearchableList
-          items={filteredColumns}
+          items={localColumns}
           onItemSelect={(column) => {
             setSortViewOpen(!sortViewOpen);
-            setTempCol(column);
-            setSortItems([<SortItem key={column.id} />]);
-            setSort(column.id, "asc");
+            addSort({
+              viewId: selectedView?.id ?? "",
+              columnId: column.id,
+              desc: false,
+            });
+            setSortItems([
+              ...sortItems,
+              <SortItem
+                key={column.id}
+                colId={column.id}
+                colName={column.name}
+                colType={column.type}
+              />,
+            ]);
           }}
         />
       )}
-      {sortViewOpen && (
-        <SortView col={tempCol} filteredColumns={filteredColumns} />
-      )}
+      {sortViewOpen && <SortView />}
     </div>
   );
 }
 
-function SortView({
-  col,
-  filteredColumns,
-}: {
-  col: { id: string; name: string; type: string };
-  filteredColumns: { id: string; name: string; type: string }[];
-}) {
+function SortView() {
   const {
     setTempCol,
-    tempCol,
     localColumns,
-    setLocalColumns,
     sortItems,
     setSortItems,
     flag,
     setFlag,
-    sortViewOpen,
-    setSortViewOpen,
+    selectedView,
   } = useAppContext();
-  const { toggleSort, setSort, clearSort } = useSortColumn();
+  const ctx = api.useUtils();
+
+  const { mutate: addSort } = api.table.addSort.useMutation({
+    onMutate: async (variables) => {
+      await ctx.table.getViewSorts.cancel();
+      const previousSorts = ctx.table.getViewSorts.getData({
+        viewId: selectedView?.id ?? "",
+      });
+      ctx.table.getViewSorts.setData(
+        { viewId: selectedView?.id ?? "" },
+        (old) => [
+          ...(old ?? []),
+          {
+            ...variables,
+            id: Date.now().toString(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      );
+      return { previousSorts };
+    },
+    onError: (err, variables, context) => {
+      ctx.table.getViewSorts.setData(
+        { viewId: selectedView?.id ?? "" },
+        context?.previousSorts,
+      );
+    },
+    onSettled: () => {
+      void ctx.table.getViewSorts.invalidate();
+    },
+  });
 
   return (
     <div className="flex h-max w-full flex-col gap-y-2">
       {sortItems.map((item, index) => (
-        <SortItem key={index} />
+        <SortItem
+          key={index}
+          colId={item.key ?? ""}
+          colName={localColumns.find((col) => col.id === item.key)?.name ?? ""}
+          colType={localColumns.find((col) => col.id === item.key)?.type ?? ""}
+        />
       ))}
       <div className="flex w-full items-center justify-between gap-x-2">
         <button
           onClick={() => {
-            const currentIndex = localColumns.findIndex(
-              (col) => col.id === tempCol.id,
+            const newTempCol = localColumns.find(
+              (col) => !sortItems.find((item) => item.key === col.id),
             );
-            const newIndex = (currentIndex + 1) % localColumns.length;
-            const newTempCol = localColumns[newIndex];
+            addSort({
+              viewId: selectedView?.id ?? "",
+              columnId: newTempCol?.id ?? "",
+              desc: false,
+            });
             if (newTempCol) {
               setTempCol(newTempCol);
-            }
-            if (!sortItems.some((item) => item.key === tempCol.id)) {
-              setSortItems([...sortItems, <SortItem key={sortItems.length} />]);
+              setSortItems([
+                ...sortItems,
+                <SortItem
+                  key={newTempCol.id}
+                  colId={newTempCol.id}
+                  colName={newTempCol.name}
+                  colType={newTempCol.type}
+                />,
+              ]);
             }
             setFlag(!flag);
           }}
@@ -250,11 +339,7 @@ function SortView({
         <button
           className="flex w-max items-center gap-x-2 rounded-sm p-2 text-gray-500 hover:text-gray-700"
           onClick={() => {
-            setSortItems([]);
-            setTempCol({ id: "", name: "", type: "" });
-            setFlag(!flag);
-            setSortViewOpen(!sortViewOpen);
-            clearSort();
+            console.log("clear");
           }}
         >
           <XIcon size={16} />
@@ -355,30 +440,89 @@ function RowHeightMenu() {
   );
 }
 
-function SortItem() {
+function SortItem({
+  colId,
+  colName,
+  colType,
+}: {
+  colId: string;
+  colName: string;
+  colType: string;
+}) {
   const {
-    localColumns,
     sortViewOpen,
     setSortViewOpen,
-    tempCol,
-    setTempCol,
-    sorting,
-    setSorting,
     sortItems,
+    sorting,
     setSortItems,
-    flag,
-    setFlag,
+    selectedView,
+    colsNotInSort,
   } = useAppContext();
-  const [filteredColumns, setFilteredColumns] = useState(localColumns);
-  const [selectedColumn, setSelectedColumn] = useState(tempCol);
+  const [selectedColumn, setSelectedColumn] = useState({
+    id: colId,
+    name: colName,
+    type: colType,
+  });
   const [isColumnSelectOpen, setIsColumnSelectOpen] = useState(false);
-  const { toggleSort, setSort, clearSort } = useSortColumn();
 
-  useEffect(() => {
-    setSort(selectedColumn.id, "asc");
-    console.log("sort item", selectedColumn.name);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flag]);
+  const ctx = api.useUtils();
+
+  const { mutate: deleteSort } = api.table.deleteSort.useMutation({
+    onMutate: async (variables) => {
+      await ctx.table.getViewSorts.cancel();
+      const previousSorts = ctx.table.getViewSorts.getData({
+        viewId: selectedView?.id ?? "",
+      });
+      ctx.table.getViewSorts.setData(
+        { viewId: selectedView?.id ?? "" },
+        (old) =>
+          old?.filter((sort) => sort.columnId !== variables.columnId) ?? [],
+      );
+      return { previousSorts };
+    },
+    onError: (err, variables, context) => {
+      ctx.table.getViewSorts.setData(
+        { viewId: selectedView?.id ?? "" },
+        context?.previousSorts,
+      );
+    },
+    onSettled: () => {
+      void ctx.table.getViewSorts.invalidate({
+        viewId: selectedView?.id ?? "",
+      });
+    },
+  });
+
+  const { mutate: addSort } = api.table.addSort.useMutation({
+    onMutate: async (variables) => {
+      await ctx.table.getViewSorts.cancel();
+      const previousSorts = ctx.table.getViewSorts.getData({
+        viewId: selectedView?.id ?? "",
+      });
+      ctx.table.getViewSorts.setData(
+        { viewId: selectedView?.id ?? "" },
+        (old) => [
+          ...(old ?? []),
+          {
+            ...variables,
+            id: Date.now().toString(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      );
+      return { previousSorts };
+    },
+    onError: (err, variables, context) => {
+      ctx.table.getViewSorts.setData(
+        { viewId: selectedView?.id ?? "" },
+        context?.previousSorts,
+      );
+    },
+    onSettled: () => {
+      void ctx.table.getViewSorts.invalidate();
+    },
+  });
 
   return (
     <div className="relative flex w-full items-center gap-x-2">
@@ -394,14 +538,35 @@ function SortItem() {
       {isColumnSelectOpen && (
         <div className="absolute top-full z-20 mt-1 w-60 rounded-md border bg-white p-2 shadow-md">
           <SearchableList
-            items={filteredColumns.filter(
-              (col) => !sorting.some((sort) => sort.id === col.id),
-            )}
+            items={colsNotInSort}
             onItemSelect={(column) => {
-              sorting.pop();
-              setSelectedColumn(column);
+              addSort({
+                viewId: selectedView?.id ?? "",
+                columnId: column.id,
+                desc: false,
+              });
+              deleteSort({
+                viewId: selectedView?.id ?? "",
+                columnId: selectedColumn.id,
+              });
+              setSortItems(
+                sortItems
+                  .filter((item) => item.key !== colId)
+                  .concat(
+                    <SortItem
+                      key={column.id}
+                      colId={column.id}
+                      colName={column.name}
+                      colType={column.type}
+                    />,
+                  ),
+              );
               setIsColumnSelectOpen(!isColumnSelectOpen);
-              setSort(column.id, "asc");
+              setSelectedColumn({
+                id: column.id,
+                name: column.name,
+                type: column.type,
+              });
             }}
           />
         </div>
@@ -425,12 +590,16 @@ function SortItem() {
           {selectedColumn.type === "text" ? (
             <>
               <DropdownMenuItem
-                onClick={() => setSort(selectedColumn.id, "asc")}
+                onClick={() => {
+                  console.log("sort");
+                }}
               >
                 A-Z
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => setSort(selectedColumn.id, "desc")}
+                onClick={() => {
+                  console.log("sort");
+                }}
               >
                 Z-A
               </DropdownMenuItem>
@@ -438,13 +607,13 @@ function SortItem() {
           ) : selectedColumn.type === "number" ? (
             <>
               <DropdownMenuItem
-                onClick={() => setSort(selectedColumn.id, "asc")}
+                onClick={() => {
+                  console.log("sort");
+                }}
               >
                 0-9
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setSort(selectedColumn.id, "desc")}
-              >
+              <DropdownMenuItem onClick={() => console.log("sort")}>
                 9-0
               </DropdownMenuItem>
             </>
@@ -454,10 +623,12 @@ function SortItem() {
       <button
         className="flex items-center gap-x-2 rounded-sm p-2 hover:bg-gray-100"
         onClick={() => {
-          sortItems.pop();
-          sorting.pop();
-          setSortItems([...sortItems]);
-          if (sortItems.length === 0) {
+          deleteSort({
+            viewId: selectedView?.id ?? "",
+            columnId: selectedColumn.id,
+          });
+
+          if (sortItems.length === 1) {
             setSortViewOpen(!sortViewOpen);
           }
         }}

@@ -3,6 +3,7 @@ import { useAppContext } from "../context";
 import { SearchIcon, Grid2x2Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "@/trpc/react";
+import { useRouter, usePathname } from "next/navigation";
 
 interface View {
   id: string;
@@ -12,15 +13,34 @@ interface View {
   tableId: string;
   selected?: boolean;
 }
-export default function ViewMenu({ _tableId }: { _tableId: string }) {
-  const { isViewsOpen, selectedView, setSelectedView } = useAppContext();
+
+export default function ViewMenu({
+  _tableId,
+  _baseId,
+}: {
+  _tableId: string;
+  _baseId: string;
+}) {
+  const {
+    isViewsOpen,
+    selectedView,
+    setSelectedView,
+    setSortItems,
+    setSortViewOpen,
+  } = useAppContext();
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [filteredViews, setFilteredViews] = useState<View[]>([]);
   const [search, setSearch] = useState("");
   const ctx = api.useUtils();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const data = api.table.getViewsByTableId.useQuery({
     tableId: _tableId,
+  });
+
+  const viewSorts = api.table.getViewSorts.useQuery({
+    viewId: selectedView?.id ?? "",
   });
 
   const { mutate: addView, isPending } = api.table.addView.useMutation({
@@ -59,40 +79,6 @@ export default function ViewMenu({ _tableId }: { _tableId: string }) {
     },
   });
 
-  const { mutate: updateViewSelected } =
-    api.table.updateViewSelected.useMutation({
-      onMutate: async (updatedView) => {
-        await ctx.table.getViewsByTableId.cancel();
-        const previousViews = ctx.table.getViewsByTableId.getData();
-        ctx.table.getViewsByTableId.setData({ tableId: _tableId }, (old) =>
-          old?.map((view) =>
-            view.id === updatedView.viewId
-              ? { ...view, selected: true }
-              : { ...view, selected: false },
-          ),
-        );
-        return { previousViews };
-      },
-      onError: (err, updatedView, context) => {
-        if (context) {
-          ctx.table.getViewsByTableId.setData(
-            { tableId: _tableId },
-            context.previousViews,
-          );
-        }
-      },
-      onSettled: (data) => {
-        const previousViews = ctx.table.getViewsByTableId.getData();
-        if (data) {
-          ctx.table.getViewsByTableId.setData({ tableId: _tableId }, (old) =>
-            old?.map((view) =>
-              view.id === "temp-id" ? { ...view, id: data.id } : view,
-            ),
-          );
-        }
-      },
-    });
-
   useEffect(() => {
     if (data.data) {
       setFilteredViews(
@@ -108,7 +94,7 @@ export default function ViewMenu({ _tableId }: { _tableId: string }) {
   }
 
   return (
-    <div className="flex max-h-[80vh] w-80 flex-grow flex-col border-r border-gray-200 bg-white text-xs">
+    <div className="relative flex max-h-[81vh] w-80 flex-grow flex-col border-r border-gray-200 bg-white text-xs">
       <div className="px-4 py-2">
         <div
           className={`mb-4 flex items-center gap-x-2 border-b ${isInputFocused ? "border-blue-500" : "border-gray-200"}`}
@@ -126,20 +112,20 @@ export default function ViewMenu({ _tableId }: { _tableId: string }) {
           ></input>
         </div>
       </div>
-      <div className="max-h-full flex-grow overflow-auto px-4">
+      <div className="flex-grow overflow-auto px-4">
         {filteredViews.map((view) => (
           <div
             key={view.id}
             onClick={() => {
               setSelectedView(view);
-              updateViewSelected({
-                viewId: view.id,
-              });
+              setSortItems([]);
+              setSortViewOpen(false);
+              router.push(`/${_baseId}/${_tableId}/${view.id}`);
             }}
-            className={`flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-100 ${
-              selectedView?.id === view.id
+            className={`flex cursor-pointer items-center gap-x-2 rounded-sm p-2 ${
+              pathname.includes(view.id)
                 ? "bg-blue-200/60 hover:bg-blue-200"
-                : ""
+                : "hover:bg-gray-100"
             }`}
           >
             <Grid2x2Plus size={16} strokeWidth={1} color="blue" />
@@ -147,14 +133,15 @@ export default function ViewMenu({ _tableId }: { _tableId: string }) {
           </div>
         ))}
       </div>
-      <div className="border-t bg-white px-4 py-2">
+      <div className="absolute bottom-0 max-h-52 w-full border-t bg-white px-4 py-2">
         <button
           onClick={() => {
             addView({
               tableId: _tableId,
             });
           }}
-          className="mt-auto w-full flex items-center gap-x-2 rounded-sm bg-blue-500 p-2 text-white active:bg-blue-600"
+          disabled={isPending}
+          className="mt-auto flex w-full items-center gap-x-2 rounded-sm bg-blue-500 p-2 text-white active:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-500"
         >
           <Grid2x2Plus size={16} strokeWidth={1} />
           <div className="">

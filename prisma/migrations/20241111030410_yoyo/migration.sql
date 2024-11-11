@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "ViewSort" ALTER COLUMN "order" SET DATA TYPE TEXT;
