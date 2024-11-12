@@ -33,7 +33,7 @@
     "@t3-oss/env-nextjs": "^0.10.1",
     "@tanstack/react-query": "^5.50.0",
     "@tanstack/react-table": "^8.20.5",
-    "@tanstack/react-virtual": "^3.10.8",
+    "@tanstack/react-virtual": "^3.10.9",
     "@tanstack/vue-table": "^8.20.5",
     "@trpc/client": "^11.0.0-rc.593",
     "@trpc/react-query": "^11.0.0-rc.446",

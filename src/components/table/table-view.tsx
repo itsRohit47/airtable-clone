@@ -1,7 +1,8 @@
 "use client";
 // ----------- import -----------
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useRef, use } from "react";
 import { useInView } from "react-intersection-observer";
+
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,8 +10,8 @@ import {
   getSortedRowModel,
   type ColumnDef,
   flexRender,
-  type SortingState,
 } from "@tanstack/react-table";
+
 import {
   Plus,
   LoaderIcon,
@@ -29,6 +30,7 @@ import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "../context";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 export function TableView({
   tableId,
@@ -39,6 +41,7 @@ export function TableView({
 }) {
   // ----------- useState -----------
   const { toast } = useToast();
+  const { inView, ref } = useInView();
   const {
     localColumns,
     setLocalColumns,
@@ -57,23 +60,24 @@ export function TableView({
   } = useAppContext();
   const [isColNameEditing, setIsColNameEditing] = useState(false);
   const [editColId, setEditColId] = useState("");
-  const { ref, inView } = useInView({});
   const { data: count } = api.table.getTableCount.useQuery({
     tableId,
   });
+
+  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   // ----------- fetch data -----------
   const {
     data: tableData,
     isLoading,
-    isFetching,
+    isFetchingNextPage,
     fetchNextPage,
     hasNextPage,
     status,
   } = api.table.getData.useInfiniteQuery(
     {
       tableId,
-      pageSize: 300,
+      pageSize: 200,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -92,7 +96,7 @@ export function TableView({
     setSorting(
       viewSorts?.map((sort) => ({ id: sort.columnId, desc: sort.desc })) ?? [],
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewSorts]);
 
   // to update column name
@@ -144,13 +148,6 @@ export function TableView({
     view,
     setSelectedView,
   ]);
-
-  useEffect(() => {
-    console.log("inView", inView);
-    if (inView && hasNextPage) {
-      void fetchNextPage();
-    }
-  }, [fetchNextPage, hasNextPage, inView]);
 
   // ----------- add column mutation -----------
   const addColumn = api.table.addField.useMutation({
@@ -297,7 +294,7 @@ export function TableView({
         />
       ),
     }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isColNameEditing, localColumns]);
 
   // ----------- add column handler -----------
@@ -339,6 +336,20 @@ export function TableView({
     },
   });
 
+  const { rows } = table.getRowModel();
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => rowHeight * 16,
+  });
+
+  useEffect(() => {
+    if (inView && hasNextPage) {
+      void fetchNextPage();
+    }
+  }, [inView, hasNextPage, fetchNextPage]);
+
   // ----------- when loading -----------
   if (isLoading && status === "pending") {
     return (
@@ -359,7 +370,10 @@ export function TableView({
 
   // ----------- return -----------
   return (
-    <div className="max-h-[90vh] max-w-[100vw] flex-grow overflow-auto">
+    <div
+      ref={tableContainerRef}
+      className="mb-10 max-h-[80vh] max-w-[100vw] flex-grow overflow-auto"
+    >
       <table className="mb-20 w-max">
         <thead className="sticky top-0 z-10 flex">
           {table.getHeaderGroups().map((headerGroup) => (
@@ -370,17 +384,14 @@ export function TableView({
                   key={header.id}
                   style={{ width: header.getSize() }}
                   className={`relative border-b border-r border-gray-300 p-2 text-xs ${
-                    header.column.getIsSorted()
-                      ? "bg-blue-100" // Sorted column header background
-                      : "bg-[#F5F5F5]"
-                  }`} // Your existing background
+                    header.column.getIsSorted() ? "bg-blue-100" : "bg-[#F5F5F5]"
+                  }`}
                 >
                   <div className="flex items-center gap-1">
                     {typeof header.column.columnDef.header === "function"
                       ? header.column.columnDef.header(header.getContext())
                       : header.column.columnDef.header}
 
-                    {/* Add sort indicator */}
                     {header.column.getIsSorted() && (
                       <span className="text-blue-600">
                         {header.column.getIsSorted() === "asc" ? "↑" : "↓"}
@@ -388,7 +399,6 @@ export function TableView({
                     )}
                   </div>
 
-                  {/* Your existing resize handler */}
                   <div
                     onMouseDown={header.getResizeHandler()}
                     onTouchStart={header.getResizeHandler()}
@@ -426,39 +436,59 @@ export function TableView({
             </tr>
           ))}{" "}
         </thead>
-        <tbody className="w-max">
-          {table.getRowModel().rows.map((row) => (
-            <tr
-              key={row?.id}
-              style={{ height: `${rowHeight}rem` }}
-              className={cn(
-                "relative flex w-max items-center bg-white hover:bg-gray-100",
-              )}
-            >
-              <div className="absolute left-2 text-xs text-gray-500">
-                {row.index + 1}
-              </div>
-              {row?.getVisibleCells().map((cell) => (
-                <td
-                  key={cell.id}
-                  style={{ width: cell.column.getSize() }}
-                  className={cn(
-                    "h-full w-max border-b border-r p-[2px] text-xs",
-                    {
-                      "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-white":
-                        globalFilter &&
-                        String(cell.getValue()).includes(globalFilter),
-                      // Add sorted column styling
-                      "bg-blue-50": cell.column.getIsSorted(),
-                    },
-                  )}
+        <tbody
+          className="relative w-max"
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px)`,
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const row = rows[virtualRow.index];
+
+              return (
+                <tr
+                  key={row?.id}
+                  style={{ height: `${rowHeight}rem` }}
+                  className="flex w-max items-center bg-white hover:bg-gray-100"
                 >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
+                  <div className="absolute left-2 text-xs text-gray-500">
+                    {virtualRow.index + 1}
+                  </div>
+                  {row?.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      style={{ width: cell.column.getSize() }}
+                      className={cn(
+                        "h-full w-max border-b border-r p-[2px] text-xs",
+                        {
+                          "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-white":
+                            globalFilter &&
+                            String(cell.getValue()).includes(globalFilter),
+                          "bg-blue-50": cell.column.getIsSorted(),
+                        },
+                      )}
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </div>
         </tbody>
+
         <tfoot className="flex w-max border-r">
           {table.getFooterGroups().map((footerGroup) => (
             <button
@@ -485,6 +515,17 @@ export function TableView({
             </button>
           ))}
         </tfoot>
+
+        <div
+          ref={ref}
+          className="mx-auto mt-10 flex w-max items-center text-xs"
+        >
+          {isFetchingNextPage && (
+            <LoaderIcon size={20} strokeWidth={1} className="animate-spin" />
+          )}
+          {!hasNextPage && <span className="text-gray-500">End of table</span>}
+        </div>
+
         <div className="fixed bottom-10 ml-3 flex items-center">
           <button
             onClick={handleAddRow}
@@ -495,13 +536,6 @@ export function TableView({
           <span className="rounded-r-full border bg-white p-2 text-xs">
             Add...
           </span>
-        </div>
-        <div
-          ref={ref}
-          className="mb-20 flex w-screen flex-col items-center justify-center p-2 text-xs text-gray-500"
-        >
-          <div> {isFetching ? "Loading..." : ""}</div>
-          <div> {hasNextPage ? "" : " No more data"}</div>
         </div>
         <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500">
           {isLoading ? "Loading..." : recordCount} records

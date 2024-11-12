@@ -10,10 +10,15 @@ import AddTableDialog from "./add-table-dialog";
 import { useAppContext } from "../context";
 import TableNameEdit from "./table-name-edit";
 
-export default function TableNav({ baseId }: { baseId: string }) {
+export default function TableNav({
+  baseId,
+  viewId,
+}: {
+  baseId: string;
+  viewId: string;
+}) {
   const ctx = api.useUtils();
   const tables = GetTableList({ baseId });
-  const router = useRouter();
   const path = usePathname();
   const [isTableAddOpen, setIsTableAddOpen] = useState(false);
   const {
@@ -32,7 +37,7 @@ export default function TableNav({ baseId }: { baseId: string }) {
           <div className="flex gap-x-2 overflow-x-scroll">
             {tables?.map((table) => (
               <Link
-                href={`/base/${baseId}/table/${table.id}`}
+                href={`/${baseId}/${table.id}/${viewId}`}
                 key={table.id}
                 onClick={async () => {
                   setThisTable(table.id);
@@ -57,7 +62,7 @@ export default function TableNav({ baseId }: { baseId: string }) {
                   {table.baseId === baseId &&
                     (localTabes.indexOf(table) === localTabes.length - 1 ? (
                       <Link
-                        href={`/base/${baseId}/table/${table.id}`}
+                        href={`/${baseId}/${table.id}/${viewId}`}
                         key={table.id}
                         onClick={async () => {
                           setEditName(false);
@@ -84,7 +89,7 @@ export default function TableNav({ baseId }: { baseId: string }) {
                       </Link>
                     ) : (
                       <Link
-                        href={`/base/${baseId}/table/${table.id}`}
+                        href={`/${baseId}/${table.id}/${viewId}`}
                         key={table.id}
                         onClick={() => {
                           setEditName(false);

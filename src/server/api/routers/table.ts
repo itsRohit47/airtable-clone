@@ -264,8 +264,7 @@ export const tableRouter = createTRPCRouter({
         cursor: z.string().optional(),
         sortBy: z.string().optional(),
         sortDesc: z.boolean().optional().default(false),
-        pageSize: z.number().optional(),
-        skip: z.number().optional(),
+        pageSize: z.number().optional().default(10),
       }),
     )
     .query(async ({ ctx, input }) => {

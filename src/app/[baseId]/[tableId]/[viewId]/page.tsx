@@ -18,7 +18,7 @@ export default function Table({
       ></TableTopNav>
       {tableTab === "data" && (
         <>
-          <TableNav baseId={params.baseId}></TableNav>
+          <TableNav baseId={params.baseId} viewId={params.viewId}></TableNav>
           <TableHead tableId={params.tableId}></TableHead>
           <div className="-z-10 flex h-full w-max flex-grow transition duration-150 ease-in-out">
             <ViewMenu

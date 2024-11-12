@@ -13,7 +13,8 @@ export default function AddTableDialog({
   classList: string;
 }) {
   const router = useRouter();
-  const { localTabes, setThisTable, editName, setEditName } = useAppContext();
+  const { localTabes, setThisTable, editName, setEditName, selectedView } =
+    useAppContext();
   const [tempId, setTempId] = useState(uuidv4());
   const { mutate: addTable } = api.table.addTable.useMutation({
     onMutate: () => {
@@ -24,7 +25,7 @@ export default function AddTableDialog({
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-      router.replace(`/base/${baseId}/table/${tempId}`);
+      router.replace(`/${baseId}/${tempId}/${selectedView?.id}`);
       setEditName(true);
     },
     onSuccess: (data) => {
@@ -32,7 +33,7 @@ export default function AddTableDialog({
       if (latestTable) {
         latestTable.id = data.id;
       }
-      router.replace(`/base/${baseId}/table/${data.id}`);
+      router.replace(`/${baseId}/${data.id}/${selectedView?.id}`);
       setThisTable("");
     },
   });
