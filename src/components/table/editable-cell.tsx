@@ -49,7 +49,6 @@ export function EditableCell({
       setLoading(false);
     },
     onSettled: () => {
-      void ctx.table.getData.invalidate();
       setLoading(false);
     },
   });
