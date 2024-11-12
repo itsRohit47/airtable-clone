@@ -359,21 +359,10 @@ export function TableView({
     onGlobalFilterChange: (newFilter) => {
       setGlobalFilter(typeof newFilter === "string" ? newFilter : "");
     },
+    onSortingChange: (newSorting) => {
+      setSorting(newSorting as SortingState);
+    },
   });
-
-  //scroll to top of table when sorting changes
-  const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
-    setSorting(typeof updater === "function" ? updater(sorting) : updater);
-    if (!!table.getRowModel().rows.length) {
-      rowVirtualizer.scrollToIndex(0);
-    }
-  };
-
-  //since this table option is derived from table row model state, we're using the table.setOptions utility
-  table.setOptions((prev) => ({
-    ...prev,
-    onSortingChange: handleSortingChange,
-  }));
 
   const { rows } = table.getRowModel();
 
@@ -412,7 +401,7 @@ export function TableView({
     <div
       ref={tableContainerRef}
       onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
-      className="max-h-[80vh] max-w-[100vw] flex-grow overflow-auto"
+      className="min-w-screen max-h-[90vh] flex-grow overflow-auto"
     >
       <table className="w-max">
         <thead className="sticky top-0 z-10 flex">
@@ -554,7 +543,6 @@ export function TableView({
             </div>
           </div>
         </tbody>
-        {isFetching && <div className="text-xs">Fetching More...</div>}
         <div className="fixed bottom-10 ml-3 flex items-center">
           <button
             onClick={handleAddRow}
