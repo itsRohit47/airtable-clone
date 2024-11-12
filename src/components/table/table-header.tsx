@@ -17,7 +17,7 @@ import {
   PlusIcon,
 } from "lucide-react";
 import { api } from "@/trpc/react";
-import { useState, useEffect, use } from "react";
+import { useState } from "react";
 import { LineHeightIcon } from "@radix-ui/react-icons";
 import { useAppContext } from "../context";
 import {
@@ -27,24 +27,110 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Main sort management hook
+const useSortManagement = (viewId: string) => {
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const ctx = api.useUtils();
+  const { localColumns } = useAppContext();
+
+  const viewSorts = api.table.getViewSorts.useQuery({ viewId });
+
+  // get the columns that are not sorted
+  const unsortedColumns = localColumns.filter(
+    (col) => !viewSorts.data?.find((sort) => sort.columnId === col.id),
+  );
+
+  const { mutate: addSort } = api.table.addSort.useMutation({
+    onMutate: async (variables) => {
+      await ctx.table.getViewSorts.cancel();
+      const previousSorts = ctx.table.getViewSorts.getData({ viewId });
+
+      ctx.table.getViewSorts.setData({ viewId }, (old) => [
+        ...(old ?? []),
+        {
+          ...variables,
+          id: Date.now().toString(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
+      return { previousSorts };
+    },
+    onError: (err, variables, context) => {
+      ctx.table.getViewSorts.setData({ viewId }, context?.previousSorts);
+    },
+    onSettled: () => {
+      void ctx.table.getViewSorts.invalidate();
+    },
+  });
+
+  const { mutate: deleteSort } = api.table.deleteSort.useMutation({
+    onMutate: async (variables) => {
+      await ctx.table.getViewSorts.cancel();
+      const previousSorts = ctx.table.getViewSorts.getData({ viewId });
+
+      ctx.table.getViewSorts.setData(
+        { viewId },
+        (old) =>
+          old?.filter((sort) => sort.columnId !== variables.columnId) ?? [],
+      );
+
+      return { previousSorts };
+    },
+    onError: (err, variables, context) => {
+      ctx.table.getViewSorts.setData({ viewId }, context?.previousSorts);
+    },
+    onSettled: () => {
+      void ctx.table.getViewSorts.invalidate();
+    },
+  });
+
+  const { mutate: updateSort } = api.table.updateSort.useMutation({
+    onMutate: async (variables) => {
+      await ctx.table.getViewSorts.cancel();
+      const previousSorts = ctx.table.getViewSorts.getData({ viewId });
+
+      ctx.table.getViewSorts.setData(
+        { viewId },
+        (old) =>
+          old?.map((sort) =>
+            sort.columnId === variables.columnId
+              ? { ...sort, ...variables }
+              : sort,
+          ) ?? [],
+      );
+
+      return { previousSorts };
+    },
+    onError: (err, variables, context) => {
+      ctx.table.getViewSorts.setData({ viewId }, context?.previousSorts);
+    },
+    onSettled: () => {
+      void ctx.table.getViewSorts.invalidate();
+    },
+  });
+
+  return {
+    sortMenuOpen,
+    setSortMenuOpen,
+    viewSorts: viewSorts.data ?? [],
+    unsortedColumns,
+    addSort,
+    deleteSort,
+    updateSort,
+  };
+};
+
 export default function TableHead({ tableId }: { tableId: string }) {
   const ctx = api.useUtils();
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [searchMenuOpen, setSearchMenuOpen] = useState(false);
   const [rowHeightMenuOpen, setRowHeightMenuOpen] = useState(false);
-  const {
-    isViewsOpen,
-    setIsViewsOpen,
-    selectedView,
-    sortItems,
-    setSortItems,
-    sortViewOpen,
-    setSortViewOpen,
-  } = useAppContext();
+  const { isViewsOpen, setIsViewsOpen, selectedView } = useAppContext();
 
-  const viewSorts = api.table.getViewSorts.useQuery({
-    viewId: selectedView?.id ?? "",
-  });
+  const { sortMenuOpen, setSortMenuOpen, viewSorts } = useSortManagement(
+    selectedView?.id ?? "",
+  );
 
   return (
     <div className="flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
@@ -79,33 +165,20 @@ export default function TableHead({ tableId }: { tableId: string }) {
         </div>
         <div className="relative">
           <button
-            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewSorts.data && viewSorts.data.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
+            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewSorts && viewSorts.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
             onClick={() => {
-              void ctx.table.getData.invalidate({ tableId });
-              if (viewSorts.data && viewSorts.data.length > 0) {
-                setSortViewOpen(!sortViewOpen);
-                setSortItems(
-                  viewSorts.data.map((sort) => (
-                    <SortItem
-                      key={sort.columnId}
-                      colId={sort.columnId}
-                      colName={sort.columnId}
-                      colType={sort.columnId}
-                    />
-                  )),
-                );
-              }
               setSortMenuOpen(!sortMenuOpen);
             }}
           >
             <ArrowUpDownIcon size={16} />
             <div>
-              {viewSorts.data && viewSorts.data.length > 0
-                ? `Sorted by ${viewSorts.data.length} ${viewSorts.data.length > 1 ? "fields" : "field"}`
+              {viewSorts.length > 0
+                ? `Sorted by ${viewSorts.length} ${viewSorts.length > 1 ? "fields" : "field"}`
                 : "Sort"}
             </div>
           </button>
-          {sortMenuOpen && <SortMenu />}
+          {sortMenuOpen && viewSorts.length === 0 && <SortMenu />}
+          {sortMenuOpen && (viewSorts.length ?? 0) > 0 && <SortView />}
         </div>
         <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <PaintBucketIcon size={16} />
@@ -136,258 +209,6 @@ export default function TableHead({ tableId }: { tableId: string }) {
           <SearchIcon size={16} />
         </button>
         {searchMenuOpen && <SearchInput />}
-      </div>
-    </div>
-  );
-}
-
-function SearchableList({
-  items,
-  onItemSelect,
-}: {
-  items: { id: string; name: string; type: string }[];
-  onItemSelect: (item: { id: string; name: string; type: string }) => void;
-}) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const filteredItems = items.filter((item) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-
-  return (
-    <div className="flex max-h-52 flex-col">
-      <div className="flex items-center gap-x-2">
-        <SearchIcon size={16} className="text-blue-500" />
-        <input
-          placeholder="Find a field"
-          className="w-full p-2 focus:outline-none"
-          autoFocus
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-      <div className="flex max-h-80 flex-col overflow-auto">
-        {filteredItems.map((item) => (
-          <div
-            key={item.id}
-            onClick={() => onItemSelect(item)}
-            className="flex items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60"
-          >
-            <div>{item.name}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SortMenu() {
-  const {
-    localColumns,
-    sortViewOpen,
-    setSortViewOpen,
-    sortItems,
-    setSortItems,
-    selectedView,
-  } = useAppContext();
-  const ctx = api.useUtils();
-
-  const { mutate: addSort } = api.table.addSort.useMutation({
-    onMutate: async (variables) => {
-      await ctx.table.getViewSorts.cancel();
-      const previousSorts = ctx.table.getViewSorts.getData({
-        viewId: selectedView?.id ?? "",
-      });
-      ctx.table.getViewSorts.setData(
-        { viewId: selectedView?.id ?? "" },
-        (old) => [
-          ...(old ?? []),
-          {
-            ...variables,
-            id: Date.now().toString(),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ],
-      );
-      return { previousSorts };
-    },
-    onError: (err, variables, context) => {
-      ctx.table.getViewSorts.setData(
-        { viewId: selectedView?.id ?? "" },
-        context?.previousSorts,
-      );
-    },
-    onSettled: () => {
-      void ctx.table.getViewSorts.invalidate();
-    },
-  });
-
-  return (
-    <div className="absolute top-full z-40 mt-1 flex min-w-80 flex-col gap-y-3 rounded-sm border bg-white p-4 text-xs shadow-lg">
-      <div className="border-b pb-2 text-xs font-semibold text-gray-600">
-        Sort by
-      </div>
-      {!sortViewOpen && (
-        <SearchableList
-          items={localColumns}
-          onItemSelect={(column) => {
-            setSortViewOpen(!sortViewOpen);
-            addSort({
-              viewId: selectedView?.id ?? "",
-              columnId: column.id,
-              desc: false,
-            });
-            setSortItems([
-              ...sortItems,
-              <SortItem
-                key={column.id}
-                colId={column.id}
-                colName={column.name}
-                colType={column.type}
-              />,
-            ]);
-          }}
-        />
-      )}
-      {sortViewOpen && <SortView />}
-    </div>
-  );
-}
-
-function SortView() {
-  const {
-    setTempCol,
-    localColumns,
-    sortItems,
-    setSortItems,
-    flag,
-    setFlag,
-    selectedView,
-  } = useAppContext();
-  const ctx = api.useUtils();
-
-  const { mutate: addSort } = api.table.addSort.useMutation({
-    onMutate: async (variables) => {
-      await ctx.table.getViewSorts.cancel();
-      const previousSorts = ctx.table.getViewSorts.getData({
-        viewId: selectedView?.id ?? "",
-      });
-      ctx.table.getViewSorts.setData(
-        { viewId: selectedView?.id ?? "" },
-        (old) => [
-          ...(old ?? []),
-          {
-            ...variables,
-            id: Date.now().toString(),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ],
-      );
-      return { previousSorts };
-    },
-    onError: (err, variables, context) => {
-      ctx.table.getViewSorts.setData(
-        { viewId: selectedView?.id ?? "" },
-        context?.previousSorts,
-      );
-    },
-    onSettled: () => {
-      void ctx.table.getViewSorts.invalidate();
-    },
-  });
-
-  return (
-    <div className="flex h-max w-full flex-col gap-y-2">
-      {sortItems.map((item, index) => (
-        <SortItem
-          key={index}
-          colId={item.key ?? ""}
-          colName={localColumns.find((col) => col.id === item.key)?.name ?? ""}
-          colType={localColumns.find((col) => col.id === item.key)?.type ?? ""}
-        />
-      ))}
-      <div className="flex w-full items-center justify-between gap-x-2">
-        <button
-          onClick={() => {
-            const newTempCol = localColumns.find(
-              (col) => !sortItems.find((item) => item.key === col.id),
-            );
-            addSort({
-              viewId: selectedView?.id ?? "",
-              columnId: newTempCol?.id ?? "",
-              desc: false,
-            });
-            if (newTempCol) {
-              setTempCol(newTempCol);
-              setSortItems([
-                ...sortItems,
-                <SortItem
-                  key={newTempCol.id}
-                  colId={newTempCol.id}
-                  colName={newTempCol.name}
-                  colType={newTempCol.type}
-                />,
-              ]);
-            }
-            setFlag(!flag);
-          }}
-          className="flex w-max items-center gap-x-2 rounded-sm p-2 text-gray-500 hover:text-gray-700"
-        >
-          <PlusIcon size={16} />
-          <div className="flex items-center gap-x-2">Add another sort</div>
-        </button>
-        <button
-          className="flex w-max items-center gap-x-2 rounded-sm p-2 text-gray-500 hover:text-gray-700"
-          onClick={() => {
-            console.log("clear");
-          }}
-        >
-          <XIcon size={16} />
-          Clear all sorts
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SearchInput() {
-  const { setGlobalFilter } = useAppContext();
-  const ctx = api.useUtils();
-  return (
-    <div
-      id="search-input"
-      className="absolute right-0 top-full mt-2 bg-white shadow-sm"
-    >
-      <div className="flex w-80 items-center border p-2">
-        <input
-          className="h-full w-full text-xs focus:outline-none"
-          placeholder="Find in view"
-          onFocus={(e) => {
-            setGlobalFilter("");
-            void ctx.table.getData.invalidate();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              void ctx.table.getData.invalidate();
-              setGlobalFilter("");
-              (e.target as HTMLInputElement).value = "";
-            }
-          }}
-          onChange={(e) => {
-            setGlobalFilter(e.target.value);
-          }}
-        />
-        <XIcon
-          size={20}
-          className="cursor-pointer text-gray-500 hover:text-gray-900"
-          onClick={() => {
-            const searchInput = document.getElementById("search-input");
-            if (searchInput) {
-              searchInput.classList.toggle("hidden");
-            }
-            setGlobalFilter("");
-          }}
-        />
       </div>
     </div>
   );
@@ -440,6 +261,167 @@ function RowHeightMenu() {
   );
 }
 
+function SearchableList({
+  items,
+  onItemSelect,
+}: {
+  items: { id: string; name: string; type: string }[];
+  onItemSelect: (item: { id: string; name: string; type: string }) => void;
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const filteredItems = items.filter((item) =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
+  return (
+    <div className="flex max-h-52 flex-col">
+      <div className="flex items-center gap-x-2">
+        <SearchIcon size={16} className="text-blue-500" />
+        <input
+          placeholder="Find a field"
+          className="w-full p-2 focus:outline-none"
+          autoFocus
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+      <div className="flex max-h-80 flex-col overflow-auto">
+        {filteredItems.length > 0 ? (
+          filteredItems.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => onItemSelect(item)}
+              className="flex items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60"
+            >
+              <div>{item.name}</div>
+            </div>
+          ))
+        ) : (
+          <div className="p-2 text-gray-500">No results</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SortMenu() {
+  const { localColumns, selectedView } = useAppContext();
+  const { addSort } = useSortManagement(selectedView?.id ?? "");
+
+  return (
+    <div className="absolute top-full z-40 mt-1 flex min-w-80 flex-col gap-y-3 rounded-sm border bg-white p-4 text-xs shadow-lg">
+      <div className="border-b pb-2 text-xs font-semibold text-gray-600">
+        Sort by
+      </div>
+      <SearchableList
+        items={localColumns}
+        onItemSelect={(column) => {
+          addSort({
+            viewId: selectedView?.id ?? "",
+            columnId: column.id,
+            desc: false,
+          });
+        }}
+      />
+    </div>
+  );
+}
+
+function SortView() {
+  const { localColumns, selectedView } = useAppContext();
+  const { viewSorts, addSort, unsortedColumns } = useSortManagement(
+    selectedView?.id ?? "",
+  );
+
+  return (
+    <div className="absolute top-full z-40 mt-1 flex min-w-80 flex-col gap-y-3 rounded-sm border bg-white p-4 text-xs shadow-lg">
+      <div className="border-b pb-2 text-xs font-semibold text-gray-600">
+        Sort by
+      </div>
+      <div className="l flex w-full flex-col items-center justify-between gap-x-2 gap-y-2">
+        {viewSorts
+          .sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          )
+          .map((sort) => (
+            <SortItem
+              key={sort.columnId}
+              colId={sort.columnId}
+              colName={
+                localColumns.find((col) => col.id === sort.columnId)?.name ?? ""
+              }
+              colType={
+                localColumns.find((col) => col.id === sort.columnId)?.type ?? ""
+              }
+            />
+          ))}
+      </div>
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => {
+            if (unsortedColumns.length > 0) {
+              addSort({
+                viewId: selectedView?.id ?? "",
+                columnId: unsortedColumns[0]?.id ?? "",
+                desc: false,
+              });
+            } else {
+              alert("No more columns available to sort");
+            }
+          }}
+          className="flex items-center justify-between gap-x-2 text-gray-500 hover:text-gray-700"
+        >
+          <PlusIcon size={16}></PlusIcon>
+          <span>Add another sort</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SearchInput() {
+  const { setGlobalFilter } = useAppContext();
+  const ctx = api.useUtils();
+  return (
+    <div
+      id="search-input"
+      className="absolute right-0 top-full mt-2 bg-white shadow-sm"
+    >
+      <div className="flex w-80 items-center border p-2">
+        <input
+          className="h-full w-full text-xs focus:outline-none"
+          placeholder="Find in view"
+          onFocus={(e) => {
+            setGlobalFilter("");
+            void ctx.table.getData.invalidate();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              void ctx.table.getData.invalidate();
+              setGlobalFilter("");
+              (e.target as HTMLInputElement).value = "";
+            }
+          }}
+          onChange={(e) => {
+            setGlobalFilter(e.target.value);
+          }}
+        />
+        <XIcon
+          size={20}
+          className="cursor-pointer text-gray-500 hover:text-gray-900"
+          onClick={() => {
+            const searchInput = document.getElementById("search-input");
+            if (searchInput) {
+              searchInput.classList.toggle("hidden");
+            }
+            setGlobalFilter("");
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function SortItem({
   colId,
   colName,
@@ -449,80 +431,15 @@ function SortItem({
   colName: string;
   colType: string;
 }) {
-  const {
-    sortViewOpen,
-    setSortViewOpen,
-    sortItems,
-    sorting,
-    setSortItems,
-    selectedView,
-    colsNotInSort,
-  } = useAppContext();
+  const { selectedView } = useAppContext();
   const [selectedColumn, setSelectedColumn] = useState({
     id: colId,
     name: colName,
     type: colType,
   });
   const [isColumnSelectOpen, setIsColumnSelectOpen] = useState(false);
-
-  const ctx = api.useUtils();
-
-  const { mutate: deleteSort } = api.table.deleteSort.useMutation({
-    onMutate: async (variables) => {
-      await ctx.table.getViewSorts.cancel();
-      const previousSorts = ctx.table.getViewSorts.getData({
-        viewId: selectedView?.id ?? "",
-      });
-      ctx.table.getViewSorts.setData(
-        { viewId: selectedView?.id ?? "" },
-        (old) =>
-          old?.filter((sort) => sort.columnId !== variables.columnId) ?? [],
-      );
-      return { previousSorts };
-    },
-    onError: (err, variables, context) => {
-      ctx.table.getViewSorts.setData(
-        { viewId: selectedView?.id ?? "" },
-        context?.previousSorts,
-      );
-    },
-    onSettled: () => {
-      void ctx.table.getViewSorts.invalidate({
-        viewId: selectedView?.id ?? "",
-      });
-    },
-  });
-
-  const { mutate: addSort } = api.table.addSort.useMutation({
-    onMutate: async (variables) => {
-      await ctx.table.getViewSorts.cancel();
-      const previousSorts = ctx.table.getViewSorts.getData({
-        viewId: selectedView?.id ?? "",
-      });
-      ctx.table.getViewSorts.setData(
-        { viewId: selectedView?.id ?? "" },
-        (old) => [
-          ...(old ?? []),
-          {
-            ...variables,
-            id: Date.now().toString(),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ],
-      );
-      return { previousSorts };
-    },
-    onError: (err, variables, context) => {
-      ctx.table.getViewSorts.setData(
-        { viewId: selectedView?.id ?? "" },
-        context?.previousSorts,
-      );
-    },
-    onSettled: () => {
-      void ctx.table.getViewSorts.invalidate();
-    },
-  });
+  const { viewSorts, unsortedColumns, addSort, deleteSort, updateSort } =
+    useSortManagement(selectedView?.id ?? "");
 
   return (
     <div className="relative flex w-full items-center gap-x-2">
@@ -538,7 +455,7 @@ function SortItem({
       {isColumnSelectOpen && (
         <div className="absolute top-full z-20 mt-1 w-60 rounded-md border bg-white p-2 shadow-md">
           <SearchableList
-            items={colsNotInSort}
+            items={unsortedColumns}
             onItemSelect={(column) => {
               addSort({
                 viewId: selectedView?.id ?? "",
@@ -549,18 +466,6 @@ function SortItem({
                 viewId: selectedView?.id ?? "",
                 columnId: selectedColumn.id,
               });
-              setSortItems(
-                sortItems
-                  .filter((item) => item.key !== colId)
-                  .concat(
-                    <SortItem
-                      key={column.id}
-                      colId={column.id}
-                      colName={column.name}
-                      colType={column.type}
-                    />,
-                  ),
-              );
               setIsColumnSelectOpen(!isColumnSelectOpen);
               setSelectedColumn({
                 id: column.id,
@@ -575,7 +480,8 @@ function SortItem({
         <DropdownMenuTrigger asChild>
           <button className="flex w-28 items-center justify-between gap-x-2 rounded-sm border p-2 hover:bg-gray-100">
             <button className="ga p-x-2 flex items-center rounded-sm hover:bg-gray-100">
-              {sorting.find((sort) => sort.id === selectedColumn.id)?.desc
+              {viewSorts.find((sort) => sort.columnId === selectedColumn.id)
+                ?.desc
                 ? selectedColumn.type === "number"
                   ? "9-0"
                   : "Z-A"
@@ -591,14 +497,22 @@ function SortItem({
             <>
               <DropdownMenuItem
                 onClick={() => {
-                  console.log("sort");
+                  updateSort({
+                    columnId: selectedColumn.id,
+                    desc: false,
+                    viewId: selectedView?.id ?? "",
+                  });
                 }}
               >
                 A-Z
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  console.log("sort");
+                  updateSort({
+                    columnId: selectedColumn.id,
+                    desc: true,
+                    viewId: selectedView?.id ?? "",
+                  });
                 }}
               >
                 Z-A
@@ -608,12 +522,24 @@ function SortItem({
             <>
               <DropdownMenuItem
                 onClick={() => {
-                  console.log("sort");
+                  updateSort({
+                    columnId: selectedColumn.id,
+                    desc: false,
+                    viewId: selectedView?.id ?? "",
+                  });
                 }}
               >
                 0-9
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => console.log("sort")}>
+              <DropdownMenuItem
+                onClick={() => {
+                  updateSort({
+                    columnId: selectedColumn.id,
+                    desc: true,
+                    viewId: selectedView?.id ?? "",
+                  });
+                }}
+              >
                 9-0
               </DropdownMenuItem>
             </>
@@ -627,10 +553,6 @@ function SortItem({
             viewId: selectedView?.id ?? "",
             columnId: selectedColumn.id,
           });
-
-          if (sortItems.length === 1) {
-            setSortViewOpen(!sortViewOpen);
-          }
         }}
       >
         <XIcon size={16} />
