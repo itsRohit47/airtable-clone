@@ -43,14 +43,14 @@ interface AppContextProps {
   setRecordCount: (value: number) => void;
   loading: boolean;
   setLoading: (value: boolean) => void;
-  localTabes: {
+  localTables: {
     baseId: string;
     id: string;
     name: string;
     createdAt: Date;
     updatedAt: Date;
   }[];
-  setLocalTabes: React.Dispatch<
+  setLocalTables: React.Dispatch<
     React.SetStateAction<
       {
         baseId: string;
@@ -128,7 +128,7 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [localData, setLocalData] = useState<Record<string, string | number>[]>(
     [],
   );
-  const [localTabes, setLocalTabes] = useState<
+  const [localTables, setLocalTables] = useState<
     {
       baseId: string;
       id: string;
@@ -148,8 +148,6 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setThisTable,
     thisTableId,
     setThisTableId,
-    localTabes,
-    setLocalTabes,
     editName,
     setEditName,
     flag,
@@ -186,6 +184,8 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setViewSorting,
     colsNotInSort,
     setColsNotInSort,
+    localTables,
+    setLocalTables,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

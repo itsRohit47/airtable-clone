@@ -13,12 +13,12 @@ export default function AddTableDialog({
   classList: string;
 }) {
   const router = useRouter();
-  const { localTabes, setThisTable, editName, setEditName, selectedView } =
+  const { localTables, setThisTable, editName, setEditName, selectedView } =
     useAppContext();
   const [tempId, setTempId] = useState(uuidv4());
   const { mutate: addTable } = api.table.addTable.useMutation({
     onMutate: () => {
-      localTabes.push({
+      localTables.push({
         baseId,
         id: tempId,
         name: "Untitled Table",
@@ -29,7 +29,7 @@ export default function AddTableDialog({
       setEditName(true);
     },
     onSuccess: (data) => {
-      const latestTable = localTabes[localTabes.length - 1];
+      const latestTable = localTables[localTables.length - 1];
       if (latestTable) {
         latestTable.id = data.id;
       }

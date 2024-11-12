@@ -24,43 +24,29 @@ export default function TableNav({
   const {
     thisTable,
     setThisTable,
-    localTabes,
+    localTables,
+    setLocalTables,
     editName,
     setEditName,
     loading,
   } = useAppContext();
+
+  useEffect(() => {
+    if (tables) {
+      setLocalTables(tables);
+    }
+  }, [setLocalTables, tables]);
 
   return (
     <div>
       <div className="z-0 flex h-max w-full items-center justify-between gap-x-3 bg-gray-500 text-xs font-normal text-white/90">
         <div className="border-[#C03D05 flex w-full items-center overflow-x-auto rounded-tr-md bg-gray-600 px-4">
           <div className="flex gap-x-2 overflow-x-scroll">
-            {tables?.map((table) => (
-              <Link
-                href={`/${baseId}/${table.id}/${viewId}`}
-                key={table.id}
-                onClick={async () => {
-                  setThisTable(table.id);
-                  await ctx.table.getData.invalidate();
-                }}
-                className={clsx(
-                  "flex w-full flex-nowrap items-center gap-x-1 p-2",
-                  {
-                    "rounded-t-md border border-white bg-white text-black":
-                      table.id === thisTable || path.includes(table.id),
-                  },
-                )}
-              >
-                <div className="text-nowrap" key={table.id}>
-                  {table.name}
-                </div>
-              </Link>
-            ))}
-            {localTabes.length > 0 &&
-              localTabes.map((table) => (
+            {localTables.length > 0 &&
+              localTables.map((table) => (
                 <div className="" key={table.id}>
                   {table.baseId === baseId &&
-                    (localTabes.indexOf(table) === localTabes.length - 1 ? (
+                    (localTables.indexOf(table) === localTables.length - 1 ? (
                       <Link
                         href={`/${baseId}/${table.id}/${viewId}`}
                         key={table.id}

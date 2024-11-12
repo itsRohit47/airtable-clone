@@ -9,11 +9,11 @@ export default function TableNameEdit({
   tableName: string;
   tableId: string;
 }>) {
-  const { setEditName, localTabes, setThisTable } = useAppContext();
+  const { setEditName, localTables, setThisTable } = useAppContext();
   const { mutate: updateTable } = api.table.updateTableName.useMutation({
     onMutate: () => {
       setEditName(false);
-      const lastTable = localTabes[localTabes.length - 1];
+      const lastTable = localTables[localTables.length - 1];
       if (lastTable && lastTable.id === tableId) {
         lastTable.name = newName;
       }
@@ -22,7 +22,7 @@ export default function TableNameEdit({
   const [newName, setNewName] = useState(tableName);
 
   return (
-    <div className="flex w-60 z-40 flex-col gap-y-2 rounded-md border bg-white px-2 py-2 text-black shadow-sm">
+    <div className="flex w-60 flex-col gap-y-2 rounded-md border bg-white px-2 py-2 text-black shadow-sm">
       <input
         className="rounded-md border-2 border-[#125FCC] p-2"
         defaultValue={tableName}

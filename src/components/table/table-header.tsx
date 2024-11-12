@@ -133,7 +133,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
   );
 
   return (
-    <div className="flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
+    <div className="z-10 flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
       <div className="flex items-center gap-x-3">
         <button
           onClick={() => {
@@ -308,7 +308,7 @@ function SortMenu() {
   const { addSort } = useSortManagement(selectedView?.id ?? "");
 
   return (
-    <div className="absolute top-full z-40 mt-1 flex min-w-80 flex-col gap-y-3 rounded-sm border bg-white p-4 text-xs shadow-lg">
+    <div className="absolute top-full mt-1 flex min-w-80 flex-col gap-y-3 rounded-sm border bg-white p-4 text-xs shadow-lg">
       <div className="border-b pb-2 text-xs font-semibold text-gray-600">
         Sort by
       </div>

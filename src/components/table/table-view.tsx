@@ -346,7 +346,7 @@ export function TableView({
 
   // ----------- react-table -----------
   const table = useReactTable({
-    data: flatData,
+    data: localData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -401,7 +401,7 @@ export function TableView({
     <div
       ref={tableContainerRef}
       onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
-      className="min-w-screen max-h-[90vh] flex-grow overflow-auto"
+      className="min-w-screen max-h-[90vh] flex-grow overflow-auto z-0"
     >
       <table className="w-max">
         <thead className="sticky top-0 z-10 flex">
