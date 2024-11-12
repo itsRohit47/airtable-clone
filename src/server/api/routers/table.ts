@@ -355,4 +355,23 @@ export const tableRouter = createTRPCRouter({
         },
       });
     }),
+
+  // to update a sort for a view
+  updateSort: protectedProcedure
+    .input(
+      z.object({ viewId: z.string(), columnId: z.string(), desc: z.boolean() }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.viewSort.update({
+        where: {
+          viewId_columnId: {
+            viewId: input.viewId,
+            columnId: input.columnId,
+          },
+        },
+        data: {
+          desc: input.desc,
+        },
+      });
+    }),
 });

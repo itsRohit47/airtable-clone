@@ -23,7 +23,33 @@ export function EditableCell({
     useAppContext();
 
   const { mutate } = api.table.updateCell.useMutation({
-    onSuccess: () => {
+    onMutate: async (newCell) => {
+      await ctx.table.getData.cancel();
+      const previousData = ctx.table.getData.getData();
+      ctx.table.getData.setData({ tableId: rowId }, (oldData) => {
+        if (!oldData) return oldData;
+        const newData = oldData.data.map((row) => {
+          if (row.id === newCell.rowId) {
+            return {
+              ...row,
+              [newCell.columnId]: newCell.value,
+            };
+          }
+          return row;
+        });
+        return { ...oldData, data: newData };
+      });
+      setLoading(false);
+      return { previousData };
+    },
+    onError: (err, newCell, context) => {
+      if (context) {
+        ctx.table.getData.setData({ tableId: rowId }, context.previousData);
+      }
+      setLoading(false);
+    },
+    onSettled: () => {
+      void ctx.table.getData.invalidate();
       setLoading(false);
     },
   });

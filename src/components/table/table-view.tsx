@@ -1,7 +1,6 @@
 "use client";
 // ----------- import -----------
-import { useMemo, useEffect, useState, useRef, use } from "react";
-import { useInView } from "react-intersection-observer";
+import { useMemo, useEffect, useState, useRef, useCallback } from "react";
 
 import {
   useReactTable,
@@ -10,6 +9,8 @@ import {
   getSortedRowModel,
   type ColumnDef,
   flexRender,
+  type SortingState,
+  type OnChangeFn,
 } from "@tanstack/react-table";
 
 import {
@@ -41,7 +42,6 @@ export function TableView({
 }) {
   // ----------- useState -----------
   const { toast } = useToast();
-  const { inView, ref } = useInView();
   const {
     localColumns,
     setLocalColumns,
@@ -65,11 +65,13 @@ export function TableView({
   });
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
+  const fetchSize = 50;
 
   // ----------- fetch data -----------
   const {
     data: tableData,
     isLoading,
+    isFetching,
     isFetchingNextPage,
     fetchNextPage,
     hasNextPage,
@@ -311,9 +313,40 @@ export function TableView({
     await addColumn.mutateAsync({ tableId, type: _type });
   };
 
+  const flatData = useMemo(
+    () => tableData?.pages?.flatMap((page) => page.data) ?? [],
+    [tableData],
+  );
+
+  const totalDBRowCount = count ?? 0;
+  const totalFetched = flatData.length;
+
+  //called on scroll and possibly on mount to fetch more data as the user scrolls and reaches bottom of table
+  const fetchMoreOnBottomReached = useCallback(
+    (containerRefElement?: HTMLDivElement | null) => {
+      if (containerRefElement) {
+        const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
+        //once the user has scrolled within 500px of the bottom of the table, fetch more data if we can
+        if (
+          scrollHeight - scrollTop - clientHeight < 500 &&
+          !isFetching &&
+          totalFetched < totalDBRowCount
+        ) {
+          void fetchNextPage();
+        }
+      }
+    },
+    [fetchNextPage, isFetching, totalFetched, totalDBRowCount],
+  );
+
+  //a check on mount and after a fetch to see if the table is already scrolled to the bottom and immediately needs to fetch more data
+  useEffect(() => {
+    fetchMoreOnBottomReached(tableContainerRef.current);
+  }, [fetchMoreOnBottomReached]);
+
   // ----------- react-table -----------
   const table = useReactTable({
-    data: localData,
+    data: flatData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -323,32 +356,40 @@ export function TableView({
       sorting,
       globalFilter,
     },
-    onSortingChange: (updaterOrValue) => {
-      const newSorting =
-        typeof updaterOrValue === "function"
-          ? updaterOrValue(sorting)
-          : updaterOrValue;
-
-      setSorting(newSorting);
-    },
+    manualSorting: true,
+    debugTable: true,
     onGlobalFilterChange: (newFilter) => {
       setGlobalFilter(typeof newFilter === "string" ? newFilter : "");
     },
   });
 
+  //scroll to top of table when sorting changes
+  const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
+    setSorting(typeof updater === "function" ? updater(sorting) : updater);
+    if (!!table.getRowModel().rows.length) {
+      rowVirtualizer.scrollToIndex(0);
+    }
+  };
+
+  //since this table option is derived from table row model state, we're using the table.setOptions utility
+  table.setOptions((prev) => ({
+    ...prev,
+    onSortingChange: handleSortingChange,
+  }));
+
   const { rows } = table.getRowModel();
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
+    estimateSize: () => 33, //estimate row height for accurate scrollbar dragging
     getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => rowHeight * 16,
+    //measure dynamic row height, except in firefox because it measures table border height incorrectly
+    measureElement:
+      typeof window !== "undefined" && !navigator.userAgent.includes("Firefox")
+        ? (element) => element?.getBoundingClientRect().height
+        : undefined,
+    overscan: 5,
   });
-
-  useEffect(() => {
-    if (inView && hasNextPage) {
-      void fetchNextPage();
-    }
-  }, [inView, hasNextPage, fetchNextPage]);
 
   // ----------- when loading -----------
   if (isLoading && status === "pending") {
@@ -372,9 +413,10 @@ export function TableView({
   return (
     <div
       ref={tableContainerRef}
-      className="mb-10 max-h-[80vh] max-w-[100vw] flex-grow overflow-auto"
+      onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
+      className="max-h-[80vh] max-w-[100vw] flex-grow overflow-auto"
     >
-      <table className="mb-20 w-max">
+      <table className="w-max">
         <thead className="sticky top-0 z-10 flex">
           {table.getHeaderGroups().map((headerGroup) => (
             // ----------- header row -----------
@@ -486,46 +528,35 @@ export function TableView({
                 </tr>
               );
             })}
+            <div className="flex w-max border-r">
+              {table.getFooterGroups().map((footerGroup) => (
+                <button
+                  key={footerGroup.id}
+                  onClick={() => handleAddRow()}
+                  className="group flex items-center bg-white hover:bg-gray-100"
+                >
+                  {footerGroup.headers.map((column, index) => (
+                    <td
+                      key={column.id}
+                      style={{ width: column.getSize() }}
+                      className="h-full w-max border-b p-2 text-xs"
+                    >
+                      {index === 0 && (
+                        <Plus
+                          size={20}
+                          strokeWidth={1}
+                          className="rounded-md p-1 group-hover:bg-gray-200"
+                        />
+                      )}
+                      {index !== 0 && <div className=""></div>}
+                    </td>
+                  ))}
+                </button>
+              ))}
+            </div>
           </div>
         </tbody>
-
-        <tfoot className="flex w-max border-r">
-          {table.getFooterGroups().map((footerGroup) => (
-            <button
-              key={footerGroup.id}
-              onClick={() => handleAddRow()}
-              className="group flex items-center bg-white hover:bg-gray-100"
-            >
-              {footerGroup.headers.map((column, index) => (
-                <td
-                  key={column.id}
-                  style={{ width: column.getSize() }}
-                  className="h-full w-max border-b p-2 text-xs"
-                >
-                  {index === 0 && (
-                    <Plus
-                      size={20}
-                      strokeWidth={1}
-                      className="rounded-md p-1 group-hover:bg-gray-200"
-                    />
-                  )}
-                  {index !== 0 && <div className=""></div>}
-                </td>
-              ))}
-            </button>
-          ))}
-        </tfoot>
-
-        <div
-          ref={ref}
-          className="mx-auto mt-10 flex w-max items-center text-xs"
-        >
-          {isFetchingNextPage && (
-            <LoaderIcon size={20} strokeWidth={1} className="animate-spin" />
-          )}
-          {!hasNextPage && <span className="text-gray-500">End of table</span>}
-        </div>
-
+        {isFetching && <div className="text-xs">Fetching More...</div>}
         <div className="fixed bottom-10 ml-3 flex items-center">
           <button
             onClick={handleAddRow}
