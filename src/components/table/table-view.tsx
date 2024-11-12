@@ -356,8 +356,6 @@ export function TableView({
       sorting,
       globalFilter,
     },
-    manualSorting: true,
-    debugTable: true,
     onGlobalFilterChange: (newFilter) => {
       setGlobalFilter(typeof newFilter === "string" ? newFilter : "");
     },
