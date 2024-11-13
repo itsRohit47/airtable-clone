@@ -15,6 +15,7 @@ import {
   XIcon,
   ChevronDown,
   PlusIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { useState } from "react";
@@ -26,20 +27,29 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { konsoul } from "konsoul";
 
-// Main sort management hook
-const useSortManagement = (viewId: string) => {
+const useSortFilterManagement = (viewId: string) => {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const ctx = api.useUtils();
   const { localColumns } = useAppContext();
 
+  // get the view sorts and filters
   const viewSorts = api.table.getViewSorts.useQuery({ viewId });
+  const viewFilters = api.table.getViewFilters.useQuery({ viewId });
+
+  // get the columns that are not filtered
+  const unfilteredColumns = localColumns.filter(
+    (col) => !viewFilters.data?.find((filter) => filter.columnId === col.id),
+  );
 
   // get the columns that are not sorted
   const unsortedColumns = localColumns.filter(
     (col) => !viewSorts.data?.find((sort) => sort.columnId === col.id),
   );
 
+  // add sort mutation
   const { mutate: addSort } = api.table.addSort.useMutation({
     onMutate: async (variables) => {
       await ctx.table.getViewSorts.cancel();
@@ -65,6 +75,7 @@ const useSortManagement = (viewId: string) => {
     },
   });
 
+  // delete sort mutation
   const { mutate: deleteSort } = api.table.deleteSort.useMutation({
     onMutate: async (variables) => {
       await ctx.table.getViewSorts.cancel();
@@ -86,6 +97,7 @@ const useSortManagement = (viewId: string) => {
     },
   });
 
+  // update sort mutation
   const { mutate: updateSort } = api.table.updateSort.useMutation({
     onMutate: async (variables) => {
       await ctx.table.getViewSorts.cancel();
@@ -111,14 +123,68 @@ const useSortManagement = (viewId: string) => {
     },
   });
 
+  // add filter mutation
+  const { mutate: addFilter } = api.table.addFilter.useMutation({
+    onMutate: async (variables) => {
+      await ctx.table.getViewFilters.cancel();
+      const previousFilters = ctx.table.getViewFilters.getData({ viewId });
+
+      ctx.table.getViewFilters.setData({ viewId }, (old) => [
+        ...(old ?? []),
+        {
+          ...variables,
+          id: Date.now().toString(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
+      return { previousFilters };
+    },
+    onError: (err, variables, context) => {
+      ctx.table.getViewFilters.setData({ viewId }, context?.previousFilters);
+    },
+    onSettled: () => {
+      void ctx.table.getViewFilters.invalidate();
+    },
+  });
+
+  // delete filter mutation
+  const { mutate: deleteFilter } = api.table.deleteFilter.useMutation({
+    onMutate: async (variables) => {
+      await ctx.table.getViewFilters.cancel();
+      const previousFilters = ctx.table.getViewFilters.getData({ viewId });
+
+      ctx.table.getViewFilters.setData(
+        { viewId },
+        (old) =>
+          old?.filter((filter) => filter.columnId !== variables.columnId) ?? [],
+      );
+
+      return { previousFilters };
+    },
+    onError: (err, variables, context) => {
+      ctx.table.getViewFilters.setData({ viewId }, context?.previousFilters);
+    },
+    onSettled: () => {
+      void ctx.table.getViewFilters.invalidate();
+    },
+  });
+
   return {
     sortMenuOpen,
     setSortMenuOpen,
+    filterMenuOpen,
+    setFilterMenuOpen,
     viewSorts: viewSorts.data ?? [],
+    viewFilters: viewFilters.data ?? [],
     unsortedColumns,
+    unfilteredColumns,
     addSort,
     deleteSort,
     updateSort,
+    addFilter,
+    deleteFilter,
   };
 };
 
@@ -126,11 +192,17 @@ export default function TableHead({ tableId }: { tableId: string }) {
   const ctx = api.useUtils();
   const [searchMenuOpen, setSearchMenuOpen] = useState(false);
   const [rowHeightMenuOpen, setRowHeightMenuOpen] = useState(false);
-  const { isViewsOpen, setIsViewsOpen, selectedView } = useAppContext();
+  const { isViewsOpen, setIsViewsOpen, selectedView, localColumns } =
+    useAppContext();
 
-  const { sortMenuOpen, setSortMenuOpen, viewSorts } = useSortManagement(
-    selectedView?.id ?? "",
-  );
+  const {
+    sortMenuOpen,
+    setSortMenuOpen,
+    viewSorts,
+    viewFilters,
+    filterMenuOpen,
+    setFilterMenuOpen,
+  } = useSortFilterManagement(selectedView?.id ?? "");
 
   return (
     <div className="z-10 flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
@@ -138,6 +210,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
         <button
           onClick={() => {
             setIsViewsOpen(!isViewsOpen);
+            konsoul.log("ss");
           }}
           style={{ backgroundColor: isViewsOpen ? "#f0f0f0" : "" }}
           className={`flex cursor-pointer items-center gap-x-2 rounded-sm border border-gray-200/10 p-2 hover:bg-gray-200/60 ${isViewsOpen ? "hover:border-gray-300" : ""}`}
@@ -155,9 +228,23 @@ export default function TableHead({ tableId }: { tableId: string }) {
           <EyeOffIcon size={16} />
           <div>Hide</div>
         </div>
-        <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
-          <ListFilterIcon size={16} />
-          <div>Filter</div>
+        <div className="relative">
+          <button
+            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewFilters && viewFilters.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
+            onClick={() => {
+              setFilterMenuOpen(!filterMenuOpen);
+            }}
+          >
+            <ListFilterIcon size={16} />
+            <div>
+              {viewFilters.length > 0 && viewFilters.length <= 3
+                ? `Filtered by ${viewFilters.map((filter) => localColumns.find((col) => col.id === filter.columnId)?.name).join(", ")}`
+                : viewFilters.length > 3
+                  ? `Filtered by ${localColumns.find((col) => col.id === viewFilters[0]?.columnId)?.name} and ${viewFilters.length - 1} other fields`
+                  : "Filters"}
+            </div>
+          </button>
+          {filterMenuOpen && <FilterMenu />}
         </div>
         <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <GroupIcon size={16} />
@@ -305,7 +392,7 @@ function SearchableList({
 
 function SortMenu() {
   const { localColumns, selectedView } = useAppContext();
-  const { addSort } = useSortManagement(selectedView?.id ?? "");
+  const { addSort } = useSortFilterManagement(selectedView?.id ?? "");
 
   return (
     <div className="absolute top-full mt-1 flex min-w-80 flex-col gap-y-3 rounded-sm border bg-white p-4 text-xs shadow-lg">
@@ -328,7 +415,7 @@ function SortMenu() {
 
 function SortView() {
   const { localColumns, selectedView } = useAppContext();
-  const { viewSorts, addSort, unsortedColumns } = useSortManagement(
+  const { viewSorts, addSort, unsortedColumns } = useSortFilterManagement(
     selectedView?.id ?? "",
   );
 
@@ -439,7 +526,7 @@ function SortItem({
   });
   const [isColumnSelectOpen, setIsColumnSelectOpen] = useState(false);
   const { viewSorts, unsortedColumns, addSort, deleteSort, updateSort } =
-    useSortManagement(selectedView?.id ?? "");
+    useSortFilterManagement(selectedView?.id ?? "");
 
   return (
     <div className="relative flex w-full items-center gap-x-2">
@@ -557,6 +644,105 @@ function SortItem({
       >
         <XIcon size={16} />
       </button>
+    </div>
+  );
+}
+
+function FilterMenu() {
+  const { localColumns, selectedView } = useAppContext();
+  const { addFilter, viewFilters, filterMenuOpen, unfilteredColumns } =
+    useSortFilterManagement(selectedView?.id ?? "");
+  return (
+    <div className="absolute top-full mt-1 flex w-max min-w-96 rounded-sm border bg-white p-4 text-xs shadow-lg">
+      <div className="relative flex h-full w-full flex-col gap-y-3 text-xs text-gray-500">
+        {viewFilters.length === 0 ? (
+          <span>No filter conditions are applied</span>
+        ) : (
+          <span>In this view, show records</span>
+        )}
+        {viewFilters.map((filter) => (
+          <FilterItem
+            key={filter.columnId}
+            colId={filter.columnId}
+            colName={
+              localColumns.find((col) => col.id === filter.columnId)?.name ?? ""
+            }
+            colType={
+              localColumns.find((col) => col.id === filter.columnId)?.type ?? ""
+            }
+            value={filter.value ?? ""}
+          />
+        ))}
+        <div className="flex items-center gap-x-5">
+          <button
+            className="flex items-center gap-x-2 text-blue-500"
+            onClick={() => {
+              addFilter({
+                viewId: selectedView?.id ?? "",
+                columnId: unfilteredColumns[0]?.id ?? "",
+                operator: "eq",
+                value: "",
+              });
+            }}
+          >
+            <PlusIcon size={16} />
+            <span>Add condition</span>
+          </button>
+          <button
+            className="flex items-center gap-x-2"
+            onClick={() => {
+              alert("Not implemented");
+            }}
+          >
+            <PlusIcon size={16} />
+            <span>Add condition group</span>
+          </button>{" "}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterItem({
+  colId,
+  colName,
+  colType,
+  value,
+}: {
+  colId: string;
+  colName: string;
+  colType: string;
+  value: string;
+}) {
+  const { selectedView } = useAppContext();
+  const [selectedColumn, setSelectedColumn] = useState({
+    id: colId,
+    name: colName,
+    type: colType,
+  });
+
+  const { viewFilters, unfilteredColumns, addFilter, deleteFilter } =
+    useSortFilterManagement(selectedView?.id ?? "");
+
+  return (
+    <div className="flex w-max items-center gap-x-2">
+      <div className="flex w-full items-center justify-between rounded-sm bg-white">
+        <div className="w-32 text-nowrap border p-2">{selectedColumn.name}</div>
+        <div className="w-32 border-y border-r p-2">:</div>
+        <div className="w-32 border-y border-r p-2">is</div>
+        <div className="w-32 border-y border-r p-2">{value}s</div>
+        <button
+          className="flex w-max items-center justify-center border-y border-r p-2 text-gray-500"
+          onClick={() => {
+            deleteFilter({
+              viewId: selectedView?.id ?? "",
+              columnId: selectedColumn.id,
+            });
+          }}
+        >
+          <Trash2Icon size={16} strokeWidth={1} />
+        </button>
+      </div>
     </div>
   );
 }

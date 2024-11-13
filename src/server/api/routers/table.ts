@@ -1,6 +1,7 @@
 import { skip } from "node:test";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import z from "zod";
+import { get } from "http";
 
 export const tableRouter = createTRPCRouter({
   // for the base layout
@@ -330,17 +331,6 @@ export const tableRouter = createTRPCRouter({
       });
     }),
 
-  // to delete all sorts for a view
-  deleteAllSorts: protectedProcedure
-    .input(z.object({ viewId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.viewSort.deleteMany({
-        where: {
-          viewId: input.viewId,
-        },
-      });
-    }),
-
   // to add a sort for a view
   addSort: protectedProcedure
     .input(
@@ -371,6 +361,69 @@ export const tableRouter = createTRPCRouter({
         },
         data: {
           desc: input.desc,
+        },
+      });
+    }),
+
+  // to get filters for a view
+  getViewFilters: protectedProcedure
+    .input(z.object({ viewId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      return ctx.db.viewFilter.findMany({
+        where: { viewId: input.viewId },
+      });
+    }),
+
+  // to delete a filter for a view
+  deleteFilter: protectedProcedure
+    .input(z.object({ viewId: z.string(), columnId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.viewFilter.delete({
+        where: {
+          viewId_columnId: {
+            viewId: input.viewId,
+            columnId: input.columnId,
+          },
+        },
+      });
+    }),
+
+  // to add a filter for a view
+  addFilter: protectedProcedure
+    .input(
+      z.object({
+        viewId: z.string(),
+        columnId: z.string(),
+        value: z.string(),
+        operator: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.viewFilter.create({
+        data: {
+          viewId: input.viewId,
+          columnId: input.columnId,
+          operator: input.operator,
+          value: input.value,
+        },
+      });
+    }),
+
+  // to update a filter for a view
+  updateFilter: protectedProcedure
+    .input(
+      z.object({ viewId: z.string(), columnId: z.string(), value: z.string() }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.viewFilter.update({
+        where: {
+          viewId_columnId: {
+            viewId: input.viewId,
+            columnId: input.columnId,
+          },
+        },
+        data: {
+          value: input.value,
         },
       });
     }),

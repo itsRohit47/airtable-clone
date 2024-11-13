@@ -7,7 +7,7 @@ async function main() {
     data: {
       name: "Nam's Base",
       user: {
-        connect: { id: "cm3eagsbf0000yjesef0903s6" }, // Replace with actual User ID
+        connect: { id: "cm3dvu0u20000of2l0wovj8ns" }, // Replace with actual User ID
       },
       tables: {
         create: [
@@ -38,7 +38,7 @@ async function main() {
   const columnIds = table.columns.map((col) => col.id);
 
   // 2. Create 1,000 Rows without Cells
-  const rowData = Array.from({ length: 15000 }, (_, i) => ({
+  const rowData = Array.from({ length: 1000 }, (_, i) => ({
     order: i + 1,
     tableId: table.id,
   }));
@@ -57,7 +57,7 @@ async function main() {
     columnIds.map((columnId, colIndex) => ({
       rowId: row.id,
       columnId: columnId,
-      value: `Value Row${row.order} Col${colIndex + 1}`,
+      value: "",
       tableId: table.id,
     })),
   );
