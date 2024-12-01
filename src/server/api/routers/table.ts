@@ -403,7 +403,7 @@ export const tableRouter = createTRPCRouter({
         data: {
           viewId: input.viewId,
           columnId: input.columnId,
-          operator: input.operator,
+          operator: input.operator ?? undefined,
           value: input.value,
         },
       });
@@ -412,7 +412,12 @@ export const tableRouter = createTRPCRouter({
   // to update a filter for a view
   updateFilter: protectedProcedure
     .input(
-      z.object({ viewId: z.string(), columnId: z.string(), value: z.string() }),
+      z.object({
+        viewId: z.string(),
+        columnId: z.string(),
+        value: z.string(),
+        operator: z.string().nullish(),
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       return ctx.db.viewFilter.update({
@@ -424,6 +429,7 @@ export const tableRouter = createTRPCRouter({
         },
         data: {
           value: input.value,
+          operator: input.operator ?? undefined,
         },
       });
     }),

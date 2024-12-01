@@ -9,17 +9,16 @@ import {
   getSortedRowModel,
   type ColumnDef,
   flexRender,
-  type SortingState,
-  type OnChangeFn,
+  type filterFns,
 } from "@tanstack/react-table";
 
 import {
   Plus,
   LoaderIcon,
-  CaseUpperIcon,
   HashIcon,
   EditIcon,
   SaveIcon,
+  CaseUpperIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -57,6 +56,8 @@ export function TableView({
     setLoading,
     selectedView,
     setSelectedView,
+    columnFilters,
+    setColumnFilters,
   } = useAppContext();
   const [isColNameEditing, setIsColNameEditing] = useState(false);
   const [editColId, setEditColId] = useState("");
@@ -65,7 +66,6 @@ export function TableView({
   });
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
-  const fetchSize = 50;
 
   // ----------- fetch data -----------
   const {
@@ -94,12 +94,25 @@ export function TableView({
 
   // Effect to apply view sorts when view changes
   useEffect(() => {
-    console.log("viewSorts", viewSorts);
     setSorting(
       viewSorts?.map((sort) => ({ id: sort.columnId, desc: sort.desc })) ?? [],
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewSorts]);
+
+  // Update useEffect to handle filters when view changes
+  const { data: viewFilters } = api.table.getViewFilters.useQuery({
+    viewId: viewId,
+  });
+
+  useEffect(() => {
+    setColumnFilters(
+      viewFilters?.map((filter) => ({
+        id: filter.columnId,
+        value: filter.value ?? "",
+      })) ?? []
+    );
+  }, [viewFilters, setColumnFilters]);
 
   // to update column name
   const { mutate: updateColName } = api.table.updateColumnName.useMutation({
@@ -187,6 +200,7 @@ export function TableView({
     onMutate: async () => {
       const newRow: Record<string, string> = { id: "temp-id" };
       setLocalData((prev) => [...prev, { ...newRow }]);
+      setRecordCount(localData.length + 1);
     },
     onSuccess: (data) => {
       setLocalData((prev) =>
@@ -204,6 +218,7 @@ export function TableView({
     },
   });
 
+
   // ----------- columns -----------
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
     return localColumns.map((col) => ({
@@ -212,6 +227,12 @@ export function TableView({
       size: 200,
       minSize: 200,
       enableSorting: true,
+      filterFn: viewFilters?.find((filter) => filter.columnId === col.id)?.operator as keyof typeof filterFns,
+      enableColumnFilter: true,
+      options: {
+        enableColumnFilter: true,
+        enableFilters: true,
+      },
       header: ({ column }) => (
         <span className="flex w-full items-center justify-between gap-x-2 overflow-hidden">
           <div className="flex items-center gap-x-2">
@@ -227,9 +248,8 @@ export function TableView({
                 <input
                   type="text"
                   defaultValue={col.name}
-                  className={`w-max max-w-24 overflow-auto bg-transparent focus:outline-none focus:ring-0 ${
-                    isColNameEditing ? "text-red-500" : ""
-                  }`}
+                  className={`w-max max-w-24 overflow-auto bg-transparent focus:outline-none focus:ring-0 ${isColNameEditing ? "text-red-500" : ""
+                    }`}
                   autoFocus
                   onFocus={(e) => e.target.select()}
                   onKeyDown={(e) => {
@@ -348,6 +368,23 @@ export function TableView({
   const table = useReactTable({
     data: localData,
     columns,
+    filterFns: {
+      isEmpty: (row, id, value) => {
+        return !row.getValue(id);
+      },
+      isNotEmpty: (row, id, value) => {
+        return !!row.getValue(id);
+      },
+      gt: (row, id, value) => {
+        return Number(row.getValue(id)) > value;
+      },
+      lt: (row, id, value) => {
+        return Number(row.getValue(id)) < value;
+      },
+      eq: (row, id, value) => {
+        return row.getValue(id) === value;
+      },
+    },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -355,13 +392,24 @@ export function TableView({
     state: {
       sorting,
       globalFilter,
+      columnFilters,
+    },
+    onColumnFiltersChange: (updaterOrValue) => {
+      const newFilters = typeof updaterOrValue === 'function' ? updaterOrValue(columnFilters) : updaterOrValue;
+      setColumnFilters(
+        newFilters.map((filter) => ({
+          ...filter,
+          value: filter.value === "" ? undefined : filter.value,
+        })),
+      );
+    },
+    onSortingChange: (updaterOrValue) => {
+      const newSorting = typeof updaterOrValue === 'function' ? updaterOrValue(sorting) : updaterOrValue;
+      setSorting(newSorting);
     },
     onGlobalFilterChange: (newFilter) => {
-      setGlobalFilter(typeof newFilter === "string" ? newFilter : "");
-    },
-    onSortingChange: (newSorting) => {
-      setSorting(newSorting as SortingState);
-    },
+      setGlobalFilter(newFilter as string);
+    }
   });
 
   const { rows } = table.getRowModel();
@@ -382,7 +430,7 @@ export function TableView({
   if (isLoading && status === "pending") {
     return (
       <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44">
-        <LoaderIcon size={20} strokeWidth={1} className="animate-spin" />
+        <LoaderIcon size={20} className="animate-spin" />
       </div>
     );
   }
@@ -403,7 +451,7 @@ export function TableView({
       onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
       className="min-w-screen max-h-[90vh] flex-grow overflow-auto z-0"
     >
-      <table className="w-max">
+      <table className="w-max mb-32">
         <thead className="sticky top-0 z-10 flex">
           {table.getHeaderGroups().map((headerGroup) => (
             // ----------- header row -----------
@@ -412,9 +460,8 @@ export function TableView({
                 <td
                   key={header.id}
                   style={{ width: header.getSize() }}
-                  className={`relative border-b border-r border-gray-300 p-2 text-xs ${
-                    header.column.getIsSorted() ? "bg-blue-100" : "bg-[#F5F5F5]"
-                  }`}
+                  className={`relative border-b border-r border-gray-300 p-2 text-xs ${header.column.getIsSorted() ? "bg-blue-100" : "bg-[#F5F5F5]"
+                    }`}
                 >
                   <div className="flex items-center gap-1">
                     {typeof header.column.columnDef.header === "function"
@@ -431,11 +478,10 @@ export function TableView({
                   <div
                     onMouseDown={header.getResizeHandler()}
                     onTouchStart={header.getResizeHandler()}
-                    className={`absolute -right-0 top-2 z-20 h-5 w-[3px] translate-x-[2px] cursor-col-resize rounded-md bg-blue-500 opacity-0 hover:opacity-100 ${
-                      header.column.getIsResizing()
-                        ? "h-5 w-5 bg-blue-500 opacity-100"
-                        : ""
-                    }`}
+                    className={`absolute -right-0 top-2 z-20 h-5 w-[3px] translate-x-[2px] cursor-col-resize rounded-md bg-blue-500 opacity-0 hover:opacity-100 ${header.column.getIsResizing()
+                      ? "h-5 w-5 bg-blue-500 opacity-100"
+                      : ""
+                      }`}
                   />
                 </td>
               ))}
@@ -482,7 +528,6 @@ export function TableView({
           >
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const row = rows[virtualRow.index];
-
               return (
                 <tr
                   key={row?.id}
@@ -501,8 +546,10 @@ export function TableView({
                         {
                           "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-white":
                             globalFilter &&
-                            String(cell.getValue()).includes(globalFilter),
-                          "bg-blue-50": cell.column.getIsSorted(),
+                            String(cell.getValue())
+                              .toLowerCase()
+                              .includes(globalFilter.toLowerCase()),
+                          "bg-blue-50": cell.column.getIsSorted() || cell.column.getIsFiltered(),
                         },
                       )}
                     >

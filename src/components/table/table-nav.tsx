@@ -65,7 +65,7 @@ export default function TableNav({
                       >
                         <div className="text-nowrap">{table.name}</div>
                         {editName && (
-                          <div className="absolute top-[100px] -translate-x-10">
+                          <div className="absolute top-[100px] z-20 -translate-x-10">
                             <TableNameEdit
                               tableName={table.name}
                               tableId={table.id}
@@ -94,6 +94,18 @@ export default function TableNav({
                     ))}
                 </div>
               ))}
+            {localTables.length === 0 && (
+              <div className="flex items-center gap-x-3 p-2">
+                <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
+                <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
+                <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
+                <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
+                <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
+                <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
+
+              </div>
+            )
+            }
           </div>
           <span className="p-2 font-thin text-gray-50/50">|</span>
           <ChevronDown strokeWidth={1.5} size={18}></ChevronDown>

@@ -1,5 +1,5 @@
 "use client";
-import { type SortingState } from "@tanstack/react-table";
+import { type ColumnFiltersState, type SortingState } from "@tanstack/react-table";
 import React, {
   createContext,
   useState,
@@ -96,6 +96,8 @@ interface AppContextProps {
   setViewSorting: (value: SortingState) => void;
   colsNotInSort: Column[];
   setColsNotInSort: (value: Column[]) => void;
+  columnFilters: ColumnFiltersState;
+  setColumnFilters: (value: ColumnFiltersState) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -121,6 +123,9 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [isViewsOpen, setIsViewsOpen] = useState(false);
   const [selectedView, setSelectedView] = useState<View | null>(null);
   const [viewSorting, setViewSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  )
   const [colsNotInSort, setColsNotInSort] = useState<Column[]>([]);
   const [localCells, setLocalCells] = useState<
     Record<string, string | number>[]
@@ -186,6 +191,8 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setColsNotInSort,
     localTables,
     setLocalTables,
+    columnFilters,
+    setColumnFilters,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

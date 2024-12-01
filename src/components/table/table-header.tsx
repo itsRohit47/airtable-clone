@@ -18,16 +18,16 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { api } from "@/trpc/react";
-import { useState } from "react";
+import { use, useState } from "react";
 import { LineHeightIcon } from "@radix-ui/react-icons";
 import { useAppContext } from "../context";
+import { useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { konsoul } from "konsoul";
 
 const useSortFilterManagement = (viewId: string) => {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -171,6 +171,31 @@ const useSortFilterManagement = (viewId: string) => {
     },
   });
 
+  // update filter mutation
+  const { mutate: updateFilter } = api.table.updateFilter.useMutation({
+    onMutate: async (variables) => {
+      await ctx.table.getViewFilters.cancel();
+      const previousFilters = ctx.table.getViewFilters.getData({ viewId });
+
+      ctx.table.getViewFilters.setData(
+        { viewId },
+        (old) =>
+          old?.map((filter) =>
+            filter.columnId === variables.columnId
+              ? { ...filter, ...variables, operator: variables.operator ?? filter.operator }
+              : filter,
+          ) ?? [],
+      );
+      return { previousFilters };
+    },
+    onError: (err, variables, context) => {
+      ctx.table.getViewFilters.setData({ viewId }, context?.previousFilters);
+    },
+    onSettled: () => {
+      void ctx.table.getViewFilters.invalidate();
+    },
+  });
+
   return {
     sortMenuOpen,
     setSortMenuOpen,
@@ -185,6 +210,7 @@ const useSortFilterManagement = (viewId: string) => {
     updateSort,
     addFilter,
     deleteFilter,
+    updateFilter,
   };
 };
 
@@ -204,13 +230,55 @@ export default function TableHead({ tableId }: { tableId: string }) {
     setFilterMenuOpen,
   } = useSortFilterManagement(selectedView?.id ?? "");
 
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+  const rowHeightMenuRef = useRef<HTMLDivElement>(null);
+  const searchMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)
+      ) {
+        setFilterMenuOpen(false);
+      }
+      if (
+        sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)
+      ) {
+        setSortMenuOpen(false);
+      }
+      if (
+        rowHeightMenuRef.current && !rowHeightMenuRef.current.contains(e.target as Node)
+      ) {
+        setRowHeightMenuOpen(false);
+      }
+      if (
+        searchMenuRef.current && !searchMenuRef.current.contains(e.target as Node)
+      ) {
+        setSearchMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+    };
+  }, [
+    filterMenuRef,
+    sortMenuRef,
+    rowHeightMenuRef,
+    searchMenuRef,
+    setFilterMenuOpen,
+    setSortMenuOpen,
+    setRowHeightMenuOpen,
+    setSearchMenuOpen,
+  ]);
+
   return (
     <div className="z-10 flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
       <div className="flex items-center gap-x-3">
         <button
           onClick={() => {
             setIsViewsOpen(!isViewsOpen);
-            konsoul.log("ss");
           }}
           style={{ backgroundColor: isViewsOpen ? "#f0f0f0" : "" }}
           className={`flex cursor-pointer items-center gap-x-2 rounded-sm border border-gray-200/10 p-2 hover:bg-gray-200/60 ${isViewsOpen ? "hover:border-gray-300" : ""}`}
@@ -221,14 +289,14 @@ export default function TableHead({ tableId }: { tableId: string }) {
         </button>
         <button className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <Grid2X2Icon size={16} />
-          <div>{selectedView?.name}</div>
+          <div>{selectedView ? selectedView.name : <div className="animate-pulse bg-gray-200 h-4 w-10 rounded-md"></div>}</div>
         </button>
         <div>|</div>
         <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <EyeOffIcon size={16} />
           <div>Hide</div>
         </div>
-        <div className="relative">
+        <div className="relative" ref={filterMenuRef}>
           <button
             className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewFilters && viewFilters.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
             onClick={() => {
@@ -250,7 +318,9 @@ export default function TableHead({ tableId }: { tableId: string }) {
           <GroupIcon size={16} />
           <div>Group</div>
         </div>
-        <div className="relative">
+        <div className="relative" ref={
+          sortMenuRef
+        }>
           <button
             className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewSorts && viewSorts.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
             onClick={() => {
@@ -271,21 +341,22 @@ export default function TableHead({ tableId }: { tableId: string }) {
           <PaintBucketIcon size={16} />
           <div>Color</div>
         </div>
-        <button
+        <div
           className="relative flex cursor-pointer items-center justify-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60"
+          ref={rowHeightMenuRef}
           onClick={() => {
             setRowHeightMenuOpen(!rowHeightMenuOpen);
           }}
         >
           <LineHeightIcon />
           {rowHeightMenuOpen && <RowHeightMenu />}
-        </button>
+        </div>
         <div className="h- flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <ShareIcon size={16} />
           <div>Share</div>
         </div>
       </div>
-      <div className="relative">
+      <div className="relative" ref={searchMenuRef}>
         <button
           className="h- flex cursor-pointer items-center gap-x-2 rounded-sm p-2 text-gray-500 hover:text-gray-900"
           onClick={() => {
@@ -308,36 +379,32 @@ function RowHeightMenu() {
       <div className="w-60 rounded-sm border bg-white shadow-sm">
         <div className="p-2">select a row height</div>
         <div
-          className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${
-            rowHeight === 2 ? "text-blue-500" : ""
-          }`}
+          className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${rowHeight === 2 ? "text-blue-500" : ""
+            }`}
           onClick={() => setRowHeight(2)}
         >
           <Rows4Icon size={16} />
           <div>Short</div>
         </div>
         <div
-          className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${
-            rowHeight === 4 ? "text-blue-500" : ""
-          }`}
+          className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${rowHeight === 4 ? "text-blue-500" : ""
+            }`}
           onClick={() => setRowHeight(4)}
         >
           <Rows3Icon size={16} />
           <div>Medium</div>
         </div>
         <div
-          className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${
-            rowHeight === 6 ? "text-blue-500" : ""
-          }`}
+          className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${rowHeight === 6 ? "text-blue-500" : ""
+            }`}
           onClick={() => setRowHeight(6)}
         >
           <Rows2Icon size={16} />
           <div>Tall</div>
         </div>
         <div
-          className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${
-            rowHeight === 8 ? "text-blue-500" : ""
-          }`}
+          className={`flex cursor-pointer items-center gap-x-2 p-2 hover:bg-gray-200/60 ${rowHeight === 8 ? "text-blue-500" : ""
+            }`}
           onClick={() => setRowHeight(8)}
         >
           <LineHeightIcon />
@@ -650,7 +717,7 @@ function SortItem({
 
 function FilterMenu() {
   const { localColumns, selectedView } = useAppContext();
-  const { addFilter, viewFilters, filterMenuOpen, unfilteredColumns } =
+  const { addFilter, viewFilters, unfilteredColumns } =
     useSortFilterManagement(selectedView?.id ?? "");
   return (
     <div className="absolute top-full mt-1 flex w-max min-w-96 rounded-sm border bg-white p-4 text-xs shadow-lg">
@@ -660,29 +727,37 @@ function FilterMenu() {
         ) : (
           <span>In this view, show records</span>
         )}
-        {viewFilters.map((filter) => (
-          <FilterItem
-            key={filter.columnId}
-            colId={filter.columnId}
-            colName={
-              localColumns.find((col) => col.id === filter.columnId)?.name ?? ""
-            }
-            colType={
-              localColumns.find((col) => col.id === filter.columnId)?.type ?? ""
-            }
-            value={filter.value ?? ""}
-          />
-        ))}
+        {viewFilters
+          .slice() // Create a shallow copy to avoid mutating the original array
+          .sort((a, b) => a.columnId.localeCompare(b.columnId)) // Sort by columnId or any other criteria
+          .map((filter) => (
+            <FilterItem
+              key={filter.columnId}
+              colId={filter.columnId}
+              colName={
+                localColumns.find((col) => col.id === filter.columnId)?.name ?? ""
+              }
+              colType={
+                localColumns.find((col) => col.id === filter.columnId)?.type ?? ""
+              }
+              value={filter.value ?? ""}
+            />
+          ))}
         <div className="flex items-center gap-x-5">
           <button
             className="flex items-center gap-x-2 text-blue-500"
             onClick={() => {
-              addFilter({
-                viewId: selectedView?.id ?? "",
-                columnId: unfilteredColumns[0]?.id ?? "",
-                operator: "eq",
-                value: "",
-              });
+              if (unfilteredColumns.length === 0) {
+                alert("No more columns available to filter");
+                return;
+              } else {
+                addFilter({
+                  viewId: selectedView?.id ?? "",
+                  columnId: unfilteredColumns[0]?.id ?? "",
+                  operator: unfilteredColumns[0]?.type === "number" ? "equals" : "includesString",
+                  value: "",
+                });
+              }
             }}
           >
             <PlusIcon size={16} />
@@ -721,28 +796,112 @@ function FilterItem({
     type: colType,
   });
 
-  const { viewFilters, unfilteredColumns, addFilter, deleteFilter } =
+  const { viewFilters, unfilteredColumns, addFilter, deleteFilter, updateFilter } =
     useSortFilterManagement(selectedView?.id ?? "");
 
+  const [filterValue, setFilterValue] = useState(value);
+  const [operator, setOperator] = useState('');
+  const [isColumnSelectOpen, setIsColumnSelectOpen] = useState(false);
+
+  const handleFilterChange = (newValue: string) => {
+    setFilterValue(newValue);
+    const filter = {
+      columnId: selectedColumn.id,
+      value: newValue,
+      viewId: selectedView?.id ?? "",
+    };
+    updateFilter(filter);
+  };
+
   return (
-    <div className="flex w-max items-center gap-x-2">
-      <div className="flex w-full items-center justify-between rounded-sm bg-white">
-        <div className="w-32 text-nowrap border p-2">{selectedColumn.name}</div>
-        <div className="w-32 border-y border-r p-2">:</div>
-        <div className="w-32 border-y border-r p-2">is</div>
-        <div className="w-32 border-y border-r p-2">{value}s</div>
+    <div className="flex w-full items-center">
+      <span className="mr-2">{viewFilters.findIndex(filter => filter.columnId === colId) === 0 ? <span className="w-max p-2">where</span> : <select className="w-max border p-2"
+      >
+        <option value="or">or</option>
+      </select>}</span>
+      <div className="relative">
         <button
-          className="flex w-max items-center justify-center border-y border-r p-2 text-gray-500"
-          onClick={() => {
-            deleteFilter({
-              viewId: selectedView?.id ?? "",
-              columnId: selectedColumn.id,
-            });
-          }}
+          onClick={() => setIsColumnSelectOpen(!isColumnSelectOpen)}
+          className="flex w-60 items-center justify-between gap-x-2 border p-2 hover:bg-gray-100"
         >
-          <Trash2Icon size={16} strokeWidth={1} />
+          <div>{selectedColumn.name}</div>
+          <ChevronDown size={16} />
         </button>
+        {isColumnSelectOpen && (
+          <div className="absolute top-full z-20 mt-1 w-60 rounded-md border bg-white p-2 shadow-md">
+            <SearchableList
+              items={unfilteredColumns}
+              onItemSelect={(column) => {
+                addFilter({
+                  viewId: selectedView?.id ?? "",
+                  columnId: column.id,
+                  operator: column.type === "number" ? "equals" : "includesString",
+                  value: "",
+                });
+                deleteFilter({
+                  viewId: selectedView?.id ?? "",
+                  columnId: selectedColumn.id,
+                });
+                setIsColumnSelectOpen(!isColumnSelectOpen);
+                setSelectedColumn({
+                  id: column.id,
+                  name: column.name,
+                  type: column.type,
+                });
+                setFilterValue("");
+              }}
+            />
+          </div>
+        )}
       </div>
+      <select
+        className="w-32 border-y border-r p-2"
+        defaultValue={viewFilters.find(filter => filter.columnId === colId)?.operator}
+        onChange={(e) => {
+          setOperator(e.target.value);
+
+          updateFilter({
+            columnId: selectedColumn.id,
+            operator: e.target.value,
+            value: filterValue,
+            viewId: selectedView?.id ?? "",
+          });
+        }}
+      >
+        {selectedColumn.type === "number" ? (
+          <>
+            <option value="eq">equals</option>
+            <option value="gt">greater than</option>
+            <option value="lt">less than</option>
+          </>
+        ) : (
+          <>
+            <option value="includesString">contains</option>
+          </>
+        )}
+        <option value="isEmpty">empty</option>
+        <option value="isNotEmpty">not empty</option>
+      </select>
+      {operator !== 'isEmpty' && operator !== 'isNotEmpty' ? (
+        <input
+          className="w-32 border-y border-r p-2"
+          value={filterValue}
+          onChange={(e) => handleFilterChange(e.target.value)}
+          placeholder="Enter value..."
+        />
+      ) :
+        <div className="w-32 border-y border-r p-2 text-white">.</div>}
+      <button
+        className="flex w-max items-center justify-center border-y border-r p-2 text-gray-500"
+        onClick={() => {
+          deleteFilter({
+            viewId: selectedView?.id ?? "",
+            columnId: selectedColumn.id,
+          });
+        }}
+      >
+        <Trash2Icon size={16} strokeWidth={1} />
+      </button>
     </div>
   );
 }
