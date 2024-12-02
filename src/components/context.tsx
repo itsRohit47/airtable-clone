@@ -1,5 +1,5 @@
 "use client";
-import { type ColumnFiltersState, type SortingState } from "@tanstack/react-table";
+import { type RowSelectionState, type ColumnFiltersState, type SortingState, type VisibilityState } from "@tanstack/react-table";
 import React, {
   createContext,
   useState,
@@ -98,6 +98,10 @@ interface AppContextProps {
   setColsNotInSort: (value: Column[]) => void;
   columnFilters: ColumnFiltersState;
   setColumnFilters: (value: ColumnFiltersState) => void;
+  rowSelection: RowSelectionState;
+  setRowSelection: (value: RowSelectionState) => void;
+  columnVisibility: VisibilityState;
+  setColumnVisibility: (value: VisibilityState) => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -123,6 +127,8 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [isViewsOpen, setIsViewsOpen] = useState(false);
   const [selectedView, setSelectedView] = useState<View | null>(null);
   const [viewSorting, setViewSorting] = useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   )
@@ -193,6 +199,10 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setLocalTables,
     columnFilters,
     setColumnFilters,
+    rowSelection,
+    setRowSelection,
+    columnVisibility,
+    setColumnVisibility,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

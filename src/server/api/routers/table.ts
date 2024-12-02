@@ -306,6 +306,7 @@ export const tableRouter = createTRPCRouter({
       z.object({
         tableId: z.string(),
         cursor: z.string().optional(),
+        search: z.string().optional(),
         sortBy: z.string().optional(),
         sortDesc: z.boolean().optional().default(false),
         pageSize: z.number().optional().default(10),
@@ -321,6 +322,13 @@ export const tableRouter = createTRPCRouter({
       const rows = await ctx.db.row.findMany({
         where: {
           tableId: input.tableId,
+          cells: {
+            some: {
+              value: {
+                contains: input.search,
+              },
+            },
+          },
         },
         include: {
           cells: {

@@ -22,6 +22,7 @@ import { useState } from "react";
 import { LineHeightIcon } from "@radix-ui/react-icons";
 import { useAppContext } from "../context";
 import { useEffect, useRef } from "react";
+import { VisibilityState } from "@tanstack/react-table";
 const useSortFilterManagement = (viewId: string) => {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
@@ -211,7 +212,8 @@ export default function TableHead({ tableId }: { tableId: string }) {
   const ctx = api.useUtils();
   const [searchMenuOpen, setSearchMenuOpen] = useState(false);
   const [rowHeightMenuOpen, setRowHeightMenuOpen] = useState(false);
-  const { isViewsOpen, setIsViewsOpen, selectedView, localColumns } =
+  const [hideMenuOpen, setHideMenuOpen] = useState(false);
+  const { isViewsOpen, setIsViewsOpen, selectedView, localColumns, columnVisibility } =
     useAppContext();
 
   const {
@@ -227,6 +229,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const rowHeightMenuRef = useRef<HTMLDivElement>(null);
   const searchMenuRef = useRef<HTMLDivElement>(null);
+  const hideMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -250,21 +253,17 @@ export default function TableHead({ tableId }: { tableId: string }) {
       ) {
         setSearchMenuOpen(false);
       }
+      if (
+        hideMenuRef.current && !hideMenuRef.current.contains(e.target as Node)
+      ) {
+        setHideMenuOpen(false);
+      }
     }
     document.addEventListener("mousedown", handler);
     return () => {
       document.removeEventListener("mousedown", handler);
     };
-  }, [
-    filterMenuRef,
-    sortMenuRef,
-    rowHeightMenuRef,
-    searchMenuRef,
-    setFilterMenuOpen,
-    setSortMenuOpen,
-    setRowHeightMenuOpen,
-    setSearchMenuOpen,
-  ]);
+  }, [filterMenuRef, sortMenuRef, rowHeightMenuRef, searchMenuRef, setFilterMenuOpen, setSortMenuOpen, setRowHeightMenuOpen, setSearchMenuOpen, setIsViewsOpen]);
 
   return (
     <div className="z-10 flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
@@ -285,9 +284,21 @@ export default function TableHead({ tableId }: { tableId: string }) {
           <div>{selectedView ? selectedView.name : <div className="animate-pulse bg-gray-200 h-4 w-10 rounded-md"></div>}</div>
         </button>
         <div>|</div>
-        <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
-          <EyeOffIcon size={16} />
-          <div>Hide</div>
+        <div className="relative rounded-sm hover:bg-gray-200/60" ref={hideMenuRef}>
+          <button
+            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${Object.values(columnVisibility).filter((visible) => !visible).length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
+            onClick={() => {
+              setHideMenuOpen(!hideMenuOpen);
+            }}
+          >
+            <EyeOffIcon size={16} />
+            <div>
+              {Object.values(columnVisibility).filter((visible) => !visible).length > 0
+                ? `${Object.values(columnVisibility).filter((visible) => !visible).length} hidden fields`
+                : "Hide fields"}
+            </div>
+          </button>
+          {hideMenuOpen && <HideMenu />}
         </div>
         <div className="relative" ref={filterMenuRef}>
           <button
@@ -402,6 +413,77 @@ function RowHeightMenu() {
         >
           <LineHeightIcon />
           <div>Extra Tall</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HideMenu() {
+  const { localColumns, columnVisibility, setColumnVisibility } = useAppContext();
+  const [filteredColumns, setFilteredColumns] = useState(localColumns);
+  return (
+    <div className="absolute top-full mt-1">
+      <div className="w-60 rounded-sm border bg-white shadow-sm p-2">
+
+        {/* search bar to filter */}
+        <div className="flex items-center gap-x-2">
+          <input
+            placeholder="Find a field"
+            className="w-full p-1 focus:outline-none border-b-2 mb-2"
+            onChange={(e) => {
+              setFilteredColumns(
+                localColumns.filter((col) =>
+                  col.name.toLowerCase().includes(e.target.value.toLowerCase()),
+                ),
+              );
+            }}
+          />
+        </div>
+        {filteredColumns.map((col) => (
+          <div key={col.id} className="flex items-center gap-x-2 px-2">
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={columnVisibility[col.id] ?? true}
+                onChange={() => {
+                  setColumnVisibility({
+                    ...columnVisibility,
+                    [col.id]: !columnVisibility[col.id],
+                  });
+                }}
+              />
+              <div className="w-4 h-2 bg-gray-200 rounded-full peer peer-checked:bg-green-600 dark:bg-gray-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.1 after:left-[0px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-2 after:w-2 after:transition-all"></div>
+            </label>
+            <div>{col.name}</div>
+          </div>
+        ))}
+        <div className="flex justify-between mt-2 gap-x-2">
+          <button
+            className="bg-gray-200/50 hover:bg-gray-200/70 w-full p-1 rounded-sm text-gray-500 hover:text-gray-700"
+            onClick={() => {
+              const newVisibility = localColumns.reduce((acc, col) => {
+                acc[col.id] = false;
+                return acc;
+              }, {} as Record<string, boolean>);
+              setColumnVisibility(newVisibility);
+            }}
+          >
+            Hide All
+          </button>
+          <button
+            className="bg-gray-200/50 hover:bg-gray-200/70 w-full p-1 rounded-sm text-gray-500 hover:text-gray-700"
+            onClick={() => {
+              const newVisibility = localColumns.reduce((acc, col) => {
+                acc[col.id] = true;
+                return acc;
+              }, {} as Record<string, boolean>);
+              setColumnVisibility(newVisibility);
+            }}
+          >
+            Show All
+          </button>
         </div>
       </div>
     </div>

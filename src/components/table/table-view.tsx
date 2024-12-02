@@ -11,7 +11,7 @@ import {
   type ColumnDef,
   flexRender,
   type filterFns,
-  ColumnFiltersState,
+  type ColumnFiltersState,
   FilterFn,
 } from "@tanstack/react-table";
 
@@ -61,6 +61,10 @@ export function TableView({
     setSelectedView,
     columnFilters,
     setColumnFilters,
+    rowSelection,
+    setRowSelection,
+    columnVisibility,
+    setColumnVisibility,
   } = useAppContext();
   const [isColNameEditing, setIsColNameEditing] = useState(false);
   const [editColId, setEditColId] = useState("");
@@ -83,6 +87,7 @@ export function TableView({
     {
       tableId,
       pageSize: 200,
+      search: globalFilter,
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -94,6 +99,7 @@ export function TableView({
   const { data: viewSorts } = api.table.getViewSorts.useQuery({
     viewId: viewId,
   });
+
 
   // Effect to apply view sorts when view changes
   useEffect(() => {
@@ -165,12 +171,12 @@ export function TableView({
     view,
     setSelectedView,
   ]);
+
   const ctx = api.useUtils();
 
   // ----------- add column mutation -----------
   const addColumn = api.table.addField.useMutation({
     onMutate: async ({ type }) => {
-      void ctx.table.getData.invalidate();
       const newColumn = {
         id: "temp-id",
         name: "Untitled Column",
@@ -183,10 +189,10 @@ export function TableView({
       };
       setLocalColumns((prev) => [...prev, newColumn]);
     },
-    onSettled: (data) => {
+    onSuccess: (data) => {
       setLocalColumns((prev) =>
         prev.map((col) =>
-          col.id === "temp-id" ? { ...col, id: data?.id ?? col.id } : col,
+          col.id === "temp-id" ? { ...col, id: data.id } : col,
         ),
       );
     },
@@ -223,8 +229,7 @@ export function TableView({
   });
   // ----------- columns -----------
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
-    if (!tableData?.pages[0]?.columns) return [];
-    return tableData.pages[0].columns.map((col) => ({
+    return localColumns.map((col) => ({
       id: col.id,
       accessorKey: col.id,
       size: 200,
@@ -320,7 +325,7 @@ export function TableView({
         />
       ),
     }));
-  }, [editColId, isColNameEditing, setLoading, setLocalColumns, tableData?.pages, updateColName, viewFilters]);
+  }, [editColId, isColNameEditing, localColumns, setLoading, setLocalColumns, updateColName, viewFilters]);
 
   // ----------- add column handler -----------
   const handleAddRow = async () => {
@@ -394,11 +399,28 @@ export function TableView({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    enableMultiRowSelection: true,
     columnResizeMode: "onChange",
     state: {
       sorting,
       globalFilter,
       columnFilters,
+      rowSelection,
+      columnVisibility,
+    },
+    onColumnVisibilityChange: (updaterOrValue) => {
+      setColumnVisibility(
+        typeof updaterOrValue === "function"
+          ? updaterOrValue(columnVisibility)
+          : updaterOrValue
+      );
+    },
+    onRowSelectionChange: (updaterOrValue) => {
+      setRowSelection(
+        typeof updaterOrValue === "function"
+          ? updaterOrValue(rowSelection)
+          : updaterOrValue
+      );
     },
     onColumnFiltersChange: (updaterOrValue: ColumnFiltersState | ((old: ColumnFiltersState) => ColumnFiltersState)) => {
       setColumnFilters(
@@ -438,9 +460,12 @@ export function TableView({
     return (
       <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44">
         <LoaderIcon size={20} className="animate-spin" />
+        <div className="ml-2 animate-pulse text-xs text-gray-500">Loading...</div>
       </div>
     );
   }
+
+
 
   // ------------ error block ------
   if (status === "error") {
@@ -459,10 +484,18 @@ export function TableView({
       className="min-w-screen z-0 max-h-[90vh] flex-grow overflow-auto"
     >
       <table className="mb-32 w-max">
-        <thead className="sticky top-0 z-10 flex">
+
+        <thead className="sticky top-0 z-10 flex group">
           {table.getHeaderGroups().map((headerGroup) => (
-            // ----------- header row -----------
             <tr key={headerGroup.id} className={cn("flex w-max items-center")}>
+              <td className="hidden absolute z-20 group-hover:block border-gray-300 p-2 text-xs bg-[#F5F5F5]">
+                <input
+                  type="checkbox"
+                  className="form-checkbox"
+                  checked={table.getIsAllRowsSelected()}
+                  onChange={table.getToggleAllRowsSelectedHandler()}
+                />
+              </td>
               {headerGroup.headers.map((header) => (
                 <td
                   key={header.id}
@@ -492,32 +525,35 @@ export function TableView({
                   />
                 </td>
               ))}
-              <DropdownMenu>
-                <DropdownMenuTrigger>
-                  <button className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-2 text-xs">
-                    <Plus size={18} strokeWidth={1.5} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="flex flex-col">
-                  <button
-                    className="flex w-full px-4 py-2 text-left text-xs hover:bg-gray-100"
-                    onClick={() => handleAddColumn({ _type: "text" })}
-                  >
-                    <CaseUpperIcon size={16} strokeWidth={1.5} />
-                    <span className="ml-2">Add Text Column</span>
-                  </button>
-                  <button
-                    className="flex w-full px-4 py-2 text-left text-xs hover:bg-gray-100"
-                    onClick={() => handleAddColumn({ _type: "number" })}
-                  >
-                    <HashIcon size={14} strokeWidth={1.5} />
-                    <span className="ml-2">Add Number Column</span>
-                  </button>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {headerGroup.headers.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger>
+                    <button className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-2 text-xs">
+                      <Plus size={18} strokeWidth={1.5} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="flex flex-col">
+                    <button
+                      className="flex w-full px-4 py-2 text-left text-xs hover:bg-gray-100"
+                      onClick={() => handleAddColumn({ _type: "text" })}
+                    >
+                      <CaseUpperIcon size={16} strokeWidth={1.5} />
+                      <span className="ml-2">Add Text Column</span>
+                    </button>
+                    <button
+                      className="flex w-full px-4 py-2 text-left text-xs hover:bg-gray-100"
+                      onClick={() => handleAddColumn({ _type: "number" })}
+                    >
+                      <HashIcon size={14} strokeWidth={1.5} />
+                      <span className="ml-2">Add Number Column</span>
+                    </button>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </tr>
-          ))}{" "}
+          ))}
         </thead>
+
         <tbody
           className="relative w-max"
           style={{
@@ -533,45 +569,63 @@ export function TableView({
               transform: `translateY(${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px)`,
             }}
           >
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const row = rows[virtualRow.index];
-              return (
-                <tr
-                  key={row?.id}
-                  style={{ height: `${rowHeight}rem` }}
-                  className="flex w-max items-center bg-white hover:bg-gray-100"
-                >
-                  <div className="absolute left-2 text-xs text-gray-500">
-                    {virtualRow.index + 1}
-                  </div>
-                  {row?.getVisibleCells().map((cell) => (
-                    <td
-                      key={cell.id}
-                      style={{ width: cell.column.getSize() }}
-                      className={cn(
-                        "h-full w-max border-b border-r p-[2px] text-xs",
-                        {
-                          "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-white":
-                            globalFilter &&
-                            String(cell.getValue())
-                              .toLowerCase()
-                              .includes(globalFilter.toLowerCase()),
-                          "bg-blue-50":
-                            cell.column.getIsSorted() ||
-                            cell.column.getIsFiltered(),
-                        },
-                      )}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
+            {rows.length === 0 ? (
+              <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44 -translate-y-28">
+                <div className="ml-2 animate-pulse text-xs text-gray-500">No records match <strong>{globalFilter}</strong></div>
+              </div>
+            ) : (
+              rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const row = rows[virtualRow.index];
+
+                return (
+                  <tr
+                    key={row?.id}
+                    style={{ height: `${rowHeight}rem` }}
+                    className={cn("flex w-max items-center bg-white hover:bg-gray-100 group", {
+                      "bg-red-100/40 hover:bg-red-100/50": row?.getIsSelected(),
+                    })}
+                  >
+                    <div className="absolute left-2 text-xs text-gray-500">
+                      {table.getVisibleLeafColumns().length > 0 && (virtualRow.index + 1)}
+                    </div>
+                    <td className="hidden absolute z-20 group-hover:block  p-2 text-xs">
+                      <input
+                        type="checkbox"
+                        className="form-checkbox"
+                        checked={row?.getIsSelected()}
+                        onChange={row ? row.getToggleSelectedHandler() : undefined}
+                      />
                     </td>
-                  ))}
-                </tr>
-              );
-            })}
-            <div className="flex w-max border-r">
+
+                    {row?.getVisibleCells().map((cell) => (
+                      <td
+                        key={cell.id}
+                        style={{ width: cell.column.getSize() }}
+                        className={cn(
+                          "h-full w-max border-b border-r p-[2px] text-xs",
+                          {
+                            "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-white":
+                              globalFilter &&
+                              String(cell.getValue())
+                                .toLowerCase()
+                                .includes(globalFilter.toLowerCase()),
+                            "bg-blue-50":
+                              cell.column.getIsSorted() ||
+                              cell.column.getIsFiltered(),
+                          },
+                        )}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
+            )}
+            {rows.length > 0 && <div className="flex w-max border-r">
               {table.getFooterGroups().map((footerGroup) => (
                 <button
                   key={footerGroup.id}
@@ -596,7 +650,8 @@ export function TableView({
                   ))}
                 </button>
               ))}
-            </div>
+            </div>}
+
           </div>
         </tbody>
         <div className="fixed bottom-10 ml-3 flex items-center">
