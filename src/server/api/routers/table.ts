@@ -220,6 +220,49 @@ export const tableRouter = createTRPCRouter({
       });
     }),
 
+  // to add 10k rows to a table
+  add10kRows: protectedProcedure
+    .input(z.object({ tableId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Get all columns for this table
+      const columns = await ctx.db.column.findMany({
+        where: { tableId: input.tableId },
+        orderBy: { order: "asc" },
+      });
+
+      // Get the highest order number for rows
+      const lastRow = await ctx.db.row.findFirst({
+        where: { tableId: input.tableId },
+        orderBy: { order: "desc" },
+      });
+
+      // Create the rows with default values in a transaction
+      return ctx.db.$transaction(async (tx) => {
+        const newRows = [];
+        for (let i = 0; i < 10000; i++) {
+          const newRow = await tx.row.create({
+            data: {
+              tableId: input.tableId,
+              order: (lastRow?.order ?? -1) + 1 + i,
+            },
+          });
+
+          await tx.cell.createMany({
+            data: columns.map((column) => ({
+              value: column.type === "number" ? "" : "",
+              rowId: newRow.id,
+              columnId: column.id,
+              tableId: input.tableId,
+            })),
+          });
+
+          newRows.push(newRow);
+        }
+
+        return newRows;
+      });
+    }),
+
   // to delete a row from a table
   deleteRow: protectedProcedure
     .input(

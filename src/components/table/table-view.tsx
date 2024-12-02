@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 "use client";
 // ----------- import -----------
 import { useMemo, useEffect, useState, useRef, useCallback } from "react";
@@ -10,6 +11,8 @@ import {
   type ColumnDef,
   flexRender,
   type filterFns,
+  ColumnFiltersState,
+  FilterFn,
 } from "@tanstack/react-table";
 
 import {
@@ -110,7 +113,7 @@ export function TableView({
       viewFilters?.map((filter) => ({
         id: filter.columnId,
         value: filter.value ?? "",
-      })) ?? []
+      })) ?? [],
     );
   }, [viewFilters, setColumnFilters]);
 
@@ -163,10 +166,12 @@ export function TableView({
     view,
     setSelectedView,
   ]);
+  const ctx = api.useUtils();
 
   // ----------- add column mutation -----------
   const addColumn = api.table.addField.useMutation({
     onMutate: async ({ type }) => {
+      void ctx.table.getData.invalidate();
       const newColumn = {
         id: "temp-id",
         name: "Untitled Column",
@@ -179,12 +184,8 @@ export function TableView({
       };
       setLocalColumns((prev) => [...prev, newColumn]);
     },
-    onSuccess: (data) => {
-      setLocalColumns((prev) =>
-        prev.map((col) =>
-          col.id === "temp-id" ? { ...col, id: data.id } : col,
-        ),
-      );
+    onSettled: (data) => {
+      void ctx.table.getData.invalidate();
     },
     onError: (_error) => {
       toast({
@@ -217,22 +218,22 @@ export function TableView({
       });
     },
   });
-
-
   // ----------- columns -----------
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
-    return localColumns.map((col) => ({
+    if (!tableData?.pages[0]?.columns) return [];
+    return tableData.pages[0].columns.map((col) => ({
       id: col.id,
       accessorKey: col.id,
       size: 200,
       minSize: 200,
       enableSorting: true,
-      filterFn: viewFilters?.find((filter) => filter.columnId === col.id)?.operator as keyof typeof filterFns,
-      enableColumnFilter: true,
+      enableFilters: true,
       options: {
         enableColumnFilter: true,
         enableFilters: true,
       },
+      filterFn: viewFilters?.find((filter) => filter.columnId === col.id)
+        ?.operator as keyof typeof filterFns,
       header: ({ column }) => (
         <span className="flex w-full items-center justify-between gap-x-2 overflow-hidden">
           <div className="flex items-center gap-x-2">
@@ -316,8 +317,7 @@ export function TableView({
         />
       ),
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isColNameEditing, localColumns]);
+  }, [editColId, isColNameEditing, setLoading, setLocalColumns, tableData?.pages, updateColName, viewFilters]);
 
   // ----------- add column handler -----------
   const handleAddRow = async () => {
@@ -328,9 +328,9 @@ export function TableView({
   };
 
   // ----------- add column handler -----------
-  const handleAddColumn = async ({ _type }: { _type: "text" | "number" }) => {
+  const handleAddColumn = ({ _type }: { _type: "text" | "number" }) => {
     table.resetSorting();
-    await addColumn.mutateAsync({ tableId, type: _type });
+    addColumn.mutate({ tableId, type: _type });
   };
 
   const flatData = useMemo(
@@ -364,25 +364,28 @@ export function TableView({
     fetchMoreOnBottomReached(tableContainerRef.current);
   }, [fetchMoreOnBottomReached]);
 
+
+
   // ----------- react-table -----------
   const table = useReactTable({
     data: localData,
     columns,
     filterFns: {
-      isEmpty: (row, id, value) => {
-        return !row.getValue(id);
+      gt: (row, columnId, filterValue) => {
+        return row.getValue<number>(columnId) > Number(filterValue);
       },
-      isNotEmpty: (row, id, value) => {
-        return !!row.getValue(id);
+      lt: (row, columnId, filterValue) => {
+        return row.getValue<number>(columnId) < Number(filterValue);
       },
-      gt: (row, id, value) => {
-        return Number(row.getValue(id)) > value;
+      eq: (row, columnId, filterValue) => {
+        const value = row.getValue(columnId);
+        return filterValue === "" ? value === "" : value === filterValue;
       },
-      lt: (row, id, value) => {
-        return Number(row.getValue(id)) < value;
+      empty: (row, columnId) => {
+        return row.getValue(columnId) === null || row.getValue(columnId) === "";
       },
-      eq: (row, id, value) => {
-        return row.getValue(id) === value;
+      notEmpty: (row, columnId) => {
+        return row.getValue(columnId) !== null && row.getValue(columnId) !== "";
       },
     },
     getCoreRowModel: getCoreRowModel(),
@@ -394,22 +397,23 @@ export function TableView({
       globalFilter,
       columnFilters,
     },
-    onColumnFiltersChange: (updaterOrValue) => {
-      const newFilters = typeof updaterOrValue === 'function' ? updaterOrValue(columnFilters) : updaterOrValue;
+    onColumnFiltersChange: (updaterOrValue: ColumnFiltersState | ((old: ColumnFiltersState) => ColumnFiltersState)) => {
       setColumnFilters(
-        newFilters.map((filter) => ({
-          ...filter,
-          value: filter.value === "" ? undefined : filter.value,
-        })),
+        typeof updaterOrValue === "function"
+          ? updaterOrValue(columnFilters)
+          : updaterOrValue
       );
     },
     onSortingChange: (updaterOrValue) => {
-      const newSorting = typeof updaterOrValue === 'function' ? updaterOrValue(sorting) : updaterOrValue;
+      const newSorting =
+        typeof updaterOrValue === "function"
+          ? updaterOrValue(sorting)
+          : updaterOrValue;
       setSorting(newSorting);
     },
     onGlobalFilterChange: (newFilter) => {
       setGlobalFilter(newFilter as string);
-    }
+    },
   });
 
   const { rows } = table.getRowModel();
@@ -449,9 +453,9 @@ export function TableView({
     <div
       ref={tableContainerRef}
       onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
-      className="min-w-screen max-h-[90vh] flex-grow overflow-auto z-0"
+      className="min-w-screen z-0 max-h-[90vh] flex-grow overflow-auto"
     >
-      <table className="w-max mb-32">
+      <table className="mb-32 w-max">
         <thead className="sticky top-0 z-10 flex">
           {table.getHeaderGroups().map((headerGroup) => (
             // ----------- header row -----------
@@ -549,7 +553,9 @@ export function TableView({
                             String(cell.getValue())
                               .toLowerCase()
                               .includes(globalFilter.toLowerCase()),
-                          "bg-blue-50": cell.column.getIsSorted() || cell.column.getIsFiltered(),
+                          "bg-blue-50":
+                            cell.column.getIsSorted() ||
+                            cell.column.getIsFiltered(),
                         },
                       )}
                     >

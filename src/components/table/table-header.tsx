@@ -18,17 +18,10 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { api } from "@/trpc/react";
-import { use, useState } from "react";
+import { useState } from "react";
 import { LineHeightIcon } from "@radix-ui/react-icons";
 import { useAppContext } from "../context";
 import { useEffect, useRef } from "react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
 const useSortFilterManagement = (viewId: string) => {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
@@ -630,76 +623,33 @@ function SortItem({
           />
         </div>
       )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex w-28 items-center justify-between gap-x-2 rounded-sm border p-2 hover:bg-gray-100">
-            <button className="ga p-x-2 flex items-center rounded-sm hover:bg-gray-100">
-              {viewSorts.find((sort) => sort.columnId === selectedColumn.id)
-                ?.desc
-                ? selectedColumn.type === "number"
-                  ? "9-0"
-                  : "Z-A"
-                : selectedColumn.type === "number"
-                  ? "0-9"
-                  : "A-Z"}
-            </button>
-            <ChevronDown size={16} />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          {selectedColumn.type === "text" ? (
-            <>
-              <DropdownMenuItem
-                onClick={() => {
-                  updateSort({
-                    columnId: selectedColumn.id,
-                    desc: false,
-                    viewId: selectedView?.id ?? "",
-                  });
-                }}
-              >
-                A-Z
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  updateSort({
-                    columnId: selectedColumn.id,
-                    desc: true,
-                    viewId: selectedView?.id ?? "",
-                  });
-                }}
-              >
-                Z-A
-              </DropdownMenuItem>
-            </>
-          ) : selectedColumn.type === "number" ? (
-            <>
-              <DropdownMenuItem
-                onClick={() => {
-                  updateSort({
-                    columnId: selectedColumn.id,
-                    desc: false,
-                    viewId: selectedView?.id ?? "",
-                  });
-                }}
-              >
-                0-9
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  updateSort({
-                    columnId: selectedColumn.id,
-                    desc: true,
-                    viewId: selectedView?.id ?? "",
-                  });
-                }}
-              >
-                9-0
-              </DropdownMenuItem>
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <select
+        className="flex w-28 items-center justify-between gap-x-2 rounded-sm border p-2 hover:bg-gray-100"
+        value={
+          viewSorts.find((sort) => sort.columnId === selectedColumn.id)?.desc
+            ? "desc"
+            : "asc"
+        }
+        onChange={(e) => {
+          updateSort({
+            columnId: selectedColumn.id,
+            desc: e.target.value === "desc",
+            viewId: selectedView?.id ?? "",
+          });
+        }}
+      >
+        {selectedColumn.type === "text" ? (
+          <>
+            <option value="asc">A-Z</option>
+            <option value="desc">Z-A</option>
+          </>
+        ) : selectedColumn.type === "number" ? (
+          <>
+            <option value="asc">0-9</option>
+            <option value="desc">9-0</option>
+          </>
+        ) : null}
+      </select>
       <button
         className="flex items-center gap-x-2 rounded-sm p-2 hover:bg-gray-100"
         onClick={() => {
@@ -754,7 +704,7 @@ function FilterMenu() {
                 addFilter({
                   viewId: selectedView?.id ?? "",
                   columnId: unfilteredColumns[0]?.id ?? "",
-                  operator: unfilteredColumns[0]?.type === "number" ? "equals" : "includesString",
+                  operator: unfilteredColumns[0]?.type === "number" ? "eq" : "includesString",
                   value: "",
                 });
               }
@@ -808,6 +758,18 @@ function FilterItem({
     const filter = {
       columnId: selectedColumn.id,
       value: newValue,
+      operator: operator || (selectedColumn.type === "number" ? "equals" : "includesString"),
+      viewId: selectedView?.id ?? "",
+    };
+    updateFilter(filter);
+  };
+
+  const handleOperatorChange = (newOperator: string) => {
+    setOperator(newOperator);
+    const filter = {
+      columnId: selectedColumn.id,
+      value: filterValue,
+      operator: newOperator,
       viewId: selectedView?.id ?? "",
     };
     updateFilter(filter);
@@ -835,7 +797,7 @@ function FilterItem({
                 addFilter({
                   viewId: selectedView?.id ?? "",
                   columnId: column.id,
-                  operator: column.type === "number" ? "equals" : "includesString",
+                  operator: column.type === "number" ? "eq" : "includesString",
                   value: "",
                 });
                 deleteFilter({
@@ -856,37 +818,32 @@ function FilterItem({
       </div>
       <select
         className="w-32 border-y border-r p-2"
-        defaultValue={viewFilters.find(filter => filter.columnId === colId)?.operator}
-        onChange={(e) => {
-          setOperator(e.target.value);
-
-          updateFilter({
-            columnId: selectedColumn.id,
-            operator: e.target.value,
-            value: filterValue,
-            viewId: selectedView?.id ?? "",
-          });
-        }}
+        value={operator || viewFilters.find(filter => filter.columnId === colId)?.operator}
+        onChange={(e) => handleOperatorChange(e.target.value)}
       >
         {selectedColumn.type === "number" ? (
           <>
             <option value="eq">equals</option>
             <option value="gt">greater than</option>
             <option value="lt">less than</option>
+            <option value="empty">is empty</option>
+            <option value="notEmpty">is not empty</option>
           </>
         ) : (
           <>
             <option value="includesString">contains</option>
+            <option value="empty">is empty</option>
+            <option value="notEmpty">is not empty</option>
           </>
         )}
-        <option value="isEmpty">empty</option>
-        <option value="isNotEmpty">not empty</option>
       </select>
       {operator !== 'isEmpty' && operator !== 'isNotEmpty' ? (
         <input
           className="w-32 border-y border-r p-2"
           value={filterValue}
-          onChange={(e) => handleFilterChange(e.target.value)}
+          onChange={(e) => {
+            handleFilterChange(e.target.value);
+          }}
           placeholder="Enter value..."
         />
       ) :

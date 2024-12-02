@@ -39,7 +39,7 @@ export function EditableCell({
         });
         return { ...oldData, data: newData };
       });
-      setLoading(false);
+      setLoading(true);
       return { previousData };
     },
     onError: (err, newCell, context) => {
@@ -49,6 +49,7 @@ export function EditableCell({
       setLoading(false);
     },
     onSettled: () => {
+      void ctx.table.getData.invalidate();
       setLoading(false);
     },
   });
@@ -74,7 +75,7 @@ export function EditableCell({
   return (
     <input
       className={`flex h-full w-full cursor-default items-center truncate rounded-[1px] bg-transparent p-2 text-right text-xs outline-none transition duration-100 ease-linear focus:ring-2 ${isInvalid ? "focus:ring-red-500" : "focus:ring-blue-500"}`}
-      value={value}
+      defaultValue={value}
       onChange={(e) => {
         setLoading(true);
         setValue(e.target.value);

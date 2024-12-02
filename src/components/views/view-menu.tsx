@@ -94,7 +94,7 @@ export default function ViewMenu({
   }
 
   return (
-    <div className="relative flex max-h-[81vh] w-80 flex-grow flex-col border-r border-gray-200 bg-white text-xs">
+    <div className="relative flex max-h-[89vh] w-80 flex-col border-r border-gray-200 bg-white text-xs">
       <div className="px-4 py-2">
         <div
           className={`mb-4 flex items-center gap-x-2 border-b ${isInputFocused ? "border-blue-500" : "border-gray-200"}`}
@@ -112,7 +112,7 @@ export default function ViewMenu({
           ></input>
         </div>
       </div>
-      <div className="flex-grow overflow-auto px-4">
+      <div className="overflow-auto px-4 flex-grow">
         {filteredViews.map((view) => (
           <div
             key={view.id}
@@ -122,18 +122,17 @@ export default function ViewMenu({
               setSortViewOpen(false);
               router.push(`/${_baseId}/${_tableId}/${view.id}`);
             }}
-            className={`flex cursor-pointer items-center gap-x-2 rounded-sm p-2 ${
-              pathname.includes(view.id)
-                ? "bg-blue-200/60 hover:bg-blue-200"
-                : "hover:bg-gray-100"
-            }`}
+            className={`flex cursor-pointer items-center gap-x-2 rounded-sm p-2 ${pathname.includes(view.id)
+              ? "bg-blue-200/60 hover:bg-blue-200"
+              : "hover:bg-gray-100"
+              }`}
           >
             <Grid2x2Plus size={16} strokeWidth={1} color="blue" />
             <div className="flex-grow">{view.name}</div>
           </div>
         ))}
       </div>
-      <div className="absolute bottom-0 max-h-52 w-full border-t bg-white px-4 py-2">
+      <div className="w-full border-t bg-white px-4 py-2">
         <button
           onClick={() => {
             addView({
@@ -141,7 +140,7 @@ export default function ViewMenu({
             });
           }}
           disabled={isPending}
-          className="mt-auto flex w-full items-center gap-x-2 rounded-sm bg-blue-500 p-2 text-white active:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-500"
+          className="flex w-full items-center gap-x-2 rounded-sm bg-blue-500 p-2 text-white active:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-500"
         >
           <Grid2x2Plus size={16} strokeWidth={1} />
           <div className="">

@@ -5,16 +5,16 @@ async function main() {
   // 1. Create a Base and Table with 6 Columns
   const base = await prisma.base.create({
     data: {
-      name: "Nam's Base",
+      name: "Rohit's Base",
       user: {
-        connect: { id: "cm3dvu0u20000of2l0wovj8ns" }, // Replace with actual User ID
+        connect: { id: "cm3ft8ti60000zm9i5ezcinpx" }, // Replace with actual User ID
       },
       tables: {
         create: [
           {
             name: "Sample Table",
             columns: {
-              create: Array.from({ length: 6 }, (_, i) => ({
+              create: Array.from({ length: 3 }, (_, i) => ({
                 name: `Column ${i + 1}`,
                 type: "text",
                 order: i + 1,
@@ -38,7 +38,7 @@ async function main() {
   const columnIds = table.columns.map((col) => col.id);
 
   // 2. Create 1,000 Rows without Cells
-  const rowData = Array.from({ length: 1000 }, (_, i) => ({
+  const rowData = Array.from({ length: 10000 }, (_, i) => ({
     order: i + 1,
     tableId: table.id,
   }));
