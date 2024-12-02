@@ -120,26 +120,25 @@ export function TableView({
   // to update column name
   const { mutate: updateColName } = api.table.updateColumnName.useMutation({
     onMutate: async ({ columnId, name }) => {
+      await ctx.table.getData.cancel();
+      const previousColumns = localColumns;
       setLocalColumns((prev) =>
         prev.map((c) => (c.id === columnId ? { ...c, name } : c)),
       );
+      return { previousColumns };
     },
-    onSettled: (data, error, { columnId }) => {
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to update column name",
-          variant: "destructive",
-        });
-        if (data) {
-          setLoading(false);
-          setLocalColumns((prev) =>
-            prev.map((c) =>
-              c.id === columnId ? { ...c, name: data.name } : c,
-            ),
-          );
-        }
+    onError: (error, { columnId, name }, context) => {
+      toast({
+        title: "Error",
+        description: "Failed to update column name",
+        variant: "destructive",
+      });
+      if (context?.previousColumns) {
+        setLocalColumns(context.previousColumns);
       }
+    },
+    onSettled: () => {
+      void ctx.table.getData.invalidate();
     },
   });
 
@@ -185,7 +184,11 @@ export function TableView({
       setLocalColumns((prev) => [...prev, newColumn]);
     },
     onSettled: (data) => {
-      void ctx.table.getData.invalidate();
+      setLocalColumns((prev) =>
+        prev.map((col) =>
+          col.id === "temp-id" ? { ...col, id: data?.id ?? col.id } : col,
+        ),
+      );
     },
     onError: (_error) => {
       toast({

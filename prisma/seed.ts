@@ -7,7 +7,7 @@ async function main() {
     data: {
       name: "Rohit's Base",
       user: {
-        connect: { id: "cm3ft8ti60000zm9i5ezcinpx" }, // Replace with actual User ID
+        connect: { id: "cm3ft8ti60000zm9i5ezcinpx" },
       },
       tables: {
         create: [
@@ -57,7 +57,7 @@ async function main() {
     columnIds.map((columnId, colIndex) => ({
       rowId: row.id,
       columnId: columnId,
-      value: "",
+      value: null,
       tableId: table.id,
     })),
   );
@@ -69,26 +69,11 @@ async function main() {
   }
 
   // 4. Create Views, Filters, and Sorts
-  const viewsData = Array.from({ length: 3 }, (_, i) => ({
-    name: `Sample View ${i + 1}`,
+  const viewsData = Array.from({ length: 1 }, (_, i) => ({
+    name: `Grid View ${i + 1}`,
     tableId: table.id,
-    filters: {
-      create: [
-        {
-          columnId: columnIds[i % columnIds.length]!, // Cycle through columns for filters
-          operator: "equals",
-          value: `FilterValue${i + 1}`,
-        },
-      ],
-    },
-    sorts: {
-      create: [
-        {
-          columnId: columnIds[i % columnIds.length]!,
-          desc: i % 2 === 0,
-        },
-      ],
-    },
+    filters: {},
+    sorts: {},
   }));
 
   for (const viewData of viewsData) {
