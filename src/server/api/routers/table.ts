@@ -198,7 +198,6 @@ export const tableRouter = createTRPCRouter({
 
       // Create the row with default values in a transaction
       return ctx.db.$transaction(async (tx) => {
-        // Create the row
         const newRow = await tx.row.create({
           data: {
             tableId: input.tableId,
@@ -206,7 +205,7 @@ export const tableRouter = createTRPCRouter({
           },
         });
 
-        // Create cells with default values
+        // Create all cells at once using createMany
         await tx.cell.createMany({
           data: columns.map((column) => ({
             value: column.type === "number" ? "" : "",
@@ -353,10 +352,25 @@ export const tableRouter = createTRPCRouter({
 
       return {
         data,
-        columns,
         nextCursor: rows[rows.length - 1]?.id,
         hasNextPage: rows.length === input.pageSize,
       };
+    }),
+
+  getTotalRowsGivenTableId: protectedProcedure
+    .input(z.object({ tableId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.row.count({
+        where: { tableId: input.tableId },
+      });
+    }),
+
+  getColumnsByTableId: protectedProcedure
+    .input(z.object({ tableId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      return ctx.db.column.findMany({
+        where: { tableId: input.tableId },
+      });
     }),
 
   // to sorts for a view

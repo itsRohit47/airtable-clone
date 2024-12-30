@@ -7,7 +7,7 @@ async function main() {
     data: {
       name: "Rohit's Base",
       user: {
-        connect: { id: "cm3ft8ti60000zm9i5ezcinpx" },
+        connect: { id: "cm47ofjcj006oridgfh4beum1" },
       },
       tables: {
         create: [

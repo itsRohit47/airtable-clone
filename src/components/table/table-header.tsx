@@ -22,7 +22,6 @@ import { useState } from "react";
 import { LineHeightIcon } from "@radix-ui/react-icons";
 import { useAppContext } from "../context";
 import { useEffect, useRef } from "react";
-import { VisibilityState } from "@tanstack/react-table";
 const useSortFilterManagement = (viewId: string) => {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
@@ -213,8 +212,14 @@ export default function TableHead({ tableId }: { tableId: string }) {
   const [searchMenuOpen, setSearchMenuOpen] = useState(false);
   const [rowHeightMenuOpen, setRowHeightMenuOpen] = useState(false);
   const [hideMenuOpen, setHideMenuOpen] = useState(false);
-  const { isViewsOpen, setIsViewsOpen, selectedView, localColumns, columnVisibility } =
+  const { data: cols } = api.table.getColumnsByTableId.useQuery({ tableId });
+
+  const { isViewsOpen, setIsViewsOpen, selectedView, localColumns, setLocalColumns, columnVisibility } =
     useAppContext();
+
+  useEffect(() => {
+    setLocalColumns(cols ?? []);
+  }, [cols, setLocalColumns, tableId]);
 
   const {
     sortMenuOpen,
@@ -643,6 +648,7 @@ function SearchInput() {
             if (searchInput) {
               searchInput.classList.toggle("hidden");
             }
+            void ctx.table.getData.invalidate();
             setGlobalFilter("");
           }}
         />

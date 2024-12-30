@@ -18,6 +18,7 @@ interface Column {
   updatedAt: Date;
 }
 
+
 interface View {
   id: string;
   name: string;

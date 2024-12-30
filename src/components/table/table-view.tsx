@@ -12,7 +12,6 @@ import {
   flexRender,
   type filterFns,
   type ColumnFiltersState,
-  FilterFn,
 } from "@tanstack/react-table";
 
 import {
@@ -23,11 +22,13 @@ import {
   SaveIcon,
   CaseUpperIcon,
 } from "lucide-react";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+
 import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
@@ -45,32 +46,23 @@ export function TableView({
   // ----------- useState -----------
   const { toast } = useToast();
   const {
-    localColumns,
-    setLocalColumns,
-    localData,
-    setLocalData,
     globalFilter,
     setGlobalFilter,
-    recordCount,
-    setRecordCount,
     rowHeight,
     sorting,
     setSorting,
-    setLoading,
-    selectedView,
-    setSelectedView,
     columnFilters,
     setColumnFilters,
     rowSelection,
     setRowSelection,
     columnVisibility,
     setColumnVisibility,
+    selectedView,
+    setSelectedView,
   } = useAppContext();
+
   const [isColNameEditing, setIsColNameEditing] = useState(false);
   const [editColId, setEditColId] = useState("");
-  const { data: count } = api.table.getTableCount.useQuery({
-    tableId,
-  });
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -79,9 +71,7 @@ export function TableView({
     data: tableData,
     isLoading,
     isFetching,
-    isFetchingNextPage,
     fetchNextPage,
-    hasNextPage,
     status,
   } = api.table.getData.useInfiniteQuery(
     {
@@ -94,6 +84,11 @@ export function TableView({
       refetchOnWindowFocus: false,
     },
   );
+
+  const { data: c } = api.table.getColumnsByTableId.useQuery({
+    tableId,
+  });
+
 
   // Fetch view sorts
   const { data: viewSorts } = api.table.getViewSorts.useQuery({
@@ -123,113 +118,126 @@ export function TableView({
     );
   }, [viewFilters, setColumnFilters]);
 
-  // to update column name
-  const { mutate: updateColName } = api.table.updateColumnName.useMutation({
-    onMutate: async ({ columnId, name }) => {
-      await ctx.table.getData.cancel();
-      const previousColumns = localColumns;
-      setLocalColumns((prev) =>
-        prev.map((c) => (c.id === columnId ? { ...c, name } : c)),
-      );
-      return { previousColumns };
+  const { data: view } = api.table.getViewById.useQuery({
+    viewId: viewId,
+  });
+
+  useEffect(() => {
+    setSelectedView(view ?? null);
+  }, [selectedView?.id, setSelectedView, view]);
+
+  const ctx = api.useUtils();
+
+  // ----------- add column mutation -----------
+  const addColumn = api.table.addField.useMutation({
+    onMutate: async () => {
+      await ctx.table.getColumnsByTableId.cancel();
+      const previousData = ctx.table.getColumnsByTableId.getData();
+      ctx.table.getColumnsByTableId.setData({ tableId }, (old) => {
+        if (!old) return old;
+        return [...old, {
+          id: "temp-id",
+          name: "Untitled Column",
+          tableId: tableId,
+          defaultValue: null,
+          type: "text",
+          order: old.length,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }];
+      });
+      return { previousData };
     },
-    onError: (error, { columnId, name }, context) => {
+    onError: (err, newColumn, context) => {
+      if (context?.previousData) {
+        ctx.table.getColumnsByTableId.setData({ tableId }, context.previousData);
+      }
       toast({
         title: "Error",
-        description: "Failed to update column name",
-        variant: "destructive",
+        description: "Failed to add column",
       });
-      if (context?.previousColumns) {
-        setLocalColumns(context.previousColumns);
+    },
+    onSettled: () => {
+      void ctx.table.getColumnsByTableId.invalidate();
+    },
+  });
+
+
+  const flatData = useMemo(
+    () => tableData?.pages?.flatMap((page) => page.data) ?? [],
+    [tableData],
+  );
+
+  // ----------- add row mutation -----------
+  const addRow = api.table.addRow.useMutation({
+    onMutate: async () => {
+      await ctx.table.getData.cancel();
+      await ctx.table.getTotalRowsGivenTableId.cancel();
+
+      const previousData = ctx.table.getData.getInfiniteData();
+      const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData();
+      const newRowData: Record<string, string | number> = {};
+
+      // Optimistically update the infinite query data
+      ctx.table.getData.setInfiniteData(
+        { tableId, pageSize: 200, search: globalFilter },
+        (old) => {
+          if (!old) return old;
+          const newPages = [...old.pages];
+          const lastPage = newPages[newPages.length - 1];
+          if (lastPage) {
+            newPages[newPages.length - 1] = {
+              ...lastPage,
+              data: [...lastPage.data, { id: "temp-id", ...newRowData }],
+              nextCursor: lastPage.nextCursor ?? "",
+              hasNextPage: lastPage.hasNextPage ?? false
+            };
+          }
+          return {
+            ...old,
+            pages: newPages
+          };
+        }
+      );
+
+      // Optimistically update total rows count
+      ctx.table.getTotalRowsGivenTableId.setData(
+        { tableId },
+        (old) => (old ?? 0) + 1
+      );
+
+      return { previousData, previousTotalRows };
+    },
+    onError: (err, newRow, context) => {
+      if (context?.previousData) {
+        ctx.table.getData.setInfiniteData(
+          { tableId, pageSize: 200, search: globalFilter },
+          context.previousData
+        );
+        ctx.table.getTotalRowsGivenTableId.setData(
+          { tableId },
+          context.previousTotalRows
+        );
       }
+      toast({
+        title: "Error",
+        description: "Failed to add row",
+      });
     },
     onSettled: () => {
       void ctx.table.getData.invalidate();
     },
   });
 
-  // to get view by id
-  const { data: view } = api.table.getViewById.useQuery({
-    viewId: viewId,
+  // ----------- total rows -----------
+  const { data: totalRows } = api.table.getTotalRowsGivenTableId.useQuery({
+    tableId,
   });
 
-  // ----------- side effects -----------
-  useEffect(() => {
-    const allData = tableData?.pages.flatMap((page) => page.data) ?? [];
-    setLocalColumns(tableData?.pages[0]?.columns ?? []);
-    setLocalData(allData);
-    setRecordCount(count ?? 0);
-    setSelectedView(view ?? null);
-  }, [
-    tableData,
-    setLocalColumns,
-    setLocalData,
-    setRecordCount,
-    count,
-    sorting,
-    selectedView?.id,
-    view,
-    setSelectedView,
-  ]);
 
-  const ctx = api.useUtils();
-
-  // ----------- add column mutation -----------
-  const addColumn = api.table.addField.useMutation({
-    onMutate: async ({ type }) => {
-      const newColumn = {
-        id: "temp-id",
-        name: "Untitled Column",
-        type,
-        tableId,
-        order: localColumns.length,
-        defaultValue: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setLocalColumns((prev) => [...prev, newColumn]);
-    },
-    onSuccess: (data) => {
-      setLocalColumns((prev) =>
-        prev.map((col) =>
-          col.id === "temp-id" ? { ...col, id: data.id } : col,
-        ),
-      );
-    },
-    onError: (_error) => {
-      toast({
-        title: "Error",
-        description: "Failed to add column",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // ----------- add row mutation -----------
-  const addRow = api.table.addRow.useMutation({
-    onMutate: async () => {
-      const newRow: Record<string, string> = { id: "temp-id" };
-      setLocalData((prev) => [...prev, { ...newRow }]);
-      setRecordCount(localData.length + 1);
-    },
-    onSuccess: (data) => {
-      setLocalData((prev) =>
-        prev.map((row) =>
-          row.id === "temp-id" ? { ...row, id: data.id } : row,
-        ),
-      );
-    },
-    onError: (_error) => {
-      toast({
-        title: "Error",
-        description: "Failed to add row",
-        variant: "destructive",
-      });
-    },
-  });
   // ----------- columns -----------
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
-    return localColumns.map((col) => ({
+    return c?.map((col) => ({
       id: col.id,
       accessorKey: col.id,
       size: 200,
@@ -240,8 +248,8 @@ export function TableView({
         enableColumnFilter: true,
         enableFilters: true,
       },
-      filterFn: viewFilters?.find((filter) => filter.columnId === col.id)
-        ?.operator as keyof typeof filterFns,
+      filterFn: (viewFilters?.find((filter) => filter.columnId === col.id)
+        ?.operator as keyof typeof filterFns) ?? "eq",
       header: ({ column }) => (
         <span className="flex w-full items-center justify-between gap-x-2 overflow-hidden">
           <div className="flex items-center gap-x-2">
@@ -253,44 +261,7 @@ export function TableView({
               )}
             </span>
             <div className="w-max px-2">
-              {isColNameEditing && editColId === col.id ? (
-                <input
-                  type="text"
-                  defaultValue={col.name}
-                  className={`w-max max-w-24 overflow-auto bg-transparent focus:outline-none focus:ring-0 ${isColNameEditing ? "text-red-500" : ""
-                    }`}
-                  autoFocus
-                  onFocus={(e) => e.target.select()}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      setLoading(true);
-                      updateColName({
-                        columnId: col.id,
-                        name: (e.target as HTMLInputElement).value,
-                      });
-                      setIsColNameEditing(false);
-                    }
-                    if (e.key === "Escape") {
-                      setIsColNameEditing(false);
-                    }
-                  }}
-                  onChange={(e) => {
-                    setLoading(true);
-                    updateColName({ columnId: col.id, name: e.target.value });
-                    setLocalColumns((prev) =>
-                      prev.map((c) =>
-                        c.id === col.id ? { ...c, name: e.target.value } : c,
-                      ),
-                    );
-                  }}
-                  onBlur={() => {
-                    setIsColNameEditing(false);
-                    setLoading(false);
-                  }}
-                />
-              ) : (
-                <span>{col.name}</span>
-              )}
+              <span>{col.name}</span>
             </div>
           </div>
           <div>
@@ -324,15 +295,13 @@ export function TableView({
           value={String(getValue() ?? "")}
         />
       ),
-    }));
-  }, [editColId, isColNameEditing, localColumns, setLoading, setLocalColumns, updateColName, viewFilters]);
+    })) ?? [];
+  }, [editColId, isColNameEditing, viewFilters, c]);
 
   // ----------- add column handler -----------
-  const handleAddRow = async () => {
+  const handleAddRow = () => {
     table.resetSorting();
-    table.resetGlobalFilter();
-    setRecordCount(recordCount + 1);
-    await addRow.mutateAsync({ tableId });
+    addRow.mutate({ tableId });
   };
 
   // ----------- add column handler -----------
@@ -341,12 +310,8 @@ export function TableView({
     addColumn.mutate({ tableId, type: _type });
   };
 
-  const flatData = useMemo(
-    () => tableData?.pages?.flatMap((page) => page.data) ?? [],
-    [tableData],
-  );
 
-  const totalDBRowCount = count ?? 0;
+
   const totalFetched = flatData.length;
 
   //called on scroll and possibly on mount to fetch more data as the user scrolls and reaches bottom of table
@@ -358,13 +323,13 @@ export function TableView({
         if (
           scrollHeight - scrollTop - clientHeight < 500 &&
           !isFetching &&
-          totalFetched < totalDBRowCount
+          totalFetched < (totalRows ?? 0)
         ) {
           void fetchNextPage();
         }
       }
     },
-    [fetchNextPage, isFetching, totalFetched, totalDBRowCount],
+    [isFetching, totalFetched, totalRows, fetchNextPage],
   );
 
   //a check on mount and after a fetch to see if the table is already scrolled to the bottom and immediately needs to fetch more data
@@ -376,7 +341,7 @@ export function TableView({
 
   // ----------- react-table -----------
   const table = useReactTable({
-    data: localData,
+    data: flatData,
     columns,
     filterFns: {
       gt: (row, columnId, filterValue) => {
@@ -441,10 +406,9 @@ export function TableView({
     },
   });
 
-  const { rows } = table.getRowModel();
 
   const rowVirtualizer = useVirtualizer({
-    count: rows.length,
+    count: flatData.length,
     estimateSize: () => 33, //estimate row height for accurate scrollbar dragging
     getScrollElement: () => tableContainerRef.current,
     //measure dynamic row height, except in firefox because it measures table border height incorrectly
@@ -569,13 +533,13 @@ export function TableView({
               transform: `translateY(${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px)`,
             }}
           >
-            {rows.length === 0 ? (
+            {table.getRowModel().rows.length === 0 ? (
               <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44 -translate-y-28">
                 <div className="ml-2 animate-pulse text-xs text-gray-500">No records match <strong>{globalFilter}</strong></div>
               </div>
             ) : (
               rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const row = rows[virtualRow.index];
+                const row = table.getRowModel().rows[virtualRow.index];
 
                 return (
                   <tr
@@ -625,7 +589,7 @@ export function TableView({
                 );
               })
             )}
-            {rows.length > 0 && <div className="flex w-max border-r">
+            {table.getRowModel().rows.length > 0 && <div className="flex w-max border-r">
               {table.getFooterGroups().map((footerGroup) => (
                 <button
                   key={footerGroup.id}
@@ -666,7 +630,7 @@ export function TableView({
           </span>
         </div>
         <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500">
-          {isLoading ? "Loading..." : recordCount} records
+          {totalRows} records
         </div>
       </table>
     </div>

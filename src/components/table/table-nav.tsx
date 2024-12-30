@@ -28,7 +28,6 @@ export default function TableNav({
     setLocalTables,
     editName,
     setEditName,
-    loading,
   } = useAppContext();
 
   useEffect(() => {

@@ -70,10 +70,6 @@ export default function TableTopNav({
   });
 
 
-  const { mutate: add10k } = api.table.add10kRows.useMutation({
-  });
-
-
   useEffect(() => {
     const timer = setTimeout(() => {
       const saved = document.getElementById("saved");
@@ -236,10 +232,7 @@ export default function TableTopNav({
           <span className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-gray-700/80">
             <HistoryIcon size={16} strokeWidth={1.5}></HistoryIcon>
           </span>
-          <div onClick={() => {
-            console.log("Help")
-            add10k({ tableId });
-          }} className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-gray-700/80">
+          <div className="flex cursor-pointer items-center gap-x-2 rounded-full px-3 py-2 hover:bg-gray-700/80">
             <CircleHelp size={16} strokeWidth={1.5} />
             <span>Help</span>
           </div>

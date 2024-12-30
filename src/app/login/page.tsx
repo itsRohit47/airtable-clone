@@ -25,7 +25,7 @@ export default function LoginPage() {
             width={136}
             height={29}
             alt="Airtable logo"
-            className="mx-auto"
+            className="mx-auto mix-blend-multiply"
           />
         </Link>
         <h1 className="mx-auto text-2xl">
