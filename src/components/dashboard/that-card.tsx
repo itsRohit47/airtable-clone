@@ -6,32 +6,28 @@ import {
   TableCellsMergeIcon,
   LoaderCircleIcon,
 } from "lucide-react";
-import { api } from "@/trpc/react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function ThatCard({
   icon,
   title,
   description,
+  onClick,
 }: {
   icon: string;
   title: string;
   description: string;
+  onClick?: () => void;
 }) {
-  const ctx = api.useUtils();
-  const router = useRouter();
-  const { mutate, isPending } = api.base.createBase.useMutation({
-    onSuccess: (data) => {
-      void ctx.base.getAllBases.invalidate();
-      void router.push(`/base/${data.base.id}/table/${data.firstTableId}`);
-    },
-  });
+  const [isLoading, setIsLoading] = useState(false);
+
   return (
     <div
       className="flex min-h-28 w-full cursor-pointer flex-col items-start gap-3 rounded-md border border-gray-300 bg-white p-4 shadow-sm hover:shadow-md"
       onClick={() => {
-        if (icon === "table") {
-          mutate();
+        if (onClick) {
+          setIsLoading(true);
+          onClick();
         }
       }}
     >
@@ -41,7 +37,7 @@ export default function ThatCard({
         {icon === "arrow" && <ArrowUpIcon />}
         {icon === "table" && <TableCellsMergeIcon />}
         <h3 className="font-medium">{title}</h3>
-        {isPending && (
+        {isLoading && (
           <LoaderCircleIcon
             className="animate-spin"
             size={16}

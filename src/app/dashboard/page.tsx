@@ -8,10 +8,20 @@ import SideMenu from "@/components/dashboard/side-menu";
 import ThatCard from "@/components/dashboard/that-card";
 import { ChevronDown, ListIcon, Grid2X2Icon } from "lucide-react";
 import { useAppContext } from "@/components/context";
+import { useRouter } from "next/navigation";
+import { api } from "@/trpc/react";
 import clsx from "clsx";
 
 export default function DashboardPage() {
   const { listView, setListView } = useAppContext();
+  const ctx = api.useUtils();
+  const router = useRouter();
+  const { mutate } = api.base.createBase.useMutation({
+    onSuccess: (data) => {
+      void ctx.base.getAllBases.invalidate();
+      void router.push(`/${data.base.id}/${data.firstTableId}/${data.firstViewId}`);
+    },
+  });
   return (
     <AuthGuard>
       <div className="">
@@ -41,6 +51,9 @@ export default function DashboardPage() {
               icon="table"
               title="Start from scratch"
               description="Create a new blank base with custom tables, fields, and views."
+              onClick={() => {
+                mutate();
+              }}
             />
           </div>
           <br></br>

@@ -24,29 +24,7 @@ export function EditableCell({
 
   const { mutate } = api.table.updateCell.useMutation({
     onMutate: async (newCell) => {
-      await ctx.table.getData.cancel();
-      const previousData = ctx.table.getData.getData();
-      ctx.table.getData.setData({ tableId: rowId }, (oldData) => {
-        if (!oldData) return oldData;
-        const newData = oldData.data.map((row) => {
-          if (row.id === newCell.rowId) {
-            return {
-              ...row,
-              [newCell.columnId]: newCell.value,
-            };
-          }
-          return row;
-        });
-        return { ...oldData, data: newData };
-      });
       setLoading(true);
-      return { previousData };
-    },
-    onError: (err, newCell, context) => {
-      if (context) {
-        ctx.table.getData.setData({ tableId: rowId }, context.previousData);
-      }
-      setLoading(false);
     },
     onSettled: () => {
       setLoading(false);

@@ -2,6 +2,7 @@ import { skip } from "node:test";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import z from "zod";
 import { get } from "http";
+import cuid from "cuid";
 
 export const tableRouter = createTRPCRouter({
   // for the base layout
@@ -181,85 +182,37 @@ export const tableRouter = createTRPCRouter({
     }),
 
   // to add a new row to a table
+  
   addRow: protectedProcedure
     .input(z.object({ tableId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Get all columns for this table
+      const newRows = Array.from({ length: 5000 }).map((_, i) => ({
+        id: cuid(), // Pre-generate unique ID
+        tableId: input.tableId,
+        order: i,
+      }));
+
+      // Step 1: Create rows
+      await ctx.db.row.createMany({ data: newRows });
+
+      // Step 2: Generate cells
       const columns = await ctx.db.column.findMany({
         where: { tableId: input.tableId },
-        orderBy: { order: "asc" },
       });
 
-      // Get the highest order number for rows
-      const lastRow = await ctx.db.row.findFirst({
-        where: { tableId: input.tableId },
-        orderBy: { order: "desc" },
-      });
+      const newCells = newRows.flatMap((row) =>
+        columns.map((column) => ({
+          rowId: row.id,
+          columnId: column.id,
+          tableId: input.tableId,
+          value: "", // Default value
+        })),
+      );
 
-      // Create the row with default values in a transaction
-      return ctx.db.$transaction(async (tx) => {
-        const newRow = await tx.row.create({
-          data: {
-            tableId: input.tableId,
-            order: (lastRow?.order ?? -1) + 1,
-          },
-        });
+      // Step 3: Create cells
+      await ctx.db.cell.createMany({ data: newCells });
 
-        // Create all cells at once using createMany
-        await tx.cell.createMany({
-          data: columns.map((column) => ({
-            value: column.type === "number" ? "" : "",
-            rowId: newRow.id,
-            columnId: column.id,
-            tableId: input.tableId,
-          })),
-        });
-
-        return newRow;
-      });
-    }),
-
-  // to add 10k rows to a table
-  add10kRows: protectedProcedure
-    .input(z.object({ tableId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      // Get all columns for this table
-      const columns = await ctx.db.column.findMany({
-        where: { tableId: input.tableId },
-        orderBy: { order: "asc" },
-      });
-
-      // Get the highest order number for rows
-      const lastRow = await ctx.db.row.findFirst({
-        where: { tableId: input.tableId },
-        orderBy: { order: "desc" },
-      });
-
-      // Create the rows with default values in a transaction
-      return ctx.db.$transaction(async (tx) => {
-        const newRows = [];
-        for (let i = 0; i < 10000; i++) {
-          const newRow = await tx.row.create({
-            data: {
-              tableId: input.tableId,
-              order: (lastRow?.order ?? -1) + 1 + i,
-            },
-          });
-
-          await tx.cell.createMany({
-            data: columns.map((column) => ({
-              value: column.type === "number" ? "" : "",
-              rowId: newRow.id,
-              columnId: column.id,
-              tableId: input.tableId,
-            })),
-          });
-
-          newRows.push(newRow);
-        }
-
-        return newRows;
-      });
+      return newRows;
     }),
 
   // to delete a row from a table

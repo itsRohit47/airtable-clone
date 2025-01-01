@@ -14,7 +14,6 @@ export default function Table({
     <div className="fixed flex min-h-dvh w-full flex-col">
       <TableTopNav
         baseId={params.baseId}
-        tableId={params.tableId}
       ></TableTopNav>
       {tableTab === "data" && (
         <>

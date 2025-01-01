@@ -22,13 +22,11 @@ import { api } from "@/trpc/react";
 
 export default function TableTopNav({
   baseId,
-  tableId,
 }: {
   baseId: string;
-  tableId: string;
 }) {
   const { data: session } = useSession();
-  const { tableTab, setTableTab, loading, setLoading } = useAppContext();
+  const { tableTab, setTableTab, loading } = useAppContext();
   const base = BaseIdToNameAndColor({ baseId: baseId });
   const [isEditing, setIsEditing] = useState(false);
   const [baseName, setBaseName] = useState(base.data?.name);
