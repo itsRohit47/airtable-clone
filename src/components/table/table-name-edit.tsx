@@ -2,27 +2,59 @@
 import { useAppContext } from "../context";
 import { api } from "@/trpc/react";
 import { useState } from "react";
+import { useOutsideClick } from "@/lib/hooks/use-outside-click";
 export default function TableNameEdit({
-  tableName,
   tableId,
+  onCanceled,
+  tableName,
+  baseId,
 }: Readonly<{
-  tableName: string;
   tableId: string;
+  onCanceled: () => void;
+  tableName: string;
+  baseId: string;
 }>) {
-  const { setEditName, localTables, setThisTable } = useAppContext();
+  const [clicked, setClicked] = useState(false);
+  const [newName, setNewName] = useState("Untitled Table");
+  const ctx = api.useUtils();
+  const ref = useOutsideClick(() => {
+    setClicked(true); // Change to false to close the input on outside click
+  });
+
+
   const { mutate: updateTable } = api.table.updateTableName.useMutation({
-    onMutate: () => {
-      setEditName(false);
-      const lastTable = localTables[localTables.length - 1];
-      if (lastTable && lastTable.id === tableId) {
-        lastTable.name = newName;
+    onMutate: async (newData) => {
+      onCanceled();
+      setClicked(true);
+      await ctx.table.getTablesByBaseId.cancel();
+      const previousData = ctx.table.getTablesByBaseId.getData();
+      ctx.table.getTablesByBaseId.setData({
+        baseId: baseId,
+      }, (old) => {
+        if (!old) return old;
+        return old.map(table =>
+          table.id === newData.tableId ? { ...table, name: newData.name } : table
+        );
+      });
+      return { previousData };
+    },
+    onError: (err, newData, context) => {
+      if (context) {
+        ctx.table.getTablesByBaseId.setData({ baseId: "" }, context.previousData);
       }
     },
+    onSettled: () => {
+      // ctx.table.getTablesByBaseId.invalidate();
+    },
   });
-  const [newName, setNewName] = useState(tableName);
+
+  if (clicked) {
+    return null;
+  }
+
 
   return (
-    <div className="flex w-60 flex-col gap-y-2 rounded-md border bg-white px-2 py-2 text-black shadow-sm">
+    <div className="flex w-60 flex-col gap-y-2 rounded-md border bg-white px-2 py-2 text-black shadow-lg text-xs absolute top-24 z-20" ref={ref}>
       <input
         className="rounded-md border-2 border-[#125FCC] p-2"
         defaultValue={tableName}
@@ -37,10 +69,8 @@ export default function TableNameEdit({
       )}
       <div className="flex items-center justify-end gap-x-2">
         <button
-          className="rounded-md px-2 py-1 text-start text-sm text-black hover:bg-gray-100"
-          onClick={() => {
-            setEditName(false);
-          }}
+          onClick={onCanceled}
+          className="rounded-md px-2 py-1 text-start text-black hover:bg-gray-100"
         >
           cancel
         </button>

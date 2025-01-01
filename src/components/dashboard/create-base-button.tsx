@@ -29,7 +29,7 @@ export default function CreateBaseButton({
       {isPending && (
         <LoaderCircleIcon
           className="animate-spin"
-          size={16}
+          size={12}
           style={{ marginLeft: "0.5rem" }}
         />
       )}

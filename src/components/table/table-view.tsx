@@ -58,11 +58,14 @@ export function TableView({
     setColumnVisibility,
     selectedView,
     setSelectedView,
+    loading,
+    setLoading
   } = useAppContext();
 
   const [isColNameEditing, setIsColNameEditing] = useState(false);
   const [editColId, setEditColId] = useState("");
   const [newColName, setNewColName] = useState<string>("");
+  const [isAdding, setIsAdding] = useState(false);
 
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -77,7 +80,7 @@ export function TableView({
     {
       tableId,
       pageSize: 200,
-      search: globalFilter,
+      search: globalFilter ?? "",
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -199,15 +202,17 @@ export function TableView({
   );
 
   // ----------- add row mutation -----------
-  const add5kRow = api.table.addRow.useMutation({
+  const { mutate: add5kRow } = api.table.addRow.useMutation({
     onMutate: async () => {
+      setLoading(true);
+      setIsAdding(true);
       const previousData = ctx.table.getData.getInfiniteData();
       const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData();
       const newRowData: Record<string, string | number> = {};
 
       // Optimistically update the infinite query data
       ctx.table.getData.setInfiniteData(
-        { tableId, pageSize: 200, search: globalFilter },
+        { tableId, pageSize: 200 },
         (old) => {
           if (!old) return old;
           const newPages = [...old.pages];
@@ -239,7 +244,7 @@ export function TableView({
     onError: (err, newRow, context) => {
       if (context?.previousData) {
         ctx.table.getData.setInfiniteData(
-          { tableId, pageSize: 200, search: globalFilter },
+          { tableId, pageSize: 200 },
           context.previousData
         );
         ctx.table.getTotalRowsGivenTableId.setData(
@@ -254,6 +259,72 @@ export function TableView({
     },
     onSuccess: (data) => {
       // Map temp IDs to actual IDs
+      setLoading(false);
+      setIsAdding(false);
+      toast({
+        title: "Success",
+        description: "Rows added successfully",
+      });
+      ctx.table.getData.invalidate({ tableId });
+    },
+  });
+
+  const add1Row = api.table.add1Row.useMutation({
+    onMutate: async () => {
+      setLoading(true);
+      const previousData = ctx.table.getData.getInfiniteData();
+      const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData();
+      const newRowData: Record<string, string | number> = {};
+
+      // Optimistically update the infinite query data
+      ctx.table.getData.setInfiniteData(
+        { tableId, pageSize: 200 },
+        (old) => {
+          if (!old) return old;
+          const newPages = [...old.pages];
+          const lastPage = newPages[newPages.length - 1];
+          if (lastPage) {
+            newPages[newPages.length - 1] = {
+              ...lastPage,
+              data: [
+                ...lastPage.data,
+                ...Array.from({ length: 1 }).map((_, index) => ({
+                  id: `temp-id-${index}`,
+                  ...newRowData,
+                })),
+              ],
+            };
+          }
+          return { ...old, pages: newPages };
+        }
+      );
+
+      // Optimistically update total rows count
+      ctx.table.getTotalRowsGivenTableId.setData(
+        { tableId },
+        (old) => (old ?? 0) + 1
+      );
+
+      return { previousData, previousTotalRows };
+    },
+    onError: (err, newRow, context) => {
+      if (context?.previousData) {
+        ctx.table.getData.setInfiniteData(
+          { tableId, pageSize: 200 },
+          context.previousData
+        );
+        ctx.table.getTotalRowsGivenTableId.setData(
+          { tableId },
+          context.previousTotalRows
+        );
+      }
+      toast({
+        title: "Error",
+        description: err.message
+      });
+    },
+    onSuccess: (data) => {
+      setLoading(false);
       toast({
         title: "Success",
         description: "Row added successfully",
@@ -352,7 +423,11 @@ export function TableView({
   // ----------- add column handler -----------
   const handleAddRow = () => {
     table.resetSorting();
-    add5kRow.mutate({ tableId });
+    add5kRow({ tableId });
+  };
+  const handleAdd1Row = () => {
+    table.resetSorting();
+    add1Row.mutate({ tableId });
   };
 
   // ----------- add column handler -----------
@@ -456,7 +531,8 @@ export function TableView({
       },
     },
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
+    // getFilteredRowModel: getFilteredRowModel(), // Use filtered row model
+    manualFiltering: true,
     getSortedRowModel: getSortedRowModel(),
     enableMultiRowSelection: true,
     columnResizeMode: "onChange",
@@ -495,14 +571,17 @@ export function TableView({
           : updaterOrValue;
       setSorting(newSorting);
     },
-    onGlobalFilterChange: (newFilter) => {
-      setGlobalFilter(newFilter as string);
+    onGlobalFilterChange: (updaterOrValue) => {
+      setGlobalFilter(
+        typeof updaterOrValue === "function"
+          ? updaterOrValue(globalFilter)
+          : updaterOrValue
+      );
     },
   });
 
-
   const rowVirtualizer = useVirtualizer({
-    count: flatData.length,
+    count: table.getFilteredRowModel().rows.length, // Use filtered rows length
     estimateSize: () => 33, //estimate row height for accurate scrollbar dragging
     getScrollElement: () => tableContainerRef.current,
     //measure dynamic row height, except in firefox because it measures table border height incorrectly
@@ -512,8 +591,6 @@ export function TableView({
         : undefined,
     overscan: 5,
   });
-
-
 
   // ----------- when loading -----------
   if (isLoading || isColsLoading || isRowsLoading || isViewSortsLoading || isViewFiltersLoading || isViewLoding) {
@@ -647,69 +724,71 @@ export function TableView({
                 transform: `translateY(${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px)`,
               }}
             >
-              {table.getRowModel().rows.length === 0 ?
+              {table.getFilteredRowModel().rows.length === 0 ? (
                 globalFilter != '' && (
                   <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44 -translate-y-28">
                     <div className="ml-2 animate-pulse text-xs text-gray-500">No records match <strong>{globalFilter}</strong></div>
                   </div>
-                ) : (
-                  rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                    const row = table.getRowModel().rows[virtualRow.index];
-
-                    return (
-                      <tr
-                        key={row?.id}
-                        style={{ height: `${rowHeight}rem` }}
-                        className={cn("flex w-max items-center bg-white hover:bg-gray-100 group", {
-                          "bg-red-100/40 hover:bg-red-100/50": row?.getIsSelected(),
-                        })}
-                      >
-                        <div className="absolute left-2 text-xs text-gray-500">
-                          {table.getVisibleLeafColumns().length > 0 && (virtualRow.index + 1)}
-                        </div>
-                        <td className="hidden absolute z-20 group-hover:block  p-2 text-xs">
-                          <input
-                            type="checkbox"
-                            className="form-checkbox"
-                            checked={row?.getIsSelected()}
-                            onChange={row ? row.getToggleSelectedHandler() : undefined}
-                          />
+                )
+              ) : (
+                rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const row = table.getFilteredRowModel().rows[virtualRow.index];
+                  return (
+                    <tr
+                      key={row?.id}
+                      style={{ height: `${rowHeight}rem` }}
+                      className={cn("flex w-max items-center bg-white hover:bg-gray-100 group transition-all duration-200", {
+                        "bg-red-100/40 hover:bg-red-100/50": row?.getIsSelected(),
+                      })}
+                    >
+                      <div className="absolute left-2 text-xs text-gray-500">
+                        {table.getVisibleLeafColumns().length > 0 && (virtualRow.index + 1)}
+                      </div>
+                      <td className="hidden absolute z-20 group-hover:block  p-2 text-xs">
+                        <input
+                          type="checkbox"
+                          className="form-checkbox"
+                          checked={row?.getIsSelected()}
+                          onChange={row ? row.getToggleSelectedHandler() : undefined}
+                        />
+                      </td>
+                      {row?.getVisibleCells().map((cell) => (
+                        <td
+                          key={cell.id}
+                          style={{ width: cell.column.getSize() }}
+                          tabIndex={0} // Add tabIndex to make the cell focusable
+                          className={cn(
+                            "h-full w-max border-b border-r p-[2px] text-xs focus:border focus:border-blue-500 focus:outline-none",
+                            {
+                              "opacity-20 border cursor-not-allowed pointer-events-none animate-pulse": isAdding,
+                            },
+                            {
+                              "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-white":
+                                globalFilter &&
+                                String(cell.getValue())
+                                  .toLowerCase()
+                                  .includes(globalFilter.toLowerCase()),
+                              "bg-blue-50":
+                                cell.column.getIsSorted() ||
+                                cell.column.getIsFiltered(),
+                            },
+                          )}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
                         </td>
-
-                        {row?.getVisibleCells().map((cell) => (
-                          <td
-                            key={cell.id}
-                            style={{ width: cell.column.getSize() }}
-                            tabIndex={0} // Add tabIndex to make the cell focusable
-                            className={cn(
-                              "h-full w-max border-b border-r p-[2px] text-xs focus:border focus:border-blue-500 focus:outline-none",
-                              {
-                                "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-white":
-                                  globalFilter &&
-                                  String(cell.getValue())
-                                    .toLowerCase()
-                                    .includes(globalFilter.toLowerCase()),
-                                "bg-blue-50":
-                                  cell.column.getIsSorted() ||
-                                  cell.column.getIsFiltered(),
-                              },
-                            )}
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
-                            )}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })
-                )}
+                      ))}
+                    </tr>
+                  );
+                })
+              )}
               <div className="flex w-max border-r">
                 {table.getFooterGroups().map((footerGroup) => (
                   <button
                     key={footerGroup.id}
-                    onClick={() => handleAddRow()}
+                    onClick={() => handleAdd1Row()}
                     className="group flex items-center bg-white hover:bg-gray-100"
                   >
                     {footerGroup.headers.map((column, index) => (
@@ -725,7 +804,7 @@ export function TableView({
                               strokeWidth={1}
                               className="rounded-md p-1 group-hover:bg-gray-200"
                             />
-                            Add 5k rows
+                            Add 1 row
                           </div>
                         )}
                         {index !== 0 && <div className=""></div>}
@@ -740,13 +819,16 @@ export function TableView({
           <div className="fixed bottom-10 ml-3 flex items-center">
             <button
               onClick={handleAddRow}
-              className="flex items-center justify-center rounded-l-full border bg-white p-2 hover:bg-gray-100"
+              className="flex items-center justify-center rounded-l-full border bg-white p-2 hover:bg-gray-100 text-xs"
             >
-              <Plus size={16} className=""></Plus>
+              Add 5k rows
             </button>
-            <span className="rounded-r-full border bg-white p-2 text-xs">
-              Add...
-            </span>
+            <button
+              onClick={handleAdd1Row}
+              className="flex items-center justify-center rounded-r-full border bg-white p-2 hover:bg-gray-100 text-xs"
+            >
+              Add 1 row
+            </button>
           </div>
           <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500">
             {totalRows} records

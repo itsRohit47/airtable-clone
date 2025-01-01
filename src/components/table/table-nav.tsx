@@ -3,11 +3,10 @@ import { ChevronDown, PlusIcon } from "lucide-react";
 import clsx from "clsx";
 import { api } from "@/trpc/react";
 import { GetTableList } from "@/lib/actions/table";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import AddTableDialog from "./add-table-dialog";
-import { useAppContext } from "../context";
 import TableNameEdit from "./table-name-edit";
 
 export default function TableNav({
@@ -17,83 +16,54 @@ export default function TableNav({
   baseId: string;
   viewId: string;
 }) {
-  const ctx = api.useUtils();
-  const tables = GetTableList({ baseId });
-  const path = usePathname();
+  const { data: tables } = api.table.getTablesByBaseId.useQuery({ baseId });
   const [isTableAddOpen, setIsTableAddOpen] = useState(false);
-  const {
-    thisTable,
-    setThisTable,
-    localTables,
-    setLocalTables,
-    editName,
-    setEditName,
-  } = useAppContext();
-
-  useEffect(() => {
-    if (tables) {
-      setLocalTables(tables);
-    }
-  }, [setLocalTables, tables]);
+  const [editName, setEditName] = useState<string | null>(null); // Change state to store table ID
+  const [isEditing, setIsEditing] = useState(false);
+  const pathname = usePathname();
 
   return (
     <div>
       <div className="z-0 flex h-max w-full items-center justify-between gap-x-3 bg-gray-500 text-xs font-normal text-white/90">
         <div className="border-[#C03D05 flex w-full items-center overflow-x-auto rounded-tr-md bg-gray-600 px-4">
-          <div className="flex gap-x-2 overflow-x-scroll">
-            {localTables.length > 0 &&
-              localTables.map((table) => (
-                <div className="" key={table.id}>
-                  {table.baseId === baseId &&
-                    (localTables.indexOf(table) === localTables.length - 1 ? (
-                      <Link
-                        href={`/${baseId}/${table.id}/${viewId}`}
-                        key={table.id}
-                        onClick={async () => {
-                          setEditName(false);
-                          setThisTable(table.id);
-                          await ctx.table.getData.invalidate();
-                        }}
-                        className={clsx(
-                          "flex w-full flex-nowrap items-center gap-x-1 p-2",
-                          {
-                            "rounded-t-md border border-white bg-white text-black":
-                              table.id === thisTable || path.includes(table.id),
-                          },
-                        )}
-                      >
-                        <div className="text-nowrap">{table.name}</div>
-                        {editName && (
-                          <div className="absolute top-[100px] z-20 -translate-x-10">
-                            <TableNameEdit
-                              tableName={table.name}
-                              tableId={table.id}
-                            ></TableNameEdit>
-                          </div>
-                        )}
-                      </Link>
-                    ) : (
-                      <Link
-                        href={`/${baseId}/${table.id}/${viewId}`}
-                        key={table.id}
-                        onClick={() => {
-                          setEditName(false);
-                          setThisTable(table.id);
-                        }}
-                        className={clsx(
-                          "flex w-full flex-nowrap items-center gap-x-1 p-2",
-                          {
-                            "rounded-t-md border border-white bg-white text-black":
-                              table.id === thisTable || path.includes(table.id),
-                          },
-                        )}
-                      >
-                        <div className="text-nowrap">{table.name}</div>
-                      </Link>
-                    ))}
-                </div>
-              ))}
-            {localTables.length === 0 && (
+          <div className="flex gap-x-2 overflow-x-scroll transition-all duration-100 ">
+            {tables?.map((table) => (
+              <div className="transition-all duration-100" key={table.id}>
+                <Link
+                  href={`/${baseId}/${table.id}/${viewId}`}
+                  key={table.id}
+                  onClick={() => {
+                    if (pathname === `/${baseId}/${table.id}/${viewId}`) {
+                      setEditName(table.id); // Set the table ID to edit
+                      setIsEditing(!isEditing);
+                    }
+                  }}
+                  className={clsx(
+                    "flex w-full flex-nowrap items-center gap-x-1 p-2 transition-all duration-100 relative",
+                    {
+                      "rounded-t-md border border-white bg-white text-black":
+                        pathname === `/${baseId}/${table.id}/${viewId}`,
+                    },
+                  )}
+                >
+                  <div className="text-nowrap">{table.name}</div>
+                  {pathname === `/${baseId}/${table.id}/${viewId}` && (
+                    <ChevronDown strokeWidth={1.5} size={12}></ChevronDown>
+                  )}
+                </Link>
+                {editName === table.id && isEditing && (
+                  <TableNameEdit
+                    tableId={table.id}
+                    tableName={table.name}
+                    baseId={baseId}
+                    onCanceled={() => {
+                      setEditName(null); // Reset editName state
+                    }}
+                  ></TableNameEdit>
+                )}
+              </div>
+            ))}
+            {!tables && (
               <div className="flex items-center gap-x-3 p-2">
                 <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
                 <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
@@ -101,10 +71,8 @@ export default function TableNav({
                 <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
                 <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
                 <div className="animate-pulse bg-gray-400 h-4 w-10 rounded-md"></div>
-
               </div>
-            )
-            }
+            )}
           </div>
           <span className="p-2 font-thin text-gray-50/50">|</span>
           <ChevronDown strokeWidth={1.5} size={18}></ChevronDown>
@@ -114,11 +82,11 @@ export default function TableNav({
               className="flex cursor-pointer items-center gap-x-3 text-nowrap p-2 hover:text-white"
               onClick={() => {
                 setIsTableAddOpen(!isTableAddOpen);
-                setEditName(false);
               }}
             >
               {isTableAddOpen && (
                 <AddTableDialog
+                  viewId={viewId}
                   baseId={baseId}
                   classList={"absolute top-[100px]  z-20"}
                 ></AddTableDialog>
@@ -134,6 +102,6 @@ export default function TableNav({
           </span>
         </div>
       </div>
-    </div>
+    </div >
   );
 }

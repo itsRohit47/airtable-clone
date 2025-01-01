@@ -369,7 +369,6 @@ export default function TableHead({ tableId }: { tableId: string }) {
         <button
           className="h- flex cursor-pointer items-center gap-x-2 rounded-sm p-2 text-gray-500 hover:text-gray-900"
           onClick={() => {
-            void ctx.table.getData.invalidate({ tableId });
             setSearchMenuOpen(!searchMenuOpen);
           }}
         >
@@ -615,7 +614,6 @@ function SortView() {
 
 function SearchInput() {
   const { setGlobalFilter } = useAppContext();
-  const ctx = api.useUtils();
   return (
     <div
       id="search-input"
@@ -626,12 +624,10 @@ function SearchInput() {
           className="h-full w-full text-xs focus:outline-none"
           placeholder="Find in view"
           onFocus={(e) => {
-            setGlobalFilter("");
-            void ctx.table.getData.invalidate();
+            setGlobalFilter(null);
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
-              void ctx.table.getData.invalidate();
               setGlobalFilter("");
               (e.target as HTMLInputElement).value = "";
             }
@@ -648,8 +644,7 @@ function SearchInput() {
             if (searchInput) {
               searchInput.classList.toggle("hidden");
             }
-            void ctx.table.getData.invalidate();
-            setGlobalFilter("");
+            setGlobalFilter(null);
           }}
         />
       </div>

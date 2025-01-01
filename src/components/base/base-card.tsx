@@ -1,7 +1,7 @@
 "use client";
 import { api } from "@/trpc/react";
 import { StarIcon, Ellipsis } from "lucide-react";
-import { useState } from "react";
+import { useState, RefObject } from "react";
 import { useRouter } from "next/navigation";
 import BaseCardMenu from "@/components/base/base-card-menu";
 
@@ -31,7 +31,7 @@ export function BaseCard({ base }: BaseCardProps) {
     >
       <div className="flex h-full gap-x-3">
         <div
-          className={`flex h-full w-14 items-center justify-center rounded-md border bg-blue-500 text-white`}
+          className={`flex h-full w-14 items-center justify-center rounded-md border bg-gray-500 text-white`}
         >
           {base.name.slice(0, 2)}
         </div>

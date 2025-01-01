@@ -82,7 +82,7 @@ export default function TableTopNav({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-x-10">
           {/* logo + base name */}
-          <div className="flex cursor-pointer items-center gap-x-3">
+          <div className="flex cursor-pointer items-center gap-x-3 w-max">
             {" "}
             <Link href="/dashboard" className="group">
               <BoxIcon
@@ -94,10 +94,10 @@ export default function TableTopNav({
                 size={28}
                 strokeWidth={1.5}
                 color="gray"
-                className="k hidden rounded-full bg-white p-1 group-hover:block"
+                className="hidden rounded-full bg-white p-1 group-hover:block"
               ></ArrowLeftIcon>
             </Link>
-            <div className="max-w-32 overflow-hidden">
+            <div className="overflow-hidden">
               {isEditing ? (
                 <input
                   autoFocus
@@ -120,7 +120,7 @@ export default function TableTopNav({
                     e.target.select();
                   }}
                   defaultValue={base.data?.name}
-                  className="w-max border-none bg-transparent text-base font-semibold focus:outline-none focus:ring-0"
+                  className=" max-w-36 bg-transparent text-base font-semibold  focus:ring-0 outline"
                 />
               ) : (
                 <div className="w-max text-base font-semibold">

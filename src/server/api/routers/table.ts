@@ -182,11 +182,43 @@ export const tableRouter = createTRPCRouter({
     }),
 
   // to add a new row to a table
-  
+
   addRow: protectedProcedure
     .input(z.object({ tableId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const newRows = Array.from({ length: 5000 }).map((_, i) => ({
+        id: cuid(), // Pre-generate unique ID
+        tableId: input.tableId,
+        order: i,
+      }));
+
+      // Step 1: Create rows
+      await ctx.db.row.createMany({ data: newRows });
+
+      // Step 2: Generate cells
+      const columns = await ctx.db.column.findMany({
+        where: { tableId: input.tableId },
+      });
+
+      const newCells = newRows.flatMap((row) =>
+        columns.map((column) => ({
+          rowId: row.id,
+          columnId: column.id,
+          tableId: input.tableId,
+          value: "", // Default value
+        })),
+      );
+
+      // Step 3: Create cells
+      await ctx.db.cell.createMany({ data: newCells });
+
+      return newRows;
+    }),
+
+  add1Row: protectedProcedure
+    .input(z.object({ tableId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const newRows = Array.from({ length: 1 }).map((_, i) => ({
         id: cuid(), // Pre-generate unique ID
         tableId: input.tableId,
         order: i,

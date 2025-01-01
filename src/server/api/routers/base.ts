@@ -27,7 +27,7 @@ export const baseRouter = createTRPCRouter({
   createBase: protectedProcedure.mutation(async ({ input, ctx }) => {
     const base = await ctx.db.base.create({
       data: {
-        name: "Untitled Base",
+        name: `${ctx.session.user?.name?.split(" ")[0]}-ster's Base`,
         userId: ctx.session.user?.id ?? "",
       },
     });

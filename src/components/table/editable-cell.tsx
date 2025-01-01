@@ -7,6 +7,7 @@ interface EditableCellProps {
   value: string;
   rowId: string;
   columnId: string;
+  className?: string;
   type: "text" | "number";
 }
 
@@ -15,6 +16,7 @@ export function EditableCell({
   type,
   columnId,
   rowId,
+  className
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
   const [isInvalid, setIsInvalid] = useState(false);
@@ -51,7 +53,7 @@ export function EditableCell({
 
   return (
     <input
-      className={`flex h-full w-full cursor-default items-center truncate rounded-[1px] bg-transparent p-2 text-right text-xs outline-none transition duration-100 ease-linear focus:ring-2 ${isInvalid ? "focus:ring-red-500" : "focus:ring-blue-500"}`}
+      className={`flex h-full w-full cursor-default items-center truncate rounded-[1px] bg-transparent p-2 text-right text-xs outline-none transition duration-100 ease-linear focus:ring-2 ${isInvalid ? "focus:ring-red-500" : "focus:ring-blue-500"} ${className}`}
       defaultValue={value}
       onChange={(e) => {
         setLoading(true);

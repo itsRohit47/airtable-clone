@@ -1,17 +1,18 @@
 import { BaseCard } from "./base-card";
 import { GetBaseList } from "@/lib/actions/base";
 import BaseSkeleton from "../skeletons";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import CreateBaseButton from "../dashboard/create-base-button";
 import { useAppContext } from "../context";
 
 export function BaseList() {
   const bases = GetBaseList();
   const { listView } = useAppContext();
+  const [clicked, setClicked] = useState(false);
 
   return (
     <Suspense fallback={<BaseSkeleton></BaseSkeleton>}>
-      <div className="flex w-full flex-col items-start justify-center gap-3 lg:px-24">
+      <div className="flex w-full flex-col items-start justify-center gap-3 lg:px-24" >
         {listView && (
           <div className="mx-auto p-44">
             <div>coming soon, the UI</div>
