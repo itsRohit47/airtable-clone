@@ -3,6 +3,8 @@ import { useAppContext } from "../context";
 import { api } from "@/trpc/react";
 import { useState } from "react";
 import { useOutsideClick } from "@/lib/hooks/use-outside-click";
+import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 export default function TableNameEdit({
   tableId,
   onCanceled,
@@ -15,10 +17,20 @@ export default function TableNameEdit({
   baseId: string;
 }>) {
   const [clicked, setClicked] = useState(false);
-  const [newName, setNewName] = useState("Untitled Table");
+  const [newName, setNewName] = useState<string>(tableName);
   const ctx = api.useUtils();
   const ref = useOutsideClick(() => {
     setClicked(true); // Change to false to close the input on outside click
+  });
+  const router = useRouter();
+
+  const tablesLength = api.table.getTablesByBaseId.useQuery({ baseId }).data?.length;
+
+  const { mutate: deleteTable, isPending } = api.table.deleteTable.useMutation({
+    onSettled: (data) => {
+      void ctx.table.getTablesByBaseId.invalidate();
+      router.push(`/${baseId}/${data?.latestTableId}/${data?.latestViewId}`);
+    },
   });
 
 
@@ -44,7 +56,7 @@ export default function TableNameEdit({
       }
     },
     onSettled: () => {
-      // ctx.table.getTablesByBaseId.invalidate();
+      void ctx.table.getTablesByBaseId.invalidate();
     },
   });
 
@@ -67,25 +79,39 @@ export default function TableNameEdit({
       {newName.length < 1 && (
         <div className="text-red-500">Table name cannot be empty</div>
       )}
-      <div className="flex items-center justify-end gap-x-2">
+
+      <div className="flex items-center justify-between gap-x-2">
         <button
-          onClick={onCanceled}
-          className="rounded-md px-2 py-1 text-start text-black hover:bg-gray-100"
-        >
-          cancel
-        </button>
-        <button
-          className={`rounded-md px-2 py-1 text-white ${newName ? "bg-blue-500" : "cursor-not-allowed bg-gray-300"}`}
-          disabled={!newName}
+          //disabled when length of tables is 1
+          disabled={tablesLength === 1}
           onClick={() => {
-            updateTable({
-              name: newName,
-              tableId,
-            });
-          }}
+            deleteTable({ tableId });
+          }
+          }
+          className="rounded-md px-2 py-1 text-start bg-red-500 text-white hover:bg-red-600 flex items-center gap-x-1 disabled:opacity-50"
         >
-          Save
+          {isPending && <Loader2 className="animate-spin" size={12} />} Delete
         </button>
+        <div>
+          <button
+            onClick={onCanceled}
+            className="rounded-md px-2 py-1 text-start text-black hover:bg-gray-100"
+          >
+            cancel
+          </button>
+          <button
+            className={`rounded-md px-2 py-1 text-white ${newName ? "bg-blue-500" : "cursor-not-allowed bg-gray-300"}`}
+            disabled={!newName}
+            onClick={() => {
+              updateTable({
+                name: newName,
+                tableId,
+              });
+            }}
+          >
+            Save
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { SearchIcon, Grid2x2Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "@/trpc/react";
 import { useRouter, usePathname } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 interface View {
   id: string;
@@ -94,10 +95,10 @@ export default function ViewMenu({
   }
 
   return (
-    <div className="relative flex max-h-[89vh] w-80 flex-col border-r border-gray-200 bg-white text-xs">
+    <div className=" w-80  border-r border-gray-200 bg-white text-xs border flex flex-col justify-between">
       <div className="px-4 py-2">
         <div
-          className={`mb-4 flex items-center gap-x-2 border-b ${isInputFocused ? "border-blue-500" : "border-gray-200"}`}
+          className={` flex items-center gap-x-2 border-b ${isInputFocused ? "border-blue-500" : "border-gray-200"}`}
         >
           <SearchIcon className="" size={16} strokeWidth={1} />
           <input
@@ -112,7 +113,7 @@ export default function ViewMenu({
           ></input>
         </div>
       </div>
-      <div className="overflow-auto px-4 flex-grow">
+      <div className="overflow-auto px-4 py-2 h-max flex-grow">
         {filteredViews.map((view) => (
           <div
             key={view.id}
@@ -132,7 +133,7 @@ export default function ViewMenu({
           </div>
         ))}
       </div>
-      <div className="w-full border-t bg-white px-4 py-2">
+      <div className="w-full  bg-white px-4 py-2 mb-12">
         <button
           onClick={() => {
             addView({
@@ -140,11 +141,16 @@ export default function ViewMenu({
             });
           }}
           disabled={isPending}
-          className="flex w-full items-center gap-x-2 rounded-sm bg-blue-500 p-2 text-white active:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-500"
+          className="flex w-full items-center gap-x-2 rounded-sm bg-blue-500 p-2 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Grid2x2Plus size={16} strokeWidth={1} />
-          <div className="">
-            {isPending ? "Adding view..." : "Create a new grid view"}
+          <div className="flex items-center gap-x-2">
+            {isPending ? (
+              <Loader2 size={16} strokeWidth={1} color="white" className="animate-spin" />
+            ) : (
+              null
+            )}
+            <span>Create a new grid view</span>
           </div>
         </button>
       </div>

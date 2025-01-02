@@ -16,6 +16,8 @@ import {
   ChevronDown,
   PlusIcon,
   Trash2Icon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { useState } from "react";
@@ -613,16 +615,25 @@ function SortView() {
 }
 
 function SearchInput() {
-  const { setGlobalFilter } = useAppContext();
+  const {
+    globalFilter,
+    setGlobalFilter,
+    matchedCells,
+    currentMatchIndex,
+    goToNextMatch,
+    goToPrevMatch,
+  } = useAppContext(); // Or wherever these are exposed
+
   return (
     <div
       id="search-input"
-      className="absolute right-0 top-full mt-2 bg-white shadow-sm"
+      className="absolute right-0 top-full mt-2 bg-white shadow-sm flex"
     >
       <div className="flex w-80 items-center border p-2">
         <input
           className="h-full w-full text-xs focus:outline-none"
           placeholder="Find in view"
+          value={globalFilter ?? ""}
           onFocus={(e) => {
             setGlobalFilter(null);
           }}
@@ -636,9 +647,23 @@ function SearchInput() {
             setGlobalFilter(e.target.value);
           }}
         />
+        {!!globalFilter && matchedCells.length < 1 && <div className="text-nowrap mr-2 text-gray-400">0 of 0</div>}
+        {!!globalFilter && !!matchedCells.length && (
+          <>
+            <span className="text-nowrap mr-2 text-gray-400">{currentMatchIndex + 1} of {matchedCells.length} </span>
+            <div className="flex items-center">
+              <button onClick={goToPrevMatch} className="bg-gray-200 hover:bg-gray-200/70 p-1 rounded-[2px]">
+                <ChevronUpIcon size={12} />
+              </button>
+              <button onClick={goToNextMatch} className="bg-gray-200 hover:bg-gray-200/70 p-1 rounded-[2px]">
+                <ChevronDownIcon size={12} />
+              </button>
+            </div>
+          </>
+        )}
         <XIcon
           size={20}
-          className="cursor-pointer text-gray-500 hover:text-gray-900"
+          className="cursor-pointer text-gray-500 hover:text-gray-900 ml-2"
           onClick={() => {
             const searchInput = document.getElementById("search-input");
             if (searchInput) {
@@ -648,6 +673,7 @@ function SearchInput() {
           }}
         />
       </div>
+
     </div>
   );
 }
@@ -920,7 +946,7 @@ function FilterItem({
           </>
         )}
       </select>
-      {operator !== 'isEmpty' && operator !== 'isNotEmpty' ? (
+      {operator !== 'empty' && operator !== 'notEmpty' ? (
         <input
           className="w-32 border-y border-r p-2"
           value={filterValue}

@@ -171,7 +171,34 @@ export const tableRouter = createTRPCRouter({
   deleteTable: protectedProcedure
     .input(z.object({ tableId: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      return ctx.db.table.delete({ where: { id: input.tableId } });
+      // Find the baseId from the tableId
+      const table = await ctx.db.table.findUnique({
+        where: { id: input.tableId },
+        select: { baseId: true },
+      });
+
+      if (!table) {
+        throw new Error("Table not found");
+      }
+
+      // Delete the table
+      await ctx.db.table.delete({ where: { id: input.tableId } });
+
+      // Find the latest table and view linked to the same base
+      const latestTable = await ctx.db.table.findFirst({
+        where: { baseId: table.baseId },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const latestView = await ctx.db.view.findFirst({
+        where: { tableId: latestTable?.id },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return {
+        latestTableId: latestTable?.id ?? null,
+        latestViewId: latestView?.id ?? null,
+      };
     }),
 
   // to delete a column from a table
@@ -247,6 +274,23 @@ export const tableRouter = createTRPCRouter({
       return newRows;
     }),
 
+  deteleTable: protectedProcedure
+    .input(z.object({ tableId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.cell.deleteMany({
+        where: { tableId: input.tableId },
+      });
+      await ctx.db.row.deleteMany({
+        where: { tableId: input.tableId },
+      });
+      await ctx.db.column.deleteMany({
+        where: { tableId: input.tableId },
+      });
+      return ctx.db.table.delete({
+        where: { id: input.tableId },
+      });
+    }),
+
   // to delete a row from a table
   deleteRow: protectedProcedure
     .input(
@@ -256,6 +300,9 @@ export const tableRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await ctx.db.cell.deleteMany({
+        where: { rowId: input.rowId },
+      });
       return ctx.db.row.delete({
         where: { id: input.rowId },
       });
@@ -327,7 +374,10 @@ export const tableRouter = createTRPCRouter({
 
       // Transform the data into a flat structure
       const data = rows.map((row) => {
-        const rowData: Record<string, string | number> = { id: row.id };
+        const rowData: Record<string, string | number> = {
+          id: row.id,
+          order: row.order,
+        };
         columns.forEach((column) => {
           const cell = row.cells.find((c) => c.column.id === column.id);
           rowData[column.id] = cell?.value ?? "";

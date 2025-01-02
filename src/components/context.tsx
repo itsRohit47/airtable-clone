@@ -103,13 +103,19 @@ interface AppContextProps {
   setRowSelection: (value: RowSelectionState) => void;
   columnVisibility: VisibilityState;
   setColumnVisibility: (value: VisibilityState) => void;
+  matchedCells: { rowIndex: number; colIndex: number }[];
+  setMatchedCells: React.Dispatch<React.SetStateAction<{ rowIndex: number; colIndex: number }[]>>;
+  currentMatchIndex: number;
+  setCurrentMatchIndex: React.Dispatch<React.SetStateAction<number>>;
+  goToNextMatch: () => void;
+  goToPrevMatch: () => void;
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
 
 const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [listView, setListView] = useState(false);
+  const [listView, setListView] = useState(true);
   const [tableTab, setTableTab] = useState("data");
   const [thisTable, setThisTable] = useState("data");
   const [thisTableId, setThisTableId] = useState("");
@@ -149,6 +155,43 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
       updatedAt: Date;
     }[]
   >([]);
+  const [matchedCells, setMatchedCells] = useState<{ rowIndex: number; colIndex: number }[]>([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  const focusMatch = (rowI: number, colI: number) => {
+    const selector = `[data-row-index='${rowI}'][data-col-index='${colI}']`;
+    const cell = document.querySelector(selector);
+    if (cell) {
+      cell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      (cell as HTMLElement).focus();
+    }
+  };
+
+  const goToNextMatch = () => {
+    if (!matchedCells.length) return;
+    setCurrentMatchIndex((prev) => {
+      const next = (prev + 1) % matchedCells.length;
+      if (matchedCells[next]) {
+        if (matchedCells[next]) {
+          if (matchedCells[next]) {
+            focusMatch(matchedCells[next].rowIndex, matchedCells[next].colIndex);
+          }
+        }
+      }
+      return next;
+    });
+  };
+
+  const goToPrevMatch = () => {
+    if (!matchedCells.length) return;
+    setCurrentMatchIndex((prev) => {
+      const next = (prev - 1 + matchedCells.length) % matchedCells.length;
+      if (matchedCells[next])
+        focusMatch(matchedCells[next].rowIndex, matchedCells[next].colIndex);
+      return next;
+    });
+  };
+
   const value = {
     sidebarOpen,
     setSidebarOpen,
@@ -204,6 +247,12 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setRowSelection,
     columnVisibility,
     setColumnVisibility,
+    matchedCells,
+    setMatchedCells,
+    currentMatchIndex,
+    setCurrentMatchIndex,
+    goToNextMatch,
+    goToPrevMatch,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

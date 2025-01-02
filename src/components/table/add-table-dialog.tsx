@@ -23,13 +23,13 @@ export default function AddTableDialog({
       await ctx.table.getTablesByBaseId.cancel();
       const previousTables = ctx.table.getTablesByBaseId.getData();
       ctx.table.getTablesByBaseId.setData({ baseId }, (old) => [
-        ...(old || []),
+        ...(old ?? []),
         {
           ...newTable,
-          name: newTable.name || "Untitled Table",
-          id: newTable.id || uuidv4(),
-          createdAt: newTable.createdAt || new Date(),
-          updatedAt: newTable.updatedAt || new Date(),
+          name: newTable.name ?? "Untitled Table",
+          id: newTable.id ?? uuidv4(),
+          createdAt: newTable.createdAt ?? new Date(),
+          updatedAt: newTable.updatedAt ?? new Date(),
         },
       ]);
       return { previousTables };
@@ -40,7 +40,7 @@ export default function AddTableDialog({
       }
     },
     onSettled: (data) => {
-      ctx.table.getTablesByBaseId.invalidate();
+      void ctx.table.getTablesByBaseId.invalidate();
       if (data) {
         router.replace(`/${baseId}/${data.id}/${viewId}`);
       }

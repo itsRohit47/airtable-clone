@@ -50,36 +50,6 @@ export const baseRouter = createTRPCRouter({
               type: "number",
               order: 1,
             },
-            {
-              name: "Untitled Column",
-              defaultValue: "",
-              type: "text",
-              order: 2,
-            },
-            {
-              name: "Untitled Column",
-              defaultValue: "",
-              type: "text",
-              order: 3,
-            },
-            {
-              name: "Untitled Column",
-              defaultValue: "",
-              type: "text",
-              order: 4,
-            },
-            {
-              name: "Untitled Column",
-              defaultValue: "",
-              type: "text",
-              order: 5,
-            },
-            {
-              name: "Untitled Column",
-              defaultValue: "",
-              type: "text",
-              order: 6,
-            },
           ],
         },
         views: {
@@ -103,24 +73,6 @@ export const baseRouter = createTRPCRouter({
 
     const columns = await ctx.db.column.findMany({
       where: { tableId: table.id },
-    });
-
-    await ctx.db.row.create({
-      data: {
-        tableId: table.id,
-        order: 0,
-        cells: {
-          create: [
-            { value: "", columnId: columns[0]?.id ?? "", tableId: table.id },
-            { value: "", columnId: columns[1]?.id ?? "", tableId: table.id },
-            { value: "", columnId: columns[2]?.id ?? "", tableId: table.id },
-            { value: "", columnId: columns[3]?.id ?? "", tableId: table.id },
-            { value: "", columnId: columns[4]?.id ?? "", tableId: table.id },
-            { value: "", columnId: columns[5]?.id ?? "", tableId: table.id },
-            { value: "", columnId: columns[6]?.id ?? "", tableId: table.id },
-          ],
-        },
-      },
     });
 
     return {

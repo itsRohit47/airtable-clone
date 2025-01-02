@@ -4,6 +4,15 @@
 import { useMemo, useEffect, useState, useRef, useCallback } from "react";
 
 import {
+  ContextMenu,
+  ContextMenuCheckboxItem,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
+import { useRouter } from "next/navigation";
+
+import {
   useReactTable,
   getCoreRowModel,
   getFilteredRowModel,
@@ -20,20 +29,37 @@ import {
   EditIcon,
   SaveIcon,
   CaseUpperIcon,
+  Trash2Icon,
+  Loader2
 } from "lucide-react";
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
 
 import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "../context";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer, VirtualizerOptions } from "@tanstack/react-virtual";
+
+// Add this helper function at the top level
+function usePositionDialog(buttonRef: React.RefObject<HTMLButtonElement>) {
+  const [position, setPosition] = useState<'left' | 'right'>('left');
+
+  useEffect(() => {
+    const updatePosition = () => {
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        const spaceOnRight = window.innerWidth - rect.right;
+        setPosition(spaceOnRight < 300 ? 'right' : 'left');
+      }
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    return () => window.removeEventListener('resize', updatePosition);
+  }, [buttonRef]);
+
+  return position;
+}
 
 export function TableView({
   tableId,
@@ -44,6 +70,7 @@ export function TableView({
 }) {
   // ----------- useState -----------
   const { toast } = useToast();
+  const router = useRouter();
   const {
     globalFilter,
     setGlobalFilter,
@@ -59,16 +86,25 @@ export function TableView({
     selectedView,
     setSelectedView,
     loading,
-    setLoading
+    setLoading,
+    matchedCells,
+    setMatchedCells,
+    currentMatchIndex,
+    setCurrentMatchIndex,
+    goToNextMatch,
+    goToPrevMatch,
   } = useAppContext();
 
   const [isColNameEditing, setIsColNameEditing] = useState(false);
   const [editColId, setEditColId] = useState("");
   const [newColName, setNewColName] = useState<string>("");
   const [isAdding, setIsAdding] = useState(false);
-
-
+  const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
+  const [colType, setColType] = useState<"text" | "number" | null>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+  const addColumnButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogPosition = usePositionDialog(addColumnButtonRef);
+
 
   // ----------- fetch data -----------
   const {
@@ -80,7 +116,6 @@ export function TableView({
     {
       tableId,
       pageSize: 200,
-      search: globalFilter ?? "",
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -92,6 +127,64 @@ export function TableView({
 
   const { data: c, isLoading: isColsLoading } = api.table.getColumnsByTableId.useQuery({
     tableId,
+  });
+
+  const { mutate: deleteRow, isPending } = api.table.deleteRow.useMutation({
+    onMutate: async ({ rowId }: { rowId: string }) => {
+      setLoading(true);
+      setRowSelection({}); // Reset selection immediately
+
+      // Force table reset and remove row from virtual rows
+      table.reset();
+      const previousData = ctx.table.getData.getInfiniteData();
+      const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData();
+
+
+      // Optimistically update the infinite query data
+      ctx.table.getData.setInfiniteData(
+        { tableId, pageSize: 200 },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map(page => ({
+              ...page,
+              data: page.data.filter(row => row.id !== rowId)
+            }))
+          };
+        }
+      );
+
+      ctx.table.getTotalRowsGivenTableId.setData(
+        { tableId },
+        (old) => (old ?? 0) - 1
+      );
+
+      return { previousData, previousTotalRows };
+    },
+    onError: (err, { rowId }, context) => {
+      if (context?.previousData) {
+        ctx.table.getData.setInfiniteData(
+          { tableId, pageSize: 200 },
+          context.previousData
+        );
+        ctx.table.getTotalRowsGivenTableId.setData(
+          { tableId },
+          context.previousTotalRows
+        );
+      }
+      toast({
+        title: "Error",
+        description: "Failed to delete row",
+      });
+    },
+    onSettled: () => {
+      setLoading(false);
+      router.refresh();
+      table.reset(); // Reset table state again to be sure
+      void ctx.table.getData.invalidate();
+      void ctx.table.getTotalRowsGivenTableId.invalidate();
+    }
   });
 
   const { mutate: updateColumnName } = api.table.updateColumnName.useMutation(
@@ -163,7 +256,9 @@ export function TableView({
 
   // ----------- add column mutation -----------
   const addColumn = api.table.addField.useMutation({
-    onMutate: async () => {
+    onMutate: async (data) => {
+      setLoading(true);
+      setColType(null);
       await ctx.table.getColumnsByTableId.cancel();
       const previousData = ctx.table.getColumnsByTableId.getData();
       ctx.table.getColumnsByTableId.setData({ tableId }, (old) => {
@@ -173,7 +268,7 @@ export function TableView({
           name: "Untitled Column",
           tableId: tableId,
           defaultValue: null,
-          type: "text",
+          type: data.type,
           order: old.length,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -191,6 +286,7 @@ export function TableView({
       });
     },
     onSettled: () => {
+      setLoading(false);
       void ctx.table.getColumnsByTableId.invalidate();
     },
   });
@@ -265,7 +361,7 @@ export function TableView({
         title: "Success",
         description: "Rows added successfully",
       });
-      ctx.table.getData.invalidate({ tableId });
+      void ctx.table.getData.invalidate({ tableId });
     },
   });
 
@@ -329,7 +425,7 @@ export function TableView({
         title: "Success",
         description: "Row added successfully",
       });
-      ctx.table.getData.invalidate({ tableId });
+      void ctx.table.getData.invalidate({ tableId });
     },
   });
 
@@ -434,6 +530,7 @@ export function TableView({
   const handleAddColumn = ({ _type }: { _type: "text" | "number" }) => {
     table.resetSorting();
     addColumn.mutate({ tableId, type: _type });
+    setIsAddColumnOpen(false);
   };
 
 
@@ -508,6 +605,19 @@ export function TableView({
     };
   }, []);
 
+  useEffect(() => {
+    function handleFocusIn(e: FocusEvent) {
+      const target = e.target as HTMLElement;
+      if (target && target.tagName === "TD") {
+        target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      }
+    }
+    document.addEventListener("focusin", handleFocusIn);
+    return () => {
+      document.removeEventListener("focusin", handleFocusIn);
+    };
+  }, []);
+
   // ----------- react-table -----------
   const table = useReactTable({
     data: flatData,
@@ -531,8 +641,7 @@ export function TableView({
       },
     },
     getCoreRowModel: getCoreRowModel(),
-    // getFilteredRowModel: getFilteredRowModel(), // Use filtered row model
-    manualFiltering: true,
+    getFilteredRowModel: getFilteredRowModel(), // Use filtered row model
     getSortedRowModel: getSortedRowModel(),
     enableMultiRowSelection: true,
     columnResizeMode: "onChange",
@@ -580,8 +689,30 @@ export function TableView({
     },
   });
 
+  useEffect(() => {
+    if (!globalFilter) {
+      setMatchedCells([]);
+      setCurrentMatchIndex(0);
+      return;
+    }
+    const newMatches: { rowIndex: number; colIndex: number }[] = [];
+    const rows = table.getRowModel().rows;
+    rows.forEach((r, rIndex) => {
+      r.getVisibleCells().forEach((c, cIndex) => {
+        const val = String(c.getValue() ?? "").toLowerCase();
+        if (val.includes(globalFilter.toLowerCase())) {
+          newMatches.push({ rowIndex: rIndex, colIndex: cIndex });
+        }
+      });
+    });
+    setMatchedCells(newMatches);
+    setCurrentMatchIndex(0);
+  }, [table, globalFilter, setMatchedCells, setCurrentMatchIndex]);
+
+
+  // Update the virtualizer to use filtered and sorted rows
   const rowVirtualizer = useVirtualizer({
-    count: table.getFilteredRowModel().rows.length, // Use filtered rows length
+    count: table.getRowModel().rows.length,
     estimateSize: () => 33, //estimate row height for accurate scrollbar dragging
     getScrollElement: () => tableContainerRef.current,
     //measure dynamic row height, except in firefox because it measures table border height incorrectly
@@ -643,7 +774,7 @@ export function TableView({
           <thead className="sticky top-0 z-10 flex group">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className={cn("flex w-max items-center")}>
-                <td className="hidden absolute z-20 group-hover:block border-gray-300 p-2 text-xs bg-[#F5F5F5]">
+                <td className="absolute z-20  border-gray-300 p-2 text-xs bg-[#F5F5F5]">
                   <input
                     type="checkbox"
                     className="form-checkbox"
@@ -655,8 +786,14 @@ export function TableView({
                   <td
                     key={header.id}
                     style={{ width: header.getSize() }}
-                    className={`relative border-b border-r border-gray-300 p-2 text-xs ${header.column.getIsSorted() ? "bg-blue-100" : "bg-[#F5F5F5]"
-                      }`}
+                    className={cn(
+                      "relative border-b border-r border-gray-300 p-2 text-xs bg-[#F5F5F5]",
+                      {
+                        "bg-blue-100/80": header.column.getIsSorted(),
+                        "bg-purple-100/80": header.column.getFilterIndex() > -1,
+                        "bg-indigo-100/80": header.column.getFilterIndex() > -1 && header.column.getIsSorted(),
+                      }
+                    )}
                   >
                     <div className="flex items-center gap-1">
                       {typeof header.column.columnDef.header === "function"
@@ -681,29 +818,62 @@ export function TableView({
                   </td>
                 ))}
                 {headerGroup.headers.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger>
-                      <button className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-2 text-xs">
-                        <Plus size={18} strokeWidth={1.5} />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="flex flex-col">
-                      <button
-                        className="flex w-full px-4 py-2 text-left text-xs hover:bg-gray-100"
-                        onClick={() => handleAddColumn({ _type: "text" })}
+                  <div className="relative">
+                    <button
+                      ref={addColumnButtonRef}
+                      className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-2 text-xs"
+                      onClick={() => setIsAddColumnOpen(!isAddColumnOpen)}
+                    >
+                      <Plus size={18} strokeWidth={1.5} />
+                    </button>
+                    {isAddColumnOpen &&
+                      (<div
+                        className="absolute text-xs w-60 shadow-lg border p-3 bg-white rounded-md flex flex-col gap-2 z-50"
+                        style={{
+                          top: '110%',
+                          ...(dialogPosition === 'right'
+                            ? { right: 30 }
+                            : { left: 0 })
+                        }}
                       >
-                        <CaseUpperIcon size={16} strokeWidth={1.5} />
-                        <span className="ml-2">Add Text Column</span>
-                      </button>
-                      <button
-                        className="flex w-full px-4 py-2 text-left text-xs hover:bg-gray-100"
-                        onClick={() => handleAddColumn({ _type: "number" })}
-                      >
-                        <HashIcon size={14} strokeWidth={1.5} />
-                        <span className="ml-2">Add Number Column</span>
-                      </button>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <div className="flex flex-col gap-1 p-2 bg-white border border-gray-200 rounded-md">
+                          <button
+                            onClick={() => setColType("text")}
+                            className={cn("flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md", {
+                              "bg-blue-50 hover:bg-blue-100": colType === "text"
+                            })}
+                          >
+                            <CaseUpperIcon size={16} strokeWidth={1.5} />
+                            Signle line text
+                          </button>
+                          <button
+                            onClick={() => setColType("number")}
+                            className={cn("flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md", {
+                              "bg-blue-50 hover:bg-blue-100": colType === "number"
+                            })}
+                          >
+                            <HashIcon size={16} strokeWidth={1.5} />
+                            Number
+                          </button>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => setIsAddColumnOpen(false)}
+                            className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => colType && handleAddColumn({ _type: colType })}
+                            disabled={!colType}
+                            className="flex items-center gap-2 p-2 rounded-md bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Create Field
+                          </button>
+                        </div>
+                      </div>
+                      )}
+                  </div>
                 )}
               </tr>
             ))}
@@ -724,7 +894,7 @@ export function TableView({
                 transform: `translateY(${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px)`,
               }}
             >
-              {table.getFilteredRowModel().rows.length === 0 ? (
+              {table.getRowModel().rows.length === 0 ? ( // Use getRowModel instead of getFilteredRowModel
                 globalFilter != '' && (
                   <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44 -translate-y-28">
                     <div className="ml-2 animate-pulse text-xs text-gray-500">No records match <strong>{globalFilter}</strong></div>
@@ -732,55 +902,80 @@ export function TableView({
                 )
               ) : (
                 rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const row = table.getFilteredRowModel().rows[virtualRow.index];
+                  const row = table.getRowModel().rows[virtualRow.index]; // Use getRowModel instead of getFilteredRowModel
                   return (
-                    <tr
-                      key={row?.id}
-                      style={{ height: `${rowHeight}rem` }}
-                      className={cn("flex w-max items-center bg-white hover:bg-gray-100 group transition-all duration-200", {
-                        "bg-red-100/40 hover:bg-red-100/50": row?.getIsSelected(),
-                      })}
-                    >
-                      <div className="absolute left-2 text-xs text-gray-500">
-                        {table.getVisibleLeafColumns().length > 0 && (virtualRow.index + 1)}
-                      </div>
-                      <td className="hidden absolute z-20 group-hover:block  p-2 text-xs">
-                        <input
-                          type="checkbox"
-                          className="form-checkbox"
-                          checked={row?.getIsSelected()}
-                          onChange={row ? row.getToggleSelectedHandler() : undefined}
-                        />
-                      </td>
-                      {row?.getVisibleCells().map((cell) => (
-                        <td
-                          key={cell.id}
-                          style={{ width: cell.column.getSize() }}
-                          tabIndex={0} // Add tabIndex to make the cell focusable
-                          className={cn(
-                            "h-full w-max border-b border-r p-[2px] text-xs focus:border focus:border-blue-500 focus:outline-none",
-                            {
-                              "opacity-20 border cursor-not-allowed pointer-events-none animate-pulse": isAdding,
-                            },
-                            {
-                              "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-white":
-                                globalFilter &&
-                                String(cell.getValue())
-                                  .toLowerCase()
-                                  .includes(globalFilter.toLowerCase()),
-                              "bg-blue-50":
-                                cell.column.getIsSorted() ||
-                                cell.column.getIsFiltered(),
-                            },
-                          )}
+                    <ContextMenu key={row?.id}>
+                      <ContextMenuTrigger>
+                        <tr
+                          style={{ height: `${rowHeight}rem` }}
+                          className={cn("flex w-max items-center bg-white hover:bg-gray-100 group transition-all duration-200", {
+                            "bg-violet-100 hover:bg-violet-100/50": row?.getIsSelected(),
+                          })}
                         >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
+                          {!row?.getIsSelected() && (
+                            <div className="absolute left-2 text-xs text-gray-500">
+                              {table.getVisibleLeafColumns().length > 0 && (virtualRow.index + 1)}
+                            </div>
                           )}
-                        </td>
-                      ))}
-                    </tr>
+                          <td className={cn("absolute z-20 p-2 text-xs", {
+                            "block": row?.getIsSelected(),
+                            "hidden group-hover:block": !row?.getIsSelected()
+                          })}>
+                            <input
+                              type="checkbox"
+                              className="form-checkbox"
+                              checked={row?.getIsSelected()}
+                              onChange={row ? row.getToggleSelectedHandler() : undefined}
+                            />
+                          </td>
+                          {row?.getVisibleCells().map((cell, cIndex) => (
+                            <td
+                              key={cell.id}
+                              data-row-index={virtualRow.index}   // ADDED
+                              data-col-index={cIndex}            // ADDED
+                              style={{ width: cell.column.getSize() }}
+                              tabIndex={0} // Add tabIndex to make the cell focusable
+                              className={cn(
+                                "h-full w-max border-b border-r p-[2px] text-xs focus:border focus:border-blue-500 focus:outline-none border-gray-300",
+                                {
+                                  "opacity-20 border cursor-not-allowed pointer-events-none animate-pulse": isAdding,
+                                },
+                                {
+                                  "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-yellow-400":
+                                    globalFilter &&
+                                    String(cell.getValue())
+                                      .toLowerCase()
+                                      .includes(globalFilter.toLowerCase()),
+                                  "bg-blue-50/50": cell.column.getIsSorted(),
+                                  "bg-purple-50/50": cell.column.getFilterIndex() > -1,
+                                  "bg-indigo-50/50": cell.column.getFilterIndex() > -1 && cell.column.getIsSorted(),
+                                },
+                              )}
+                            >
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem
+                          className="text-xs cursor-pointer text-gray-500 hover:text-gray-700 flex items-center gap-2"
+                          onClick={() => {
+                            deleteRow({
+                              tableId: tableId,
+                              rowId: row?.original.id as string,
+                            });
+                          }}
+                        >
+                          <Trash2Icon size={14} strokeWidth={1.5} /> <span className="text-red-500 flex items-center gap-1">
+                            {isPending ? <Loader2 size={14} strokeWidth={1.5} /> : null}
+                            Delete record</span>
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
                   );
                 })
               )}
@@ -831,7 +1026,9 @@ export function TableView({
             </button>
           </div>
           <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500">
-            {totalRows} records
+            {Object.keys(rowSelection).length > 0
+              ? `${Object.keys(rowSelection).length} records selected`
+              : `${totalRows} records`}
           </div>
         </table>
       </div>
