@@ -4,7 +4,7 @@ import { api } from "@/trpc/react";
 import { Trash2Icon } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
-import { useOutsideClick } from "@/lib/hooks/use-outside-click";
+import { useOutsideClick } from "@/hooks/use-outside-click";
 
 export default function BaseCardMenu({ baseId }: { baseId: string }) {
   const router = useRouter();

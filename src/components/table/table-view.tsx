@@ -132,56 +132,13 @@ export function TableView({
   const { mutate: deleteRow, isPending } = api.table.deleteRow.useMutation({
     onMutate: async ({ rowId }: { rowId: string }) => {
       setLoading(true);
-      setRowSelection({}); // Reset selection immediately
-
-      // Force table reset and remove row from virtual rows
-      table.reset();
-      const previousData = ctx.table.getData.getInfiniteData();
-      const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData();
-
-
-      // Optimistically update the infinite query data
-      ctx.table.getData.setInfiniteData(
-        { tableId, pageSize: 200 },
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map(page => ({
-              ...page,
-              data: page.data.filter(row => row.id !== rowId)
-            }))
-          };
-        }
-      );
-
       ctx.table.getTotalRowsGivenTableId.setData(
         { tableId },
         (old) => (old ?? 0) - 1
       );
-
-      return { previousData, previousTotalRows };
-    },
-    onError: (err, { rowId }, context) => {
-      if (context?.previousData) {
-        ctx.table.getData.setInfiniteData(
-          { tableId, pageSize: 200 },
-          context.previousData
-        );
-        ctx.table.getTotalRowsGivenTableId.setData(
-          { tableId },
-          context.previousTotalRows
-        );
-      }
-      toast({
-        title: "Error",
-        description: "Failed to delete row",
-      });
     },
     onSettled: () => {
       setLoading(false);
-      router.refresh();
-      table.reset(); // Reset table state again to be sure
       void ctx.table.getData.invalidate();
       void ctx.table.getTotalRowsGivenTableId.invalidate();
     }
@@ -367,64 +324,15 @@ export function TableView({
 
   const add1Row = api.table.add1Row.useMutation({
     onMutate: async () => {
-      setLoading(true);
-      const previousData = ctx.table.getData.getInfiniteData();
-      const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData();
-      const newRowData: Record<string, string | number> = {};
-
-      // Optimistically update the infinite query data
-      ctx.table.getData.setInfiniteData(
-        { tableId, pageSize: 200 },
-        (old) => {
-          if (!old) return old;
-          const newPages = [...old.pages];
-          const lastPage = newPages[newPages.length - 1];
-          if (lastPage) {
-            newPages[newPages.length - 1] = {
-              ...lastPage,
-              data: [
-                ...lastPage.data,
-                ...Array.from({ length: 1 }).map((_, index) => ({
-                  id: `temp-id-${index}`,
-                  ...newRowData,
-                })),
-              ],
-            };
-          }
-          return { ...old, pages: newPages };
-        }
-      );
-
       // Optimistically update total rows count
       ctx.table.getTotalRowsGivenTableId.setData(
         { tableId },
         (old) => (old ?? 0) + 1
       );
 
-      return { previousData, previousTotalRows };
-    },
-    onError: (err, newRow, context) => {
-      if (context?.previousData) {
-        ctx.table.getData.setInfiniteData(
-          { tableId, pageSize: 200 },
-          context.previousData
-        );
-        ctx.table.getTotalRowsGivenTableId.setData(
-          { tableId },
-          context.previousTotalRows
-        );
-      }
-      toast({
-        title: "Error",
-        description: err.message
-      });
     },
     onSuccess: (data) => {
       setLoading(false);
-      toast({
-        title: "Success",
-        description: "Row added successfully",
-      });
       void ctx.table.getData.invalidate({ tableId });
     },
   });
@@ -510,7 +418,7 @@ export function TableView({
             rowId={String(row.original.id ?? "")}
             columnId={col.id}
             type={col.type as "text" | "number"}
-            value={String(getValue() ?? "")}
+            value={row.original[col.id] as string}
           />
         ),
       })) ?? [];
@@ -518,11 +426,34 @@ export function TableView({
 
   // ----------- add column handler -----------
   const handleAddRow = () => {
-    table.resetSorting();
     add5kRow({ tableId });
   };
+
   const handleAdd1Row = () => {
-    table.resetSorting();
+    setLoading(true);
+    const newRowData: Record<string, string | number> = {};
+    // Optimistically update the infinite query data
+    ctx.table.getData.setInfiniteData(
+      { tableId, pageSize: 200 },
+      (old) => {
+        if (!old) return old;
+        const newPages = [...old.pages];
+        const lastPage = newPages[newPages.length - 1];
+        if (lastPage) {
+          newPages[newPages.length - 1] = {
+            ...lastPage,
+            data: [
+              ...lastPage.data,
+              ...Array.from({ length: 1 }).map((_, index) => ({
+                id: `temp-id-${index}`,
+                ...newRowData,
+              })),
+            ],
+          };
+        }
+        return { ...old, pages: newPages };
+      }
+    );
     add1Row.mutate({ tableId });
   };
 
@@ -699,7 +630,7 @@ export function TableView({
     const rows = table.getRowModel().rows;
     rows.forEach((r, rIndex) => {
       r.getVisibleCells().forEach((c, cIndex) => {
-        const val = String(c.getValue() ?? "").toLowerCase();
+        const val = String(c.getValue()).toLowerCase();
         if (val.includes(globalFilter.toLowerCase())) {
           newMatches.push({ rowIndex: rIndex, colIndex: cIndex });
         }
@@ -914,7 +845,7 @@ export function TableView({
                         >
                           {!row?.getIsSelected() && (
                             <div className="absolute left-2 text-xs text-gray-500">
-                              {table.getVisibleLeafColumns().length > 0 && (virtualRow.index + 1)}
+                              {table.getVisibleLeafColumns().length > 0 && (Number(virtualRow.index) + 1)}
                             </div>
                           )}
                           <td className={cn("absolute z-20 p-2 text-xs", {
@@ -931,10 +862,10 @@ export function TableView({
                           {row?.getVisibleCells().map((cell, cIndex) => (
                             <td
                               key={cell.id}
-                              data-row-index={virtualRow.index}   // ADDED
-                              data-col-index={cIndex}            // ADDED
+                              data-row-index={virtualRow.index}
+                              data-col-index={cIndex}
                               style={{ width: cell.column.getSize() }}
-                              tabIndex={0} // Add tabIndex to make the cell focusable
+                              tabIndex={0}
                               className={cn(
                                 "h-full w-max border-b border-r p-[2px] text-xs focus:border focus:border-blue-500 focus:outline-none border-gray-300",
                                 {
@@ -1014,7 +945,8 @@ export function TableView({
           <div className="fixed bottom-10 ml-3 flex items-center">
             <button
               onClick={handleAddRow}
-              className="flex items-center justify-center rounded-l-full border bg-white p-2 hover:bg-gray-100 text-xs"
+              disabled={isAdding}
+              className="flex items-center justify-center rounded-l-full border bg-white p-2 hover:bg-gray-100 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add 5k rows
             </button>

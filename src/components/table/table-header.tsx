@@ -18,12 +18,16 @@ import {
   Trash2Icon,
   ChevronDownIcon,
   ChevronUpIcon,
+  CaseUpperIcon,
+  HashIcon,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { useState } from "react";
 import { LineHeightIcon } from "@radix-ui/react-icons";
 import { useAppContext } from "../context";
 import { useEffect, useRef } from "react";
+
+
 const useSortFilterManagement = (viewId: string) => {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
@@ -34,15 +38,7 @@ const useSortFilterManagement = (viewId: string) => {
   const viewSorts = api.table.getViewSorts.useQuery({ viewId });
   const viewFilters = api.table.getViewFilters.useQuery({ viewId });
 
-  // get the columns that are not filtered
-  const unfilteredColumns = localColumns.filter(
-    (col) => !viewFilters.data?.find((filter) => filter.columnId === col.id),
-  );
 
-  // get the columns that are not sorted
-  const unsortedColumns = localColumns.filter(
-    (col) => !viewSorts.data?.find((sort) => sort.columnId === col.id),
-  );
 
   // add sort mutation
   const { mutate: addSort } = api.table.addSort.useMutation({
@@ -198,8 +194,6 @@ const useSortFilterManagement = (viewId: string) => {
     setFilterMenuOpen,
     viewSorts: viewSorts.data ?? [],
     viewFilters: viewFilters.data ?? [],
-    unsortedColumns,
-    unfilteredColumns,
     addSort,
     deleteSort,
     updateSort,
@@ -525,9 +519,9 @@ function SearchableList({
             <div
               key={item.id}
               onClick={() => onItemSelect(item)}
-              className="flex items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60"
+              className="flex items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60 cursor-pointer"
             >
-              <div>{item.name}</div>
+              {item.type === "text" ? <CaseUpperIcon size={16} /> : <HashIcon size={12} />} <div>{item.name}</div>
             </div>
           ))
         ) : (
@@ -563,7 +557,7 @@ function SortMenu() {
 
 function SortView() {
   const { localColumns, selectedView } = useAppContext();
-  const { viewSorts, addSort, unsortedColumns } = useSortFilterManagement(
+  const { viewSorts, addSort } = useSortFilterManagement(
     selectedView?.id ?? "",
   );
 
@@ -594,10 +588,10 @@ function SortView() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => {
-            if (unsortedColumns.length > 0) {
+            if (localColumns.length > 0) {
               addSort({
                 viewId: selectedView?.id ?? "",
-                columnId: unsortedColumns[0]?.id ?? "",
+                columnId: localColumns[0]?.id ?? "",
                 desc: false,
               });
             } else {
@@ -687,14 +681,14 @@ function SortItem({
   colName: string;
   colType: string;
 }) {
-  const { selectedView } = useAppContext();
+  const { selectedView, localColumns } = useAppContext();
   const [selectedColumn, setSelectedColumn] = useState({
     id: colId,
     name: colName,
     type: colType,
   });
   const [isColumnSelectOpen, setIsColumnSelectOpen] = useState(false);
-  const { viewSorts, unsortedColumns, addSort, deleteSort, updateSort } =
+  const { viewSorts, addSort, deleteSort, updateSort } =
     useSortFilterManagement(selectedView?.id ?? "");
 
   return (
@@ -711,16 +705,22 @@ function SortItem({
       {isColumnSelectOpen && (
         <div className="absolute top-full z-20 mt-1 w-60 rounded-md border bg-white p-2 shadow-md">
           <SearchableList
-            items={unsortedColumns}
+            items={localColumns}
             onItemSelect={(column) => {
+              // Do nothing if selected column is same as current column
+              if (column.id === selectedColumn.id) {
+                setIsColumnSelectOpen(false);
+                return;
+              }
+
+              deleteSort({
+                viewId: selectedView?.id ?? "",
+                columnId: selectedColumn.id,
+              });
               addSort({
                 viewId: selectedView?.id ?? "",
                 columnId: column.id,
                 desc: false,
-              });
-              deleteSort({
-                viewId: selectedView?.id ?? "",
-                columnId: selectedColumn.id,
               });
               setIsColumnSelectOpen(!isColumnSelectOpen);
               setSelectedColumn({
@@ -776,7 +776,7 @@ function SortItem({
 
 function FilterMenu() {
   const { localColumns, selectedView } = useAppContext();
-  const { addFilter, viewFilters, unfilteredColumns } =
+  const { addFilter, viewFilters } =
     useSortFilterManagement(selectedView?.id ?? "");
   return (
     <div className="absolute top-full mt-1 flex w-max min-w-96 rounded-sm border bg-white p-4 text-xs shadow-lg">
@@ -799,21 +799,21 @@ function FilterMenu() {
               colType={
                 localColumns.find((col) => col.id === filter.columnId)?.type ?? ""
               }
-              value={filter.value ?? ""}
+              value={filter.value ?? null}
             />
           ))}
         <div className="flex items-center gap-x-5">
           <button
             className="flex items-center gap-x-2 text-blue-500"
             onClick={() => {
-              if (unfilteredColumns.length === 0) {
+              if (localColumns.length === 0) {
                 alert("No more columns available to filter");
                 return;
               } else {
                 addFilter({
                   viewId: selectedView?.id ?? "",
-                  columnId: unfilteredColumns[0]?.id ?? "",
-                  operator: unfilteredColumns[0]?.type === "number" ? "eq" : "includesString",
+                  columnId: localColumns[0]?.id ?? "",
+                  operator: localColumns[0]?.type === "number" ? "eq" : "includesString",
                   value: "",
                 });
               }
@@ -846,16 +846,16 @@ function FilterItem({
   colId: string;
   colName: string;
   colType: string;
-  value: string;
+  value: string | null;
 }) {
-  const { selectedView } = useAppContext();
+  const { selectedView, localColumns } = useAppContext();
   const [selectedColumn, setSelectedColumn] = useState({
     id: colId,
     name: colName,
     type: colType,
   });
 
-  const { viewFilters, unfilteredColumns, addFilter, deleteFilter, updateFilter } =
+  const { viewFilters, addFilter, deleteFilter, updateFilter } =
     useSortFilterManagement(selectedView?.id ?? "");
 
   const [filterValue, setFilterValue] = useState(value);
@@ -881,7 +881,7 @@ function FilterItem({
       operator: newOperator,
       viewId: selectedView?.id ?? "",
     };
-    updateFilter(filter);
+    updateFilter(filter as any);
   };
 
   return (
@@ -901,18 +901,25 @@ function FilterItem({
         {isColumnSelectOpen && (
           <div className="absolute top-full z-20 mt-1 w-60 rounded-md border bg-white p-2 shadow-md">
             <SearchableList
-              items={unfilteredColumns}
+              items={localColumns}
               onItemSelect={(column) => {
+                // Do nothing if selected column is same as current column
+                if (column.id === selectedColumn.id) {
+                  setIsColumnSelectOpen(false);
+                  return;
+                }
+
+                deleteFilter({
+                  viewId: selectedView?.id ?? "",
+                  columnId: selectedColumn.id,
+                });
                 addFilter({
                   viewId: selectedView?.id ?? "",
                   columnId: column.id,
                   operator: column.type === "number" ? "eq" : "includesString",
                   value: "",
                 });
-                deleteFilter({
-                  viewId: selectedView?.id ?? "",
-                  columnId: selectedColumn.id,
-                });
+
                 setIsColumnSelectOpen(!isColumnSelectOpen);
                 setSelectedColumn({
                   id: column.id,
@@ -949,7 +956,7 @@ function FilterItem({
       {operator !== 'empty' && operator !== 'notEmpty' ? (
         <input
           className="w-32 border-y border-r p-2"
-          value={filterValue}
+          value={filterValue ?? ""}
           onChange={(e) => {
             handleFilterChange(e.target.value);
           }}

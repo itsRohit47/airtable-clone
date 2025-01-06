@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAppContext } from "../context";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { useOutsideClick } from "@/lib/hooks/use-outside-click";
+import { useOutsideClick } from "@/hooks/use-outside-click";
 
 export default function AddTableDialog({
   baseId,

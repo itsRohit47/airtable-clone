@@ -2,7 +2,7 @@
 import { useAppContext } from "../context";
 import { api } from "@/trpc/react";
 import { useState } from "react";
-import { useOutsideClick } from "@/lib/hooks/use-outside-click";
+import { useOutsideClick } from "@/hooks/use-outside-click";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 export default function TableNameEdit({
