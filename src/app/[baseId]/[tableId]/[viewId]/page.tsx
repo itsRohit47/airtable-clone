@@ -11,7 +11,7 @@ export default function Table({
   const { tableTab } = useAppContext();
 
   return (
-    <div className="fixed flex min-h-dvh w-full flex-col">
+    <div className="fixed flex min-h-dvh w-full flex-col h-full">
       <TableTopNav
         baseId={params.baseId}
       ></TableTopNav>
@@ -19,7 +19,7 @@ export default function Table({
         <>
           <TableNav baseId={params.baseId} viewId={params.viewId}></TableNav>
           <TableHead tableId={params.tableId}></TableHead>
-          <div className="min-w-screen flex h-full flex-grow transition duration-150 ease-in-out">
+          <div className="flex h-full">
             <ViewMenu
               _tableId={params.tableId}
               _baseId={params.baseId}

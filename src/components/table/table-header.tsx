@@ -38,7 +38,15 @@ const useSortFilterManagement = (viewId: string) => {
   const viewSorts = api.table.getViewSorts.useQuery({ viewId });
   const viewFilters = api.table.getViewFilters.useQuery({ viewId });
 
+  // get the columns that are not filtered
+  const unfilteredColumns = localColumns.filter(
+    (col) => !viewFilters.data?.find((filter) => filter.columnId === col.id),
+  );
 
+  // get the columns that are not sorted
+  const unsortedColumns = localColumns.filter(
+    (col) => !viewSorts.data?.find((sort) => sort.columnId === col.id),
+  );
 
   // add sort mutation
   const { mutate: addSort } = api.table.addSort.useMutation({
@@ -200,6 +208,8 @@ const useSortFilterManagement = (viewId: string) => {
     addFilter,
     deleteFilter,
     updateFilter,
+    unfilteredColumns,
+    unsortedColumns,
   };
 };
 
@@ -557,7 +567,7 @@ function SortMenu() {
 
 function SortView() {
   const { localColumns, selectedView } = useAppContext();
-  const { viewSorts, addSort } = useSortFilterManagement(
+  const { viewSorts, addSort, unsortedColumns } = useSortFilterManagement(
     selectedView?.id ?? "",
   );
 
@@ -588,10 +598,10 @@ function SortView() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => {
-            if (localColumns.length > 0) {
+            if (unsortedColumns.length > 0) {
               addSort({
                 viewId: selectedView?.id ?? "",
-                columnId: localColumns[0]?.id ?? "",
+                columnId: unsortedColumns[0]?.id ?? "",
                 desc: false,
               });
             } else {
@@ -776,7 +786,7 @@ function SortItem({
 
 function FilterMenu() {
   const { localColumns, selectedView } = useAppContext();
-  const { addFilter, viewFilters } =
+  const { addFilter, viewFilters, unfilteredColumns } =
     useSortFilterManagement(selectedView?.id ?? "");
   return (
     <div className="absolute top-full mt-1 flex w-max min-w-96 rounded-sm border bg-white p-4 text-xs shadow-lg">
@@ -806,14 +816,14 @@ function FilterMenu() {
           <button
             className="flex items-center gap-x-2 text-blue-500"
             onClick={() => {
-              if (localColumns.length === 0) {
+              if (unfilteredColumns.length === 0) {
                 alert("No more columns available to filter");
                 return;
               } else {
                 addFilter({
                   viewId: selectedView?.id ?? "",
-                  columnId: localColumns[0]?.id ?? "",
-                  operator: localColumns[0]?.type === "number" ? "eq" : "includesString",
+                  columnId: unfilteredColumns[0]?.id ?? "",
+                  operator: unfilteredColumns[0]?.type === "number" ? "eq" : "includesString",
                   value: "",
                 });
               }
@@ -862,15 +872,23 @@ function FilterItem({
   const [operator, setOperator] = useState('');
   const [isColumnSelectOpen, setIsColumnSelectOpen] = useState(false);
 
+  useEffect(() => {
+    const existingFilter = viewFilters.find((f) => f.columnId === colId);
+    if (existingFilter?.operator) {
+      setOperator(existingFilter.operator);
+    } else {
+      setOperator(selectedColumn.type === "number" ? "eq" : "includesString");
+    }
+  }, [colId, selectedColumn, viewFilters]);
+
   const handleFilterChange = (newValue: string) => {
     setFilterValue(newValue);
-    const filter = {
+    updateFilter({
       columnId: selectedColumn.id,
       value: newValue,
-      operator: operator || (selectedColumn.type === "number" ? "equals" : "includesString"),
+      operator, // removed fallback
       viewId: selectedView?.id ?? "",
-    };
-    updateFilter(filter);
+    });
   };
 
   const handleOperatorChange = (newOperator: string) => {

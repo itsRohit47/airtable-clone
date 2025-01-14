@@ -341,26 +341,76 @@ export const tableRouter = createTRPCRouter({
         sortBy: z.string().optional(),
         sortDesc: z.boolean().optional().default(false),
         pageSize: z.number().optional().default(10),
+        filters: z
+          .array(
+            z.object({
+              columnId: z.string(),
+              operator: z.string(),
+              value: z.any(),
+            }),
+          )
+          .optional(),
+        sorts: z
+          .array(
+            z.object({
+              columnId: z.string(),
+              desc: z.boolean(),
+            }),
+          )
+          .optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
-      const columns = await ctx.db.column.findMany({
-        where: { tableId: input.tableId },
-        orderBy: { order: "asc" },
-      });
-
-      // Get rows with cells
-      const rows = await ctx.db.row.findMany({
-        where: {
-          tableId: input.tableId,
+      // Build "where" from filters
+      console.log(input.filters);
+      const filterConditions = (input.filters ?? []).map((f) => {
+        let condition;
+        switch (f.operator) {
+          case "empty":
+            condition = { value: "" };
+            break;
+          case "notEmpty":
+            condition = { value: { not: "" } };
+            break;
+          case "includesString":
+            condition = {
+              value: {
+                contains: f.value,
+                mode: "insensitive" as any,
+              },
+            };
+            break;
+          case "eq":
+            condition = f.value === "" ? {} : { value: f.value };
+            break;
+          case "gt":
+            condition = f.value === "" ? {} : { value: { gt: f.value } };
+            break;
+          case "lt":
+            condition = f.value === "" ? {} : { value: { lt: f.value } };
+            break;
+          default:
+            condition = { value: f.value };
+        }
+        return {
           cells: {
             some: {
-              value: {
-                contains: input.search,
-              },
+              columnId: f.columnId,
+              ...(condition as any),
             },
           },
+        };
+      });
+
+      // Build "orderBy" from sorts
+      const orderByClauses = (input.sorts ?? []).map((s) => ({
+        cells: {
+          _count: s.desc ? "desc" : "asc",
         },
+      }));
+
+      // ...existing code...
+      const rows = await ctx.db.row.findMany({
         include: {
           cells: {
             include: {
@@ -368,8 +418,32 @@ export const tableRouter = createTRPCRouter({
             },
           },
         },
+        where: {
+          tableId: input.tableId,
+          AND: [
+            // existing search logic
+            {
+              cells: {
+                some: {
+                  value: { contains: input.search },
+                },
+              },
+            },
+            // new filter logic
+            ...filterConditions,
+          ],
+        },
+        // simplified placeholder usage—sorting by “cells” is non-trivial
+        orderBy: orderByClauses.length
+          ? (orderByClauses as unknown as any)
+          : { order: input.sortDesc ? "desc" : "asc" },
         take: input.pageSize,
         ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+      });
+
+      // Fetch columns for the table
+      const columns = await ctx.db.column.findMany({
+        where: { tableId: input.tableId },
       });
 
       // Transform the data into a flat structure

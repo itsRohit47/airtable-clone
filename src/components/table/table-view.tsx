@@ -106,22 +106,6 @@ export function TableView({
   const dialogPosition = usePositionDialog(addColumnButtonRef);
 
 
-  // ----------- fetch data -----------
-  const {
-    data: tableData,
-    isLoading,
-    isFetching,
-    fetchNextPage,
-  } = api.table.getData.useInfiniteQuery(
-    {
-      tableId,
-      pageSize: 200,
-    },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      refetchOnWindowFocus: false,
-    },
-  );
 
 
 
@@ -211,6 +195,34 @@ export function TableView({
 
   const ctx = api.useUtils();
 
+  // ----------- fetch data -----------
+  const {
+    data: tableData,
+    isLoading,
+    isFetching,
+    fetchNextPage,
+  } = api.table.getData.useInfiniteQuery(
+    {
+      tableId,
+      pageSize: 200,
+      // Pass the filters and sorts from your state, e.g.:
+      filters: viewFilters?.map((f) => ({
+        columnId: f.columnId,
+        operator: f.operator,
+        value: f.value ?? "",
+      })) ?? [],
+      sorts: viewSorts?.map((s) => ({
+        columnId: s.columnId,
+        desc: s.desc,
+      })) ?? [],
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      refetchOnWindowFocus: false,
+    },
+  );
+
+
   // ----------- add column mutation -----------
   const addColumn = api.table.addField.useMutation({
     onMutate: async (data) => {
@@ -265,7 +277,16 @@ export function TableView({
 
       // Optimistically update the infinite query data
       ctx.table.getData.setInfiniteData(
-        { tableId, pageSize: 200 },
+        {
+          tableId, pageSize: 200, filters: viewFilters?.map((f) => ({
+            columnId: f.columnId,
+            operator: f.operator,
+            value: f.value ?? "",
+          })) ?? [], sorts: viewSorts?.map((s) => ({
+            columnId: s.columnId,
+            desc: s.desc,
+          })) ?? []
+        },
         (old) => {
           if (!old) return old;
           const newPages = [...old.pages];
@@ -422,7 +443,7 @@ export function TableView({
           />
         ),
       })) ?? [];
-  }, [editColId, isColNameEditing, newColName, viewFilters, c]);
+  }, [c, updateColumnName, newColName, isColNameEditing, editColId]);
 
   // ----------- add column handler -----------
   const handleAddRow = () => {
@@ -434,7 +455,19 @@ export function TableView({
     const newRowData: Record<string, string | number> = {};
     // Optimistically update the infinite query data
     ctx.table.getData.setInfiniteData(
-      { tableId, pageSize: 200 },
+      {
+        tableId,
+        pageSize: 200,
+        filters: viewFilters?.map((f) => ({
+          columnId: f.columnId,
+          operator: f.operator,
+          value: f.value ?? "",
+        })) ?? [],
+        sorts: viewSorts?.map((s) => ({
+          columnId: s.columnId,
+          desc: s.desc,
+        })) ?? [],
+      },
       (old) => {
         if (!old) return old;
         const newPages = [...old.pages];
@@ -572,7 +605,8 @@ export function TableView({
       },
     },
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(), // Use filtered row model
+    // getFilteredRowModel: getFilteredRowModel(), // Use filtered row model
+    manualFiltering: true,
     getSortedRowModel: getSortedRowModel(),
     enableMultiRowSelection: true,
     columnResizeMode: "onChange",
@@ -698,10 +732,9 @@ export function TableView({
       <div
         ref={tableContainerRef}
         onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
-        className="min-w-screen z-0 max-h-[90vh] flex-grow overflow-auto"
+        className="min-w-screen z-0 max-h-[80vh] flex-grow overflow-auto"
       >
         <table className="mb-32 w-max">
-
           <thead className="sticky top-0 z-10 flex group">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className={cn("flex w-max items-center")}>
