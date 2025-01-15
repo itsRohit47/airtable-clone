@@ -262,7 +262,7 @@ export function TableView({
 
 
   const flatData = useMemo(
-    () => tableData?.pages?.flatMap((page) => page.data) ?? [],
+    () => tableData?.pages?.flatMap((page) => page.data).sort((a, b) => ((a.order as number) ?? 0) - ((b.order as number) ?? 0)) ?? [],
     [tableData],
   );
 
@@ -638,24 +638,6 @@ export function TableView({
   const table = useReactTable({
     data: flatData,
     columns,
-    filterFns: {
-      gt: (row, columnId, filterValue) => {
-        return row.getValue<number>(columnId) > Number(filterValue);
-      },
-      lt: (row, columnId, filterValue) => {
-        return row.getValue<number>(columnId) < Number(filterValue);
-      },
-      eq: (row, columnId, filterValue) => {
-        const value = row.getValue(columnId);
-        return filterValue === "" ? value === "" : value === filterValue;
-      },
-      empty: (row, columnId) => {
-        return row.getValue(columnId) === null || row.getValue(columnId) === "";
-      },
-      notEmpty: (row, columnId) => {
-        return row.getValue(columnId) !== null && row.getValue(columnId) !== "";
-      },
-    },
     getCoreRowModel: getCoreRowModel(),
     // getFilteredRowModel: getFilteredRowModel(), // Use filtered row model
     manualFiltering: true,
@@ -680,13 +662,6 @@ export function TableView({
       setRowSelection(
         typeof updaterOrValue === "function"
           ? updaterOrValue(rowSelection)
-          : updaterOrValue
-      );
-    },
-    onColumnFiltersChange: (updaterOrValue: ColumnFiltersState | ((old: ColumnFiltersState) => ColumnFiltersState)) => {
-      setColumnFilters(
-        typeof updaterOrValue === "function"
-          ? updaterOrValue(columnFilters)
           : updaterOrValue
       );
     },
@@ -1045,7 +1020,9 @@ export function TableView({
           <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500">
             {Object.keys(rowSelection).length > 0
               ? `${Object.keys(rowSelection).length} records selected`
-              : `${totalRows} records`}
+              : viewFilters && viewFilters.length > 0 && (viewFilters.some((f) => f.value) || (viewFilters.some((f) => !f.value) && viewFilters.some((f) => f.operator === "empty" || f.operator === "notEmpty")))
+                ? `${flatData.length} filtered rows`
+                : `${totalRows} records`}
           </div>
         </table>
       </div>

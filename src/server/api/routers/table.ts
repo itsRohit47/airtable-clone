@@ -213,10 +213,15 @@ export const tableRouter = createTRPCRouter({
   addRow: protectedProcedure
     .input(z.object({ tableId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      const lastRow = await ctx.db.row.findFirst({
+        where: { tableId: input.tableId },
+        orderBy: { order: "desc" },
+      });
+
       const newRows = Array.from({ length: 5000 }).map((_, i) => ({
         id: cuid(), // Pre-generate unique ID
         tableId: input.tableId,
-        order: i,
+        order: (lastRow?.order ?? -1) + i + 1,
       }));
 
       // Step 1: Create rows
@@ -245,10 +250,15 @@ export const tableRouter = createTRPCRouter({
   add1Row: protectedProcedure
     .input(z.object({ tableId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      const lastRow = await ctx.db.row.findFirst({
+        where: { tableId: input.tableId },
+        orderBy: { order: "desc" },
+      });
+
       const newRows = Array.from({ length: 1 }).map((_, i) => ({
         id: cuid(), // Pre-generate unique ID
         tableId: input.tableId,
-        order: i,
+        order: (lastRow?.order ?? -1) + 1,
       }));
 
       // Step 1: Create rows
@@ -318,6 +328,7 @@ export const tableRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const numericValue = parseFloat(input.value);
       return ctx.db.cell.update({
         where: {
           rowId_columnId: {
@@ -327,6 +338,7 @@ export const tableRouter = createTRPCRouter({
         },
         data: {
           value: input.value,
+          numericValue: isNaN(numericValue) ? null : numericValue,
         },
       });
     }),
@@ -362,7 +374,6 @@ export const tableRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       // Build "where" from filters
-      console.log(input.filters);
       const filterConditions = (input.filters ?? []).map((f) => {
         let condition;
         switch (f.operator) {
@@ -381,31 +392,19 @@ export const tableRouter = createTRPCRouter({
             };
             break;
           case "eq":
-            condition = f.value === "" ? {} : { value: f.value };
+            condition = f.value === "" ? {} : { value: { equals: f.value } };
             break;
           case "gt":
             condition =
               f.value === ""
                 ? {}
-                : {
-                    value: {
-                      gt: String(f.value),
-                      not: "", // Exclude empty values
-                      mode: "insensitive" as any,
-                    },
-                  };
+                : { numericValue: { gt: parseFloat(f.value) } };
             break;
           case "lt":
             condition =
               f.value === ""
                 ? {}
-                : {
-                    value: {
-                      lt: String(f.value),
-                      not: "", // Exclude empty values
-                      mode: "insensitive" as any,
-                    },
-                  };
+                : { numericValue: { lt: parseFloat(f.value) } };
             break;
           default:
             condition = { value: f.value };
@@ -427,7 +426,7 @@ export const tableRouter = createTRPCRouter({
         },
       }));
 
-      // ...existing code...
+      // Fetch rows from the database
       const rows = await ctx.db.row.findMany({
         include: {
           cells: {
