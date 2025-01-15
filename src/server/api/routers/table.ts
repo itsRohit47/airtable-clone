@@ -384,10 +384,28 @@ export const tableRouter = createTRPCRouter({
             condition = f.value === "" ? {} : { value: f.value };
             break;
           case "gt":
-            condition = f.value === "" ? {} : { value: { gt: f.value } };
+            condition =
+              f.value === ""
+                ? {}
+                : {
+                    value: {
+                      gt: String(f.value),
+                      not: "", // Exclude empty values
+                      mode: "insensitive" as any,
+                    },
+                  };
             break;
           case "lt":
-            condition = f.value === "" ? {} : { value: { lt: f.value } };
+            condition =
+              f.value === ""
+                ? {}
+                : {
+                    value: {
+                      lt: String(f.value),
+                      not: "", // Exclude empty values
+                      mode: "insensitive" as any,
+                    },
+                  };
             break;
           default:
             condition = { value: f.value };
@@ -433,7 +451,7 @@ export const tableRouter = createTRPCRouter({
             ...filterConditions,
           ],
         },
-        // simplified placeholder usage—sorting by “cells” is non-trivial
+        // simplified placeholder usage—sorting by "cells" is non-trivial
         orderBy: orderByClauses.length
           ? (orderByClauses as unknown as any)
           : { order: input.sortDesc ? "desc" : "asc" },

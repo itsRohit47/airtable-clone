@@ -345,18 +345,106 @@ export function TableView({
 
   const add1Row = api.table.add1Row.useMutation({
     onMutate: async () => {
-      // Optimistically update total rows count
+      setLoading(true);
+      // Cancel any outgoing refetches to avoid overwriting our optimistic update
+      await ctx.table.getData.cancel();
+
+      // Snapshot the previous value
+      const previousData = ctx.table.getData.getInfiniteData({
+        tableId,
+        pageSize: 200,
+        filters: viewFilters?.map((f) => ({
+          columnId: f.columnId,
+          operator: f.operator,
+          value: f.value ?? "",
+        })) ?? [],
+        sorts: viewSorts?.map((s) => ({
+          columnId: s.columnId,
+          desc: s.desc,
+        })) ?? [],
+      });
+
+      // Optimistically update the total rows count
       ctx.table.getTotalRowsGivenTableId.setData(
         { tableId },
         (old) => (old ?? 0) + 1
       );
 
+      // Create the new row with empty data
+      const newRowData: Record<string, string | number> = {};
+
+      // Optimistically update the table data
+      ctx.table.getData.setInfiniteData(
+        {
+          tableId,
+          pageSize: 200,
+          filters: viewFilters?.map((f) => ({
+            columnId: f.columnId,
+            operator: f.operator,
+            value: f.value ?? "",
+          })) ?? [],
+          sorts: viewSorts?.map((s) => ({
+            columnId: s.columnId,
+            desc: s.desc,
+          })) ?? [],
+        },
+        (old) => {
+          if (!old) return old;
+          const newPages = [...old.pages];
+          const lastPage = newPages[newPages.length - 1];
+          if (lastPage) {
+            newPages[newPages.length - 1] = {
+              ...lastPage,
+              data: [
+                ...lastPage.data,
+                {
+                  id: `temp-id-${Date.now()}`,
+                  ...newRowData,
+                },
+              ],
+            };
+          }
+          return { ...old, pages: newPages };
+        }
+      );
+
+      return { previousData };
     },
-    onSuccess: (data) => {
+    onError: (err, newRow, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousData) {
+        ctx.table.getData.setInfiniteData(
+          {
+            tableId,
+            pageSize: 200,
+            filters: viewFilters?.map((f) => ({
+              columnId: f.columnId,
+              operator: f.operator,
+              value: f.value ?? "",
+            })) ?? [],
+            sorts: viewSorts?.map((s) => ({
+              columnId: s.columnId,
+              desc: s.desc,
+            })) ?? [],
+          },
+          context.previousData
+        );
+      }
       setLoading(false);
+      toast({
+        title: "Error",
+        description: "Failed to add row",
+      });
+    },
+    onSuccess: () => {
+      setLoading(false);
+    },
+    onSettled: () => {
+      // Always refetch after error or success to sync with server
       void ctx.table.getData.invalidate({ tableId });
     },
   });
+
 
   // ----------- total rows -----------
   const { data: totalRows, isLoading: isRowsLoading } = api.table.getTotalRowsGivenTableId.useQuery({
@@ -451,42 +539,6 @@ export function TableView({
   };
 
   const handleAdd1Row = () => {
-    setLoading(true);
-    const newRowData: Record<string, string | number> = {};
-    // Optimistically update the infinite query data
-    ctx.table.getData.setInfiniteData(
-      {
-        tableId,
-        pageSize: 200,
-        filters: viewFilters?.map((f) => ({
-          columnId: f.columnId,
-          operator: f.operator,
-          value: f.value ?? "",
-        })) ?? [],
-        sorts: viewSorts?.map((s) => ({
-          columnId: s.columnId,
-          desc: s.desc,
-        })) ?? [],
-      },
-      (old) => {
-        if (!old) return old;
-        const newPages = [...old.pages];
-        const lastPage = newPages[newPages.length - 1];
-        if (lastPage) {
-          newPages[newPages.length - 1] = {
-            ...lastPage,
-            data: [
-              ...lastPage.data,
-              ...Array.from({ length: 1 }).map((_, index) => ({
-                id: `temp-id-${index}`,
-                ...newRowData,
-              })),
-            ],
-          };
-        }
-        return { ...old, pages: newPages };
-      }
-    );
     add1Row.mutate({ tableId });
   };
 
