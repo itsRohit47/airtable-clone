@@ -143,7 +143,7 @@ export default function ViewMenu({
             });
           }}
           disabled={isPending}
-          className="flex w-full items-center gap-x-2 rounded-sm bg-blue-500 p-2 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex w-full items-center gap-x-2 rounded-sm bg-blue-500 p-2 text-white disabled:opacity-50 disabled:cursor-not-allowed 2xl:mb-2"
         >
           <Grid2x2Plus size={16} strokeWidth={1} />
           <div className="flex items-center gap-x-2">

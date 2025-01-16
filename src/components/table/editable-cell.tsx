@@ -20,15 +20,15 @@ export function EditableCell({
   className
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
-  const debouncedInputValue = useDebounce(value, 1000);
+  const debouncedInputValue = useDebounce(value, 1500);
   const [isInvalid, setIsInvalid] = useState(false);
   const ctx = api.useUtils();
   const { setLoading, setGlobalFilter, localCells, setLocalCells } =
     useAppContext();
 
   const { mutate } = api.table.updateCell.useMutation({
-    onSettled: () => {
-      // void ctx.table.getData.invalidate();
+    onSuccess: () => {
+      void ctx.table.getData.invalidate();
       setIsInvalid(false);
       setLoading(false);
     },
@@ -43,6 +43,7 @@ export function EditableCell({
       setLoading(false);
       return;
     }
+    setLoading(true);
     mutate({
       value: debouncedInputValue,
       columnId,
@@ -60,7 +61,6 @@ export function EditableCell({
       className={`flex h-full w-full cursor-default items-center truncate rounded-[1px] bg-transparent p-2 text-right text-xs outline-none transition duration-100  ease-linear focus:ring-2 ${isInvalid && value != '' ? "focus:ring-red-500" : "focus:ring-blue-500"} ${className}`}
       value={value}
       onChange={(e) => {
-        setLoading(true);
         setValue(e.target.value);
       }}
       type="text"

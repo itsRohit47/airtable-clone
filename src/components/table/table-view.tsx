@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 "use client";
 // ----------- import -----------
@@ -306,10 +307,10 @@ export function TableView({
         operator: f.operator,
         value: f.value ?? "",
       })) ?? [],
-      sorts: viewSorts?.map((s) => ({
-        columnId: s.columnId,
+      sorts: sorting.map((s) => ({
+        columnId: s.id,
         desc: s.desc,
-      })) ?? [],
+      })),
     },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -357,7 +358,7 @@ export function TableView({
 
 
   const flatData = useMemo(
-    () => tableData?.pages?.flatMap((page) => page.data).sort((a, b) => ((a.order as number) ?? 0) - ((b.order as number) ?? 0)) ?? [],
+    () => tableData?.pages?.flatMap((page) => page.data) ?? [],
     [tableData],
   );
 
@@ -769,9 +770,8 @@ export function TableView({
     data: flatData,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    // getFilteredRowModel: getFilteredRowModel(), // Use filtered row model
     manualFiltering: true,
-    getSortedRowModel: getSortedRowModel(),
+    manualSorting: true, // Enable manual sorting
     enableMultiRowSelection: true,
     columnResizeMode: "onChange",
     state: {
@@ -888,7 +888,7 @@ export function TableView({
       <div
         ref={tableContainerRef}
         onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
-        className="min-w-screen z-0 max-h-[80vh] flex-grow overflow-auto"
+        className="min-w-screen z-0 max-h-[80vh] 2xl:max-h-[90vh] flex-grow overflow-auto"
       >
         <table className="mb-32 w-max">
           <thead className="sticky top-0 z-10 flex group">
@@ -1010,7 +1010,7 @@ export function TableView({
               {table.getRowModel().rows.length === 0 ? ( // Use getRowModel instead of getFilteredRowModel
                 globalFilter && (
                   <div className="fixed top-0 flex w-screen items-center justify-center p-52 min-h-96 max-h-[100vh] -translate-y-32 flex-col gap-4">
-                    <Image src={'/theL.gif'} alt="" width={100} height={24} />
+                    <img src={'https://fsbauno90gkbhha8.public.blob.vercel-storage.com/TheL-yzAcc9yNUxSUgMZySW5JfqKhwASjOO.gif'} alt="" width={100} height={24} />
                     <div className="ml-2 text-sm text-gray-500 flex items-center gap-x-1">No records match <span className="px-2 py-1 text-xs bg-gray-100 border  rounded-md">{globalFilter}</span > try something else </div>
                   </div>
                 )
@@ -1028,7 +1028,7 @@ export function TableView({
                         >
                           {!row?.getIsSelected() && (
                             <div className="absolute left-2 text-xs text-gray-500">
-                              {table.getVisibleLeafColumns().length > 0 && (virtualRow.index + 1)}
+                              {table.getVisibleLeafColumns().length > 0 && (Number(row?.original.order) ?? 0) + 1}
                             </div>
                           )}
                           <td className={cn("absolute z-20 p-2 text-xs", {

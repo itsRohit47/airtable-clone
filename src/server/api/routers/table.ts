@@ -433,13 +433,6 @@ export const tableRouter = createTRPCRouter({
         };
       });
 
-      // Build "orderBy" from sorts
-      const orderByClauses = (input.sorts ?? []).map((s) => ({
-        cells: {
-          _count: s.desc ? ("desc" as const) : ("asc" as const),
-        },
-      }));
-
       // Fetch rows from the database
       const rows = await ctx.db.row.findMany({
         include: {
@@ -452,7 +445,6 @@ export const tableRouter = createTRPCRouter({
         where: {
           tableId: input.tableId,
           AND: [
-            // existing search logic
             ...(input.search
               ? [
                   {
@@ -464,14 +456,9 @@ export const tableRouter = createTRPCRouter({
                   },
                 ]
               : []),
-            // new filter logic
             ...filterConditions,
           ],
         },
-        orderBy: [
-          { order: input.sortDesc ? "desc" : "asc" },
-          ...orderByClauses,
-        ],
         take: input.pageSize,
         ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
       });
@@ -481,15 +468,43 @@ export const tableRouter = createTRPCRouter({
         where: { tableId: input.tableId },
       });
 
+      // Apply sorting to the rows
+      const sortedRows = rows.sort((a, b) => {
+        for (const sort of input.sorts ?? []) {
+          const aCell = a.cells.find((c) => c.column.id === sort.columnId);
+          const bCell = b.cells.find((c) => c.column.id === sort.columnId);
+          const aValue =
+            aCell?.column.type === "number"
+              ? (aCell?.numericValue ?? 0)
+              : (aCell?.value ?? "");
+          const bValue =
+            bCell?.column.type === "number"
+              ? (bCell?.numericValue ?? 0)
+              : (bCell?.value ?? "");
+          const comparison = sort.desc
+            ? aCell?.column.type === "number"
+              ? Number(bValue) - Number(aValue)
+              : (bValue as string).localeCompare(aValue as string)
+            : aCell?.column.type === "number"
+              ? Number(aValue) - Number(bValue)
+              : (aValue as string).localeCompare(bValue as string);
+          if (comparison !== 0) return comparison;
+        }
+        return 0;
+      });
+
       // Transform the data into a flat structure
-      const data = rows.map((row) => {
+      const data = sortedRows.map((row) => {
         const rowData: Record<string, string | number> = {
           id: row.id,
           order: row.order,
         };
         columns.forEach((column) => {
           const cell = row.cells.find((c) => c.column.id === column.id);
-          rowData[column.id] = cell?.value ?? "";
+          rowData[column.id] =
+            column.type === "number"
+              ? (cell?.numericValue ?? "")
+              : (cell?.value ?? "");
         });
         return rowData;
       });
