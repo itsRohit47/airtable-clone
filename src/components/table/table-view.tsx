@@ -1028,7 +1028,7 @@ export function TableView({
                         >
                           {!row?.getIsSelected() && (
                             <div className="absolute left-2 text-xs text-gray-500">
-                              {table.getVisibleLeafColumns().length > 0 && (Number(row?.original.order) ?? 0) + 1}
+                              {table.getVisibleLeafColumns().length > 0 && (virtualRow.index + 1)}
                             </div>
                           )}
                           <td className={cn("absolute z-20 p-2 text-xs", {

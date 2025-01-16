@@ -57,7 +57,8 @@ export const tableRouter = createTRPCRouter({
         if (existingRows.length > 0) {
           await tx.cell.createMany({
             data: existingRows.map((row) => ({
-              value: "",
+              value: input.type === "number" ? null : "",
+              numericValue: input.type === "number" ? null : null,
               rowId: row.id,
               columnId: newColumn.id,
               tableId: input.tableId,
@@ -284,12 +285,16 @@ export const tableRouter = createTRPCRouter({
       });
 
       const newCells = newRows.flatMap((row, rowIndex) =>
-        columns.map((column, colIndex) => ({
-          rowId: row.id,
-          columnId: column.id,
-          tableId: input.tableId,
-          value: "",
-        })),
+        columns.map((column, colIndex) => {
+          const value = column.type === "number" ? "0" : "";
+          return {
+            rowId: row.id,
+            columnId: column.id,
+            tableId: input.tableId,
+            value: null,
+            numericValue: null,
+          };
+        }),
       );
 
       // Step 3: Create cells
@@ -392,18 +397,29 @@ export const tableRouter = createTRPCRouter({
         let condition;
         switch (f.operator) {
           case "empty":
-            condition = { value: "" };
+            condition = {
+              OR: [{ value: "" }, { value: null }, { numericValue: null }],
+            };
             break;
           case "notEmpty":
-            condition = { value: { not: "" } };
+            condition = {
+              AND: [
+                { value: { not: "" } },
+                { value: { not: null } },
+                { numericValue: { not: null } },
+              ],
+            };
             break;
           case "includesString":
-            condition = {
-              value: {
-                contains: f.value,
-                mode: "insensitive" as any,
-              },
-            };
+            condition =
+              f.value === ""
+                ? {}
+                : {
+                    value: {
+                      contains: f.value,
+                      mode: "insensitive" as any,
+                    },
+                  };
             break;
           case "eq":
             condition = f.value === "" ? {} : { value: { equals: f.value } };
