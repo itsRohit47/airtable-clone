@@ -821,8 +821,7 @@ function FilterMenu() {
           <span>In this view, show records</span>
         )}
         {viewFilters
-          .slice() // Create a shallow copy to avoid mutating the original array
-          .sort((a, b) => a.columnId.localeCompare(b.columnId)) // Sort by columnId or any other criteria
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) // Sort by createdAt to ensure order
           .map((filter) => (
             <FilterItem
               key={filter.columnId}
