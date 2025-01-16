@@ -17,7 +17,7 @@ export function BaseList() {
 
   return (
     <Suspense fallback={<BaseSkeleton></BaseSkeleton>}>
-      <div className="flex w-full flex-col items-start justify-center gap-3 lg:px-24" >
+      <div className="flex w-full flex-col items-start justify-center gap-3 lg:pl-24 lg:pr-12" >
         {listView && (bases?.length ?? 0) > 0 && (
           <div className="w-full text-xs">
             <div className="flex w-full gap-3 text-gray-500 border-b pb-2 mb-2">

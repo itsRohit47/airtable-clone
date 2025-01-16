@@ -101,7 +101,7 @@ export default function DashboardPage() {
         <NavBar />
         <Sidebar />
         <SideMenu />
-        <div className="lg:px-24 lg:pt-28">
+        <div className="lg:pl-24 pr-12 lg:pt-28">
           <h1 className="text-3xl font-semibold">Home</h1>
           <br></br>
           <div className="flex w-full flex-wrap items-center justify-between gap-x-5 lg:flex-nowrap">
@@ -169,7 +169,7 @@ export default function DashboardPage() {
         <Suspense fallback={<div>Loading bases...</div>}>
           <BaseList />
         </Suspense>
-        <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500 flex justify-between items-center">
+        <div className="fixed bottom-0 border-t border-gray-300 bg-white p-2 text-xs text-gray-500 flex justify-between items-center">
           <button
             onClick={handleToggleTutorial}
             className="ml-4 px-3 py-2 bg-violet-500 text-white rounded-md fixed bottom-10 right-4"
