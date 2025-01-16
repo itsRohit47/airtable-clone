@@ -194,15 +194,13 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ) : (
-                <iframe
-                  width="100%"
-                  height="200"
-                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
+                <div className="grid gap-4 grid-cols-1">
+                  <span >Basic Stuff</span>
+                  <iframe className="w-full" src="https://www.loom.com/embed/6f42fd53d43b4d40a7dd71ef0615f084?sid=f9c29868-6626-4c44-a89b-e6a4397e3675" allowFullScreen ></iframe>
+                  <span>Filters and sorts</span>
+                  <iframe className="w-full" src="https://www.loom.com/embed/3ab7ccf6c0fe43a5b44dee0ccfef7c4b?sid=6c289733-baa4-41d0-b78c-77a99cd9ebd4" allowFullScreen ></iframe>
+                </div>
+
               )}
               <button
                 onClick={() => setShowChecklist(!showChecklist)}
@@ -214,6 +212,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-    </AuthGuard>
+    </AuthGuard >
   );
 }
