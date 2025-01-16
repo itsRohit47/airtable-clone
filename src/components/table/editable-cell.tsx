@@ -20,7 +20,7 @@ export function EditableCell({
   className
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
-  const debouncedInputValue = useDebounce(value, 100);
+  const debouncedInputValue = useDebounce(value, 1000);
   const [isInvalid, setIsInvalid] = useState(false);
   const ctx = api.useUtils();
   const { setLoading, setGlobalFilter, localCells, setLocalCells } =

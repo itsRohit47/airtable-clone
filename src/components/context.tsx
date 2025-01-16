@@ -202,6 +202,7 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     "Adjust Field Width",
     "Create 1 record",
     "Create 5k records",
+    "Paginate records",
     "Update record",
     "Delete record - right click",
     "Select record",
