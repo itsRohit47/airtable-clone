@@ -29,6 +29,7 @@ export function EditableCell({
   const { mutate } = api.table.updateCell.useMutation({
     onSuccess: () => {
       void ctx.table.getData.invalidate();
+      void ctx.table.getTotalRowsGivenTableId.invalidate();
       setIsInvalid(false);
       setLoading(false);
     },

@@ -498,11 +498,11 @@ export const tableRouter = createTRPCRouter({
           const bCell = b.cells.find((c) => c.column.id === sort.columnId);
           const aValue =
             aCell?.column.type === "number"
-              ? (aCell?.numericValue ?? 0)
+              ? (aCell?.numericValue ?? Number.MIN_SAFE_INTEGER)
               : (aCell?.value ?? "");
           const bValue =
             bCell?.column.type === "number"
-              ? (bCell?.numericValue ?? 0)
+              ? (bCell?.numericValue ?? Number.MIN_SAFE_INTEGER)
               : (bCell?.value ?? "");
           const comparison = sort.desc
             ? aCell?.column.type === "number"
