@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import z from "zod";
 import { get } from "http";
 import cuid from "cuid";
+import { faker } from "@faker-js/faker";
 
 export const tableRouter = createTRPCRouter({
   // for the base layout
@@ -213,43 +214,56 @@ export const tableRouter = createTRPCRouter({
   addRow: protectedProcedure
     .input(z.object({ tableId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // Get the highest order number from existing rows
       const lastRow = await ctx.db.row.findFirst({
         where: { tableId: input.tableId },
         orderBy: { order: "desc" },
       });
 
-      const newRows = Array.from({ length: 5000 }).map((_, i) => ({
-        id: cuid(), // Pre-generate unique ID
-        tableId: input.tableId,
-        order: (lastRow?.order ?? -1) + i + 1,
-      }));
-
-      // Step 1: Create rows
-      await ctx.db.row.createMany({ data: newRows });
-
-      // Step 2: Generate cells
       const columns = await ctx.db.column.findMany({
         where: { tableId: input.tableId },
       });
 
+      const newRows = Array.from({ length: 5000 }).map((_, i) => ({
+        id: cuid(), // Pre-generate unique ID
+        tableId: input.tableId,
+        order: (lastRow?.order ?? -1) + i + 1, // Continue from the last order
+      }));
+
       const newCells = newRows.flatMap((row) =>
-        columns.map((column) => ({
-          rowId: row.id,
-          columnId: column.id,
-          tableId: input.tableId,
-          value: "", // Default value
-        })),
+        columns.map((column) => {
+          const value =
+            column.type === "text"
+              ? faker.lorem.word()
+              : faker.number.int({ max: 1000000 }).toString();
+          return {
+            rowId: row.id,
+            columnId: column.id,
+            tableId: input.tableId,
+            value,
+            numericValue: column.type === "number" ? parseFloat(value) : null,
+          };
+        }),
       );
 
-      // Step 3: Create cells
+      // Step 1: Create rows
+      await ctx.db.row.createMany({ data: newRows });
+
+      // Step 2: Create cells
       await ctx.db.cell.createMany({ data: newCells });
 
       return newRows;
     }),
 
   add1Row: protectedProcedure
-    .input(z.object({ tableId: z.string() }))
+    .input(
+      z.object({
+        tableId: z.string(),
+        fakerData: z.array(z.string()).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      // Get the highest order number from existing rows
       const lastRow = await ctx.db.row.findFirst({
         where: { tableId: input.tableId },
         orderBy: { order: "desc" },
@@ -258,7 +272,7 @@ export const tableRouter = createTRPCRouter({
       const newRows = Array.from({ length: 1 }).map((_, i) => ({
         id: cuid(), // Pre-generate unique ID
         tableId: input.tableId,
-        order: (lastRow?.order ?? -1) + 1,
+        order: (lastRow?.order ?? -1) + i + 1, // Continue from the last order
       }));
 
       // Step 1: Create rows
@@ -269,12 +283,12 @@ export const tableRouter = createTRPCRouter({
         where: { tableId: input.tableId },
       });
 
-      const newCells = newRows.flatMap((row) =>
-        columns.map((column) => ({
+      const newCells = newRows.flatMap((row, rowIndex) =>
+        columns.map((column, colIndex) => ({
           rowId: row.id,
           columnId: column.id,
           tableId: input.tableId,
-          value: "", // Default value
+          value: "",
         })),
       );
 
@@ -422,7 +436,7 @@ export const tableRouter = createTRPCRouter({
       // Build "orderBy" from sorts
       const orderByClauses = (input.sorts ?? []).map((s) => ({
         cells: {
-          _count: s.desc ? "desc" : "asc",
+          _count: s.desc ? ("desc" as const) : ("asc" as const),
         },
       }));
 
@@ -439,21 +453,25 @@ export const tableRouter = createTRPCRouter({
           tableId: input.tableId,
           AND: [
             // existing search logic
-            {
-              cells: {
-                some: {
-                  value: { contains: input.search },
-                },
-              },
-            },
+            ...(input.search
+              ? [
+                  {
+                    cells: {
+                      some: {
+                        value: { contains: input.search, mode: "insensitive" },
+                      },
+                    },
+                  },
+                ]
+              : []),
             // new filter logic
             ...filterConditions,
           ],
         },
-        // simplified placeholder usage—sorting by "cells" is non-trivial
-        orderBy: orderByClauses.length
-          ? (orderByClauses as unknown as any)
-          : { order: input.sortDesc ? "desc" : "asc" },
+        orderBy: [
+          { order: input.sortDesc ? "desc" : "asc" },
+          ...orderByClauses,
+        ],
         take: input.pageSize,
         ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
       });
@@ -484,10 +502,72 @@ export const tableRouter = createTRPCRouter({
     }),
 
   getTotalRowsGivenTableId: protectedProcedure
-    .input(z.object({ tableId: z.string() }))
+    .input(
+      z.object({
+        tableId: z.string(),
+        filters: z
+          .array(
+            z.object({
+              columnId: z.string(),
+              operator: z.string(),
+              value: z.any(),
+            }),
+          )
+          .optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
+      // Build "where" from filters
+      const filterConditions = (input.filters ?? []).map((f) => {
+        let condition;
+        switch (f.operator) {
+          case "empty":
+            condition = { value: "" };
+            break;
+          case "notEmpty":
+            condition = { value: { not: "" } };
+            break;
+          case "includesString":
+            condition = {
+              value: {
+                contains: f.value,
+                mode: "insensitive" as any,
+              },
+            };
+            break;
+          case "eq":
+            condition = f.value === "" ? {} : { value: { equals: f.value } };
+            break;
+          case "gt":
+            condition =
+              f.value === ""
+                ? {}
+                : { numericValue: { gt: parseFloat(f.value) } };
+            break;
+          case "lt":
+            condition =
+              f.value === ""
+                ? {}
+                : { numericValue: { lt: parseFloat(f.value) } };
+            break;
+          default:
+            condition = { value: f.value };
+        }
+        return {
+          cells: {
+            some: {
+              columnId: f.columnId,
+              ...(condition as any),
+            },
+          },
+        };
+      });
+
       return ctx.db.row.count({
-        where: { tableId: input.tableId },
+        where: {
+          tableId: input.tableId,
+          AND: filterConditions,
+        },
       });
     }),
 
@@ -623,5 +703,27 @@ export const tableRouter = createTRPCRouter({
           operator: input.operator ?? undefined,
         },
       });
+    }),
+
+  // to get total matches for a search query
+  getTotalMatches: protectedProcedure
+    .input(
+      z.object({
+        tableId: z.string(),
+        search: z.string().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const totalMatches = await ctx.db.row.count({
+        where: {
+          tableId: input.tableId,
+          cells: {
+            some: {
+              value: { contains: input.search, mode: "insensitive" },
+            },
+          },
+        },
+      });
+      return { totalMatches };
     }),
 });

@@ -27,6 +27,8 @@ interface View {
   tableId: string;
 }
 
+
+
 interface AppContextProps {
   sidebarOpen: boolean;
   setSidebarOpen: (value: boolean) => void;
@@ -109,6 +111,7 @@ interface AppContextProps {
   setCurrentMatchIndex: React.Dispatch<React.SetStateAction<number>>;
   goToNextMatch: () => void;
   goToPrevMatch: () => void;
+  checks: string[];
 }
 
 export const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -136,9 +139,7 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [viewSorting, setViewSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  )
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [colsNotInSort, setColsNotInSort] = useState<Column[]>([]);
   const [localCells, setLocalCells] = useState<
     Record<string, string | number>[]
@@ -172,11 +173,7 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setCurrentMatchIndex((prev) => {
       const next = (prev + 1) % matchedCells.length;
       if (matchedCells[next]) {
-        if (matchedCells[next]) {
-          if (matchedCells[next]) {
-            focusMatch(matchedCells[next].rowIndex, matchedCells[next].colIndex);
-          }
-        }
+        focusMatch(matchedCells[next].rowIndex, matchedCells[next].colIndex);
       }
       return next;
     });
@@ -191,6 +188,33 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
       return next;
     });
   };
+
+  const checks = [
+    "Create Base",
+    "Delete Base",
+    "Rename Base",
+    "Create Table",
+    "Delete Table",
+    "Rename Table",
+    "Create Text Field",
+    "Create Number Field",
+    "Rename Field",
+    "Adjust Field Width",
+    "Create 1 record",
+    "Create 5k records",
+    "Update record",
+    "Delete record - right click",
+    "Select record",
+    "Select multiple records",
+    "Create Views",
+    "Switch Views",
+    "Global Search",
+    "Add Filters to View - Text [Contains, is empty, is not empty]",
+    "Add Filters to View - Num [eq, gt, lt, is empty, is not empty]",
+    "Add Sorting to View - Ascending, Descending",
+    "Adjust row height - 1x, 2x, 3x, 4x",
+    "Show/Hide Columns",
+  ]
 
   const value = {
     sidebarOpen,
@@ -253,6 +277,7 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
     setCurrentMatchIndex,
     goToNextMatch,
     goToPrevMatch,
+    checks,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

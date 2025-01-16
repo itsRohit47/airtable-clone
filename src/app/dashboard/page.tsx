@@ -1,5 +1,5 @@
 "use client";
-import { Suspense } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { BaseList } from "@/components/base/base-list";
 import AuthGuard from "@/components/auth-guard";
 import NavBar from "@/components/dashboard/nav-bar";
@@ -13,7 +13,8 @@ import { api } from "@/trpc/react";
 import clsx from "clsx";
 
 export default function DashboardPage() {
-  const { listView, setListView } = useAppContext();
+  const { listView, setListView, checks } = useAppContext();
+
   const ctx = api.useUtils();
   const router = useRouter();
   const { mutate } = api.base.createBase.useMutation({
@@ -22,6 +23,63 @@ export default function DashboardPage() {
       void router.push(`/${data.base.id}/${data.firstTableId}/${data.firstViewId}`);
     },
   });
+
+  const [isTutorialOpen, setIsTutorialOpen] = useState(() => {
+    const savedState = localStorage.getItem('isTutorialOpen');
+    return savedState ? JSON.parse(savedState) : false;
+  });
+  const [tutorialChecklist, setTutorialChecklist] = useState<string[]>(() => {
+    const savedChecklist = localStorage.getItem('tutorialChecklist');
+    return savedChecklist ? JSON.parse(savedChecklist) : [];
+  });
+  const tutorialRef = useRef<HTMLDivElement>(null);
+  const [showChecklist, setShowChecklist] = useState(() => {
+    const savedState = localStorage.getItem('showChecklist');
+    return savedState ? JSON.parse(savedState) : false;
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        tutorialRef.current &&
+        !tutorialRef.current.contains(event.target as Node)
+      ) {
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [tutorialRef]);
+
+  useEffect(() => {
+    localStorage.setItem('tutorialChecklist', JSON.stringify(tutorialChecklist));
+  }, [tutorialChecklist]);
+
+  useEffect(() => {
+    localStorage.setItem('isTutorialOpen', JSON.stringify(isTutorialOpen));
+  }, [isTutorialOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('showChecklist', JSON.stringify(showChecklist));
+  }, [showChecklist]);
+
+  const handleChecklistChange = (item: string) => {
+    setTutorialChecklist((prev) =>
+      prev.includes(item)
+        ? prev.filter((i) => i !== item)
+        : [...prev, item]
+    );
+  };
+
+  const handleToggleTutorial = () => {
+    setIsTutorialOpen(!isTutorialOpen);
+    if (isTutorialOpen) {
+      setShowChecklist(false);
+    }
+  };
+
   return (
     <AuthGuard>
       <div className="">
@@ -96,6 +154,50 @@ export default function DashboardPage() {
         <Suspense fallback={<div>Loading bases...</div>}>
           <BaseList />
         </Suspense>
+        <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500 flex justify-between items-center">
+          <button
+            onClick={handleToggleTutorial}
+            className="ml-4 px-3 py-2 bg-violet-500 text-white rounded-md fixed bottom-10 right-4"
+          >
+            {isTutorialOpen ? "Close" : " Show Demo"}
+          </button>
+          {isTutorialOpen && (
+            <div ref={tutorialRef} className="fixed bottom-20 right-4 w-max max-w-96 bg-white border border-gray-300 shadow-lg rounded-md p-4 grid gap-4 grid-cols-1">
+              {showChecklist ? (
+                <div className="list-none">
+                  <div className="flex flex-col">
+                    {checks.map((item) => (
+                      <span key={item} className="flex items-start gap-1">
+                        <input
+                          type="checkbox"
+                          checked={tutorialChecklist.includes(item)}
+                          onChange={() => handleChecklistChange(item)}
+                        />{" "}
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <iframe
+                  width="100%"
+                  height="200"
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                  title="YouTube video player"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              )}
+              <button
+                onClick={() => setShowChecklist(!showChecklist)}
+                className=" px-3 py-2 bg-gray-200 text-black rounded-md"
+              >
+                {showChecklist ? "Show Demo Video" : "What can i test?"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </AuthGuard>
   );

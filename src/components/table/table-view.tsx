@@ -2,7 +2,8 @@
 "use client";
 // ----------- import -----------
 import { useMemo, useEffect, useState, useRef, useCallback } from "react";
-
+import { faker } from '@faker-js/faker';
+import Image from "next/image";
 import {
   ContextMenu,
   ContextMenuCheckboxItem,
@@ -30,36 +31,18 @@ import {
   SaveIcon,
   CaseUpperIcon,
   Trash2Icon,
-  Loader2
+  Loader2,
 } from "lucide-react";
 
 import { api } from "@/trpc/react";
 import { EditableCell } from "./editable-cell";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useAppContext } from "../context";
+import { useAppContext } from "@/components/context";
 import { useVirtualizer, VirtualizerOptions } from "@tanstack/react-virtual";
+import useDebounce from "@/hooks/use-debounce";
 
-// Add this helper function at the top level
-function usePositionDialog(buttonRef: React.RefObject<HTMLButtonElement>) {
-  const [position, setPosition] = useState<'left' | 'right'>('left');
 
-  useEffect(() => {
-    const updatePosition = () => {
-      if (buttonRef.current) {
-        const rect = buttonRef.current.getBoundingClientRect();
-        const spaceOnRight = window.innerWidth - rect.right;
-        setPosition(spaceOnRight < 300 ? 'right' : 'left');
-      }
-    };
-
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    return () => window.removeEventListener('resize', updatePosition);
-  }, [buttonRef]);
-
-  return position;
-}
 
 export function TableView({
   tableId,
@@ -93,7 +76,25 @@ export function TableView({
     setCurrentMatchIndex,
     goToNextMatch,
     goToPrevMatch,
+    checks
   } = useAppContext();
+
+  // Load global filter from localStorage on mount
+  useEffect(() => {
+    const savedGlobalFilter = localStorage.getItem('globalFilter');
+    if (savedGlobalFilter) {
+      setGlobalFilter(savedGlobalFilter);
+    }
+  }, [setGlobalFilter]);
+
+  // Save global filter to localStorage whenever it changes
+  useEffect(() => {
+    if (globalFilter !== null) {
+      localStorage.setItem('globalFilter', globalFilter);
+    } else {
+      localStorage.removeItem('globalFilter');
+    }
+  }, [globalFilter]);
 
   const [isColNameEditing, setIsColNameEditing] = useState(false);
   const [editColId, setEditColId] = useState("");
@@ -103,11 +104,78 @@ export function TableView({
   const [colType, setColType] = useState<"text" | "number" | null>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const addColumnButtonRef = useRef<HTMLButtonElement>(null);
-  const dialogPosition = usePositionDialog(addColumnButtonRef);
+  const debouncedColName = useDebounce(newColName, 100);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(() => {
+    const savedState = localStorage.getItem('isTutorialOpen');
+    return savedState ? JSON.parse(savedState) : false;
+  });
+  const [tutorialChecklist, setTutorialChecklist] = useState<string[]>(() => {
+    const savedChecklist = localStorage.getItem('tutorialChecklist');
+    return savedChecklist ? JSON.parse(savedChecklist) : [];
+  });
+  const tutorialRef = useRef<HTMLDivElement>(null);
+  const [showChecklist, setShowChecklist] = useState(() => {
+    const savedState = localStorage.getItem('showChecklist');
+    return savedState ? JSON.parse(savedState) : false;
+  });
 
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        addColumnButtonRef.current && !addColumnButtonRef.current.contains(e.target as Node)
+      ) {
+        setIsAddColumnOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+    };
+  }, [addColumnButtonRef, setIsAddColumnOpen]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        tutorialRef.current &&
+        !tutorialRef.current.contains(event.target as Node) &&
+        !addColumnButtonRef.current?.contains(event.target as Node)
+      ) {
+        setIsTutorialOpen(false);
+      }
+    };
 
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [tutorialRef, addColumnButtonRef]);
 
+  useEffect(() => {
+    localStorage.setItem('tutorialChecklist', JSON.stringify(tutorialChecklist));
+  }, [tutorialChecklist]);
+
+  useEffect(() => {
+    localStorage.setItem('isTutorialOpen', JSON.stringify(isTutorialOpen));
+  }, [isTutorialOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('showChecklist', JSON.stringify(showChecklist));
+  }, [showChecklist]);
+
+  const handleChecklistChange = (item: string) => {
+    setTutorialChecklist((prev) =>
+      prev.includes(item)
+        ? prev.filter((i) => i !== item)
+        : [...prev, item]
+    );
+  };
+
+  const handleToggleTutorial = () => {
+    setIsTutorialOpen(!isTutorialOpen);
+    if (isTutorialOpen) {
+      setShowChecklist(false);
+    }
+  };
 
   const { data: c, isLoading: isColsLoading } = api.table.getColumnsByTableId.useQuery({
     tableId,
@@ -155,6 +223,14 @@ export function TableView({
       },
     },
   );
+
+
+  useEffect(() => {
+    if (debouncedColName === "") {
+      return;
+    }
+    updateColumnName({ columnId: editColId, name: debouncedColName });
+  }, [debouncedColName, editColId, updateColumnName]);
 
 
   // Fetch view sorts
@@ -205,7 +281,7 @@ export function TableView({
     {
       tableId,
       pageSize: 200,
-      // Pass the filters and sorts from your state, e.g.:
+      search: globalFilter ?? undefined, // Pass the global filter to the query
       filters: viewFilters?.map((f) => ({
         columnId: f.columnId,
         operator: f.operator,
@@ -273,16 +349,25 @@ export function TableView({
       setIsAdding(true);
       const previousData = ctx.table.getData.getInfiniteData();
       const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData();
-      const newRowData: Record<string, string | number> = {};
+      const lastRow = previousData?.pages.flatMap(page => page.data).sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0)).pop();
+
+      const newRows = Array.from({ length: 400 }).map((_, index) => ({
+        id: `temp-id-${index}-${Date.now()}`, // Ensure unique temp IDs
+        order: (Number(lastRow?.order) ?? -1) + index + 1,
+        ...Object.fromEntries((c ?? []).map((col) => [col.id, ""])),
+      }));
 
       // Optimistically update the infinite query data
       ctx.table.getData.setInfiniteData(
         {
-          tableId, pageSize: 200, filters: viewFilters?.map((f) => ({
+          tableId, pageSize: 200,
+          search: globalFilter ?? undefined,
+          filters: viewFilters?.map((f) => ({
             columnId: f.columnId,
             operator: f.operator,
             value: f.value ?? "",
-          })) ?? [], sorts: viewSorts?.map((s) => ({
+          })) ?? [],
+          sorts: viewSorts?.map((s) => ({
             columnId: s.columnId,
             desc: s.desc,
           })) ?? []
@@ -295,11 +380,8 @@ export function TableView({
             newPages[newPages.length - 1] = {
               ...lastPage,
               data: [
-                ...lastPage.data,
-                ...Array.from({ length: 5000 }).map((_, index) => ({
-                  id: `temp-id-${index}`,
-                  ...newRowData,
-                })),
+                ...lastPage.data.filter(row => !String(row.id).startsWith('temp-id-')), // Remove old temp rows
+                ...newRows,
               ],
             };
           }
@@ -328,11 +410,10 @@ export function TableView({
       }
       toast({
         title: "Error",
-        description: err.message + 'wtf',
+        description: err.message,
       });
     },
-    onSuccess: (data) => {
-      // Map temp IDs to actual IDs
+    onSuccess: (data, variables, context) => {
       setLoading(false);
       setIsAdding(false);
       toast({
@@ -340,11 +421,12 @@ export function TableView({
         description: "Rows added successfully",
       });
       void ctx.table.getData.invalidate({ tableId });
+      void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
   });
 
   const add1Row = api.table.add1Row.useMutation({
-    onMutate: async () => {
+    onMutate: async (data) => {
       setLoading(true);
       // Cancel any outgoing refetches to avoid overwriting our optimistic update
       await ctx.table.getData.cancel();
@@ -353,6 +435,7 @@ export function TableView({
       const previousData = ctx.table.getData.getInfiniteData({
         tableId,
         pageSize: 200,
+        search: globalFilter ?? undefined,
         filters: viewFilters?.map((f) => ({
           columnId: f.columnId,
           operator: f.operator,
@@ -364,20 +447,26 @@ export function TableView({
         })) ?? [],
       });
 
-      // Optimistically update the total rows count
-      ctx.table.getTotalRowsGivenTableId.setData(
-        { tableId },
-        (old) => (old ?? 0) + 1
-      );
+      // Get the highest order number from existing rows
+      const lastRow = previousData?.pages.flatMap(page => page.data).sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0))[0];
 
       // Create the new row with empty data
-      const newRowData: Record<string, string | number> = {};
+      const newRowData: Record<string, string | number> = {
+        id: `temp-id-${Date.now()}`,
+        order: (Number(lastRow?.order) ?? -1) + 1, // Continue from the last order
+      };
+
+      // Add empty cells for each column
+      c?.forEach((col) => {
+        newRowData[col.id] = typeof data.fakerData === 'string' || typeof data.fakerData === 'number' ? data.fakerData : "";
+      });
 
       // Optimistically update the table data
       ctx.table.getData.setInfiniteData(
         {
           tableId,
           pageSize: 200,
+          search: globalFilter ?? undefined,
           filters: viewFilters?.map((f) => ({
             columnId: f.columnId,
             operator: f.operator,
@@ -397,15 +486,18 @@ export function TableView({
               ...lastPage,
               data: [
                 ...lastPage.data,
-                {
-                  id: `temp-id-${Date.now()}`,
-                  ...newRowData,
-                },
+                newRowData,
               ],
             };
           }
           return { ...old, pages: newPages };
         }
+      );
+
+      // Optimistically update the total rows count
+      ctx.table.getTotalRowsGivenTableId.setData(
+        { tableId },
+        (old) => (old ?? 0) + 1
       );
 
       return { previousData };
@@ -438,10 +530,13 @@ export function TableView({
     },
     onSuccess: () => {
       setLoading(false);
+      void ctx.table.getData.invalidate({ tableId });
+      void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
     onSettled: () => {
       // Always refetch after error or success to sync with server
       void ctx.table.getData.invalidate({ tableId });
+      void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
   });
 
@@ -449,13 +544,17 @@ export function TableView({
   // ----------- total rows -----------
   const { data: totalRows, isLoading: isRowsLoading } = api.table.getTotalRowsGivenTableId.useQuery({
     tableId,
+    filters: viewFilters?.map((f) => ({
+      columnId: f.columnId,
+      operator: f.operator,
+      value: f.value ?? "",
+    })) ?? [],
   });
 
 
   // ----------- columns -----------
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
     function handleColumnUpdate(id: string) {
-      updateColumnName({ columnId: id, name: newColName });
       setIsColNameEditing(false);
       setEditColId("");
     }
@@ -477,23 +576,32 @@ export function TableView({
           ?.operator as keyof typeof filterFns) ?? "eq",
         header: ({ column }) => (
           <span className="flex w-full items-center justify-between gap-x-2 overflow-hidden">
-            <div className="flex items-center gap-x-2">
-              <span>
-                {col.type === "text" ? (
-                  <CaseUpperIcon size={16} strokeWidth={1.5} />
-                ) : (
-                  <HashIcon size={14} strokeWidth={1.5} />
-                )}
-              </span>
-              <div className="w-max px-2">
+            <div className="flex items-center gap-x-2 justify-center mx-auto">
+
+              <div className="w-max px-2 flex items-center gap-x-1">
+                <span>
+                  {col.type === "text" ? (
+                    <CaseUpperIcon size={16} strokeWidth={1.5} />
+                  ) : (
+                    <HashIcon size={14} strokeWidth={1.5} />
+                  )}
+                </span>
                 {isColNameEditing && editColId === col.id ? (
                   <input
                     type="text"
                     value={newColName}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        setIsColNameEditing(false);
+                      }
+                    }
+                    }
+                    onBlur={() => setIsColNameEditing(false)}
                     onChange={(e) => {
                       setNewColName(e.target.value);
                     }}
                     autoFocus
+                    onFocus={(e) => e.target.select()}
                     className="max-w-24 outline-none bg-transparent"
                   />
                 ) : (
@@ -504,7 +612,7 @@ export function TableView({
             <div>
               {isColNameEditing && editColId === col.id ? (
                 <button
-                  onClick={() => handleColumnUpdate(col.id)}
+                  onClick={() => setIsColNameEditing(false)}
                 >
                   <SaveIcon size={14} strokeWidth={1.5} />
                 </button>
@@ -539,7 +647,8 @@ export function TableView({
   };
 
   const handleAdd1Row = () => {
-    add1Row.mutate({ tableId });
+    const fakerData = c?.map((col) => (col.type === "text" ? faker.lorem.word() : faker.number.int().toString())) ?? [];
+    add1Row.mutate({ tableId, fakerData });
   };
 
   // ----------- add column handler -----------
@@ -634,6 +743,8 @@ export function TableView({
     };
   }, []);
 
+
+
   // ----------- react-table -----------
   const table = useReactTable({
     data: flatData,
@@ -701,7 +812,6 @@ export function TableView({
     setCurrentMatchIndex(0);
   }, [table, globalFilter, setMatchedCells, setCurrentMatchIndex]);
 
-
   // Update the virtualizer to use filtered and sorted rows
   const rowVirtualizer = useVirtualizer({
     count: table.getRowModel().rows.length,
@@ -765,7 +875,7 @@ export function TableView({
           <thead className="sticky top-0 z-10 flex group">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className={cn("flex w-max items-center")}>
-                <td className="absolute z-20  border-gray-300 p-2 text-xs bg-[#F5F5F5]">
+                <td className="absolute z-20  border-gray-300 p-2 text-xs bg-transparent">
                   <input
                     type="checkbox"
                     className="form-checkbox"
@@ -780,9 +890,9 @@ export function TableView({
                     className={cn(
                       "relative border-b border-r border-gray-300 p-2 text-xs bg-[#F5F5F5]",
                       {
-                        "bg-blue-100/80": header.column.getIsSorted(),
-                        "bg-purple-100/80": header.column.getFilterIndex() > -1,
-                        "bg-indigo-100/80": header.column.getFilterIndex() > -1 && header.column.getIsSorted(),
+                        "bg-blue-100": header.column.getIsSorted(),
+                        "bg-purple-100": header.column.getFilterIndex() > -1,
+                        "bg-indigo-100": header.column.getFilterIndex() > -1 && header.column.getIsSorted(),
                       }
                     )}
                   >
@@ -811,7 +921,6 @@ export function TableView({
                 {headerGroup.headers.length > 0 && (
                   <div className="relative">
                     <button
-                      ref={addColumnButtonRef}
                       className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-2 text-xs"
                       onClick={() => setIsAddColumnOpen(!isAddColumnOpen)}
                     >
@@ -820,12 +929,6 @@ export function TableView({
                     {isAddColumnOpen &&
                       (<div
                         className="absolute text-xs w-60 shadow-lg border p-3 bg-white rounded-md flex flex-col gap-2 z-50"
-                        style={{
-                          top: '110%',
-                          ...(dialogPosition === 'right'
-                            ? { right: 30 }
-                            : { left: 0 })
-                        }}
                       >
                         <div className="flex flex-col gap-1 p-2 bg-white border border-gray-200 rounded-md">
                           <button
@@ -886,13 +989,14 @@ export function TableView({
               }}
             >
               {table.getRowModel().rows.length === 0 ? ( // Use getRowModel instead of getFilteredRowModel
-                globalFilter != '' && (
-                  <div className="fixed top-0 flex h-svh w-screen items-center justify-center p-44 -translate-y-28">
-                    <div className="ml-2 animate-pulse text-xs text-gray-500">No records match <strong>{globalFilter}</strong></div>
+                globalFilter && (
+                  <div className="fixed top-0 flex w-screen items-center justify-center p-52 min-h-96 max-h-[100vh] -translate-y-32 flex-col gap-4">
+                    <Image src={'/theL.gif'} alt="" width={100} height={24} />
+                    <div className="ml-2 text-sm text-gray-500 flex items-center gap-x-1">No records match <span className="px-2 py-1 text-xs bg-gray-100 border  rounded-md">{globalFilter}</span > try something else </div>
                   </div>
                 )
               ) : (
-                rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                rowVirtualizer.getVirtualItems().map((virtualRow, index) => {
                   const row = table.getRowModel().rows[virtualRow.index]; // Use getRowModel instead of getFilteredRowModel
                   return (
                     <ContextMenu key={row?.id}>
@@ -905,7 +1009,7 @@ export function TableView({
                         >
                           {!row?.getIsSelected() && (
                             <div className="absolute left-2 text-xs text-gray-500">
-                              {table.getVisibleLeafColumns().length > 0 && (Number(virtualRow.index) + 1)}
+                              {table.getVisibleLeafColumns().length > 0 && (virtualRow.index + 1)}
                             </div>
                           )}
                           <td className={cn("absolute z-20 p-2 text-xs", {
@@ -929,7 +1033,7 @@ export function TableView({
                               className={cn(
                                 "h-full w-max border-b border-r p-[2px] text-xs focus:border focus:border-blue-500 focus:outline-none border-gray-300",
                                 {
-                                  "opacity-20 border cursor-not-allowed pointer-events-none animate-pulse": isAdding,
+                                  " border-dashed cursor-not-allowed pointer-events-none border-gray-300": String(row.original?.id)?.startsWith("temp-id") ?? false,
                                 },
                                 {
                                   "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-yellow-400":
@@ -941,6 +1045,13 @@ export function TableView({
                                   "bg-purple-50/50": cell.column.getFilterIndex() > -1,
                                   "bg-indigo-50/50": cell.column.getFilterIndex() > -1 && cell.column.getIsSorted(),
                                 },
+                                {
+                                  "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-yellow-400":
+                                    globalFilter &&
+                                    String(cell.getValue())
+                                      .toLowerCase()
+                                      .includes(globalFilter.toLowerCase()),
+                                }
                               )}
                             >
                               {flexRender(
@@ -1006,9 +1117,9 @@ export function TableView({
             <button
               onClick={handleAddRow}
               disabled={isAdding}
-              className="flex items-center justify-center rounded-l-full border bg-white p-2 hover:bg-gray-100 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-x-2 rounded-l-full border bg-white p-2 hover:bg-gray-100 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Add 5k rows
+              Add 5k rows {isAdding && <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />}
             </button>
             <button
               onClick={handleAdd1Row}
@@ -1017,15 +1128,60 @@ export function TableView({
               Add 1 row
             </button>
           </div>
-          <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500">
-            {Object.keys(rowSelection).length > 0
-              ? `${Object.keys(rowSelection).length} records selected`
-              : viewFilters && viewFilters.length > 0 && (viewFilters.some((f) => f.value) || (viewFilters.some((f) => !f.value) && viewFilters.some((f) => f.operator === "empty" || f.operator === "notEmpty")))
-                ? `${flatData.length} filtered rows`
-                : `${totalRows} records`}
+          <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500 flex justify-between items-center">
+            <div>
+              {Object.keys(rowSelection).length > 0
+                ? `${Object.keys(rowSelection).length} records selected`
+                : viewFilters && viewFilters.length > 0
+                  ? `${flatData.length} of ${totalRows} filtered ${totalRows === 1 ? "record" : "records"}`
+                  : `${flatData.length} of ${totalRows} ${totalRows === 1 ? "record" : "records"}`
+              }
+            </div>
+            <button
+              onClick={handleToggleTutorial}
+              className="ml-4 px-3 py-2 bg-violet-500 text-white rounded-md fixed bottom-10 right-4"
+            >
+              {isTutorialOpen ? "Close" : " Show Demo"}
+            </button>
+            {isTutorialOpen && (
+              <div className="fixed bottom-20 right-4 w-max max-w-96 z-[10000] bg-white border border-gray-300 shadow-lg rounded-md p-4 grid gap-4 grid-cols-1">
+                {showChecklist ? (
+                  <div className="list-none">
+                    <div className="flex flex-col">
+                      {checks.map((item) => (
+                        <span key={item} className="flex items-start gap-1">
+                          <input
+                            type="checkbox"
+                            checked={tutorialChecklist.includes(item)}
+                            onChange={() => handleChecklistChange(item)}
+                          />{" "}
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    width="100%"
+                    height="200"
+                    src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                    title="YouTube video player"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                )}
+                <button
+                  onClick={() => setShowChecklist(!showChecklist)}
+                  className="px-3 py-2 bg-gray-200 text-black rounded-md"
+                >
+                  {showChecklist ? "Show Demo Video" : "What can i test?"}
+                </button>
+              </div>
+            )}
           </div>
-        </table>
-      </div>
+        </table >
+      </div >
     );
   }
 }

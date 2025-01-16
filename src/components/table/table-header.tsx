@@ -20,6 +20,7 @@ import {
   ChevronUpIcon,
   CaseUpperIcon,
   HashIcon,
+  Loader2Icon,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { useState } from "react";
@@ -626,7 +627,21 @@ function SearchInput() {
     currentMatchIndex,
     goToNextMatch,
     goToPrevMatch,
+    selectedView
   } = useAppContext(); // Or wherever these are exposed
+
+  const { data: totalMatches, isLoading } = api.table.getTotalMatches.useQuery({
+    tableId: selectedView?.tableId ?? "",
+    search: globalFilter ?? undefined,
+  }, {
+    enabled: !!globalFilter
+  });
+
+  useEffect(() => {
+    if (globalFilter) {
+      setGlobalFilter(globalFilter);
+    }
+  }, [globalFilter, setGlobalFilter]);
 
   return (
     <div
@@ -637,9 +652,10 @@ function SearchInput() {
         <input
           className="h-full w-full text-xs focus:outline-none"
           placeholder="Find in view"
+          autoFocus
           value={globalFilter ?? ""}
           onFocus={(e) => {
-            setGlobalFilter(null);
+            setGlobalFilter(e.target.value);
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
@@ -651,20 +667,29 @@ function SearchInput() {
             setGlobalFilter(e.target.value);
           }}
         />
-        {!!globalFilter && matchedCells.length < 1 && <div className="text-nowrap mr-2 text-gray-400">0 of 0</div>}
-        {!!globalFilter && !!matchedCells.length && (
+        {!!globalFilter && (isLoading ? (
+          <div className="text-nowrap mr-2 text-gray-400 flex items-center animate-spin">
+            <Loader2Icon size={16} />
+          </div>
+        ) : (totalMatches?.totalMatches ?? matchedCells.length) < 1 ? (
+          <div className="text-nowrap mr-2 text-gray-400">No matches</div>
+        ) : (
           <>
-            <span className="text-nowrap mr-2 text-gray-400">{currentMatchIndex + 1} of {matchedCells.length} </span>
-            <div className="flex items-center">
-              <button onClick={goToPrevMatch} className="bg-gray-200 hover:bg-gray-200/70 p-1 rounded-[2px]">
+            <span className="text-nowrap mr-2 text-gray-400">
+              {(totalMatches?.totalMatches ?? matchedCells.length) === 1
+                ? "1 cell found"
+                : `${totalMatches?.totalMatches ?? matchedCells.length} cells found`}
+            </span>
+            {/* <div className="flex items-center">
+              <button onClick={goToPrevMatch} className="bg-gray-200 hover:bg-gray-200/70 p-1 rounded-[2px]" disabled={currentMatchIndex === 0}>
                 <ChevronUpIcon size={12} />
               </button>
               <button onClick={goToNextMatch} className="bg-gray-200 hover:bg-gray-200/70 p-1 rounded-[2px]">
                 <ChevronDownIcon size={12} />
               </button>
-            </div>
+            </div> */}
           </>
-        )}
+        ))}
         <XIcon
           size={20}
           className="cursor-pointer text-gray-500 hover:text-gray-900 ml-2"
@@ -677,7 +702,6 @@ function SearchInput() {
           }}
         />
       </div>
-
     </div>
   );
 }
