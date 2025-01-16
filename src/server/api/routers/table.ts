@@ -393,21 +393,28 @@ export const tableRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       // Build "where" from filters
+      console.log(input.filters);
       const filterConditions = (input.filters ?? []).map((f) => {
         let condition;
         switch (f.operator) {
           case "empty":
             condition = {
-              OR: [{ value: "" }, { value: null }, { numericValue: null }],
+              OR: [{ numericValue: { equals: null } }],
             };
             break;
           case "notEmpty":
             condition = {
-              AND: [
-                { value: { not: "" } },
-                { value: { not: null } },
-                { numericValue: { not: null } },
-              ],
+              OR: [{ numericValue: { not: null } }],
+            };
+            break;
+          case "empty2":
+            condition = {
+              OR: [{ value: null }, { value: "" }],
+            };
+            break;
+          case "notEmpty2":
+            condition = {
+              OR: [{ value: { not: null } }, { value: { not: "" } }],
             };
             break;
           case "includesString":
@@ -553,10 +560,24 @@ export const tableRouter = createTRPCRouter({
         let condition;
         switch (f.operator) {
           case "empty":
-            condition = { value: "" };
+            condition = {
+              OR: [{ numericValue: { equals: null } }],
+            };
             break;
           case "notEmpty":
-            condition = { value: { not: "" } };
+            condition = {
+              OR: [{ numericValue: { not: null } }],
+            };
+            break;
+          case "empty2":
+            condition = {
+              OR: [{ value: null }, { value: "" }],
+            };
+            break;
+          case "notEmpty2":
+            condition = {
+              OR: [{ value: { not: null } }, { value: { not: "" } }],
+            };
             break;
           case "includesString":
             condition = {

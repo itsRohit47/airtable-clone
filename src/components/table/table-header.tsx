@@ -989,8 +989,8 @@ function FilterItem({
         ) : (
           <>
             <option value="includesString">contains</option>
-            <option value="empty">is empty</option>
-            <option value="notEmpty">is not empty</option>
+            <option value="empty2">is empty</option>
+            <option value="notEmpty2">is not empty</option>
           </>
         )}
       </select>
