@@ -234,7 +234,7 @@ export const tableRouter = createTRPCRouter({
         columns.map((column) => {
           const value =
             column.type === "text"
-              ? faker.lorem.word()
+              ? faker.person.fullName()
               : faker.number.int({ max: 1000000 }).toString();
           return {
             rowId: row.id,
