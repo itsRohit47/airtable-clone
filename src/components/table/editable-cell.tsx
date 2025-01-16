@@ -28,7 +28,7 @@ export function EditableCell({
 
   const { mutate } = api.table.updateCell.useMutation({
     onSettled: () => {
-      void ctx.table.getData.invalidate();
+      // void ctx.table.getData.invalidate();
       setIsInvalid(false);
       setLoading(false);
     },
