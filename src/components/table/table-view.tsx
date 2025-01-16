@@ -81,18 +81,22 @@ export function TableView({
 
   // Load global filter from localStorage on mount
   useEffect(() => {
-    const savedGlobalFilter = localStorage.getItem('globalFilter');
-    if (savedGlobalFilter) {
-      setGlobalFilter(savedGlobalFilter);
+    if (typeof localStorage !== 'undefined') {
+      const savedGlobalFilter = localStorage.getItem('globalFilter');
+      if (savedGlobalFilter) {
+        setGlobalFilter(savedGlobalFilter);
+      }
     }
   }, [setGlobalFilter]);
 
   // Save global filter to localStorage whenever it changes
   useEffect(() => {
-    if (globalFilter !== null) {
-      localStorage.setItem('globalFilter', globalFilter);
-    } else {
-      localStorage.removeItem('globalFilter');
+    if (typeof localStorage !== 'undefined') {
+      if (globalFilter !== null) {
+        localStorage.setItem('globalFilter', globalFilter);
+      } else {
+        localStorage.removeItem('globalFilter');
+      }
     }
   }, [globalFilter]);
 
@@ -106,17 +110,26 @@ export function TableView({
   const addColumnButtonRef = useRef<HTMLButtonElement>(null);
   const debouncedColName = useDebounce(newColName, 100);
   const [isTutorialOpen, setIsTutorialOpen] = useState(() => {
-    const savedState = localStorage.getItem('isTutorialOpen');
-    return savedState ? JSON.parse(savedState) : false;
+    if (typeof localStorage !== 'undefined') {
+      const savedState = localStorage.getItem('isTutorialOpen');
+      return savedState ? JSON.parse(savedState) : false;
+    }
+    return false;
   });
   const [tutorialChecklist, setTutorialChecklist] = useState<string[]>(() => {
-    const savedChecklist = localStorage.getItem('tutorialChecklist');
-    return savedChecklist ? JSON.parse(savedChecklist) : [];
+    if (typeof localStorage !== 'undefined') {
+      const savedChecklist = localStorage.getItem('tutorialChecklist');
+      return savedChecklist ? JSON.parse(savedChecklist) : [];
+    }
+    return [];
   });
   const tutorialRef = useRef<HTMLDivElement>(null);
   const [showChecklist, setShowChecklist] = useState(() => {
-    const savedState = localStorage.getItem('showChecklist');
-    return savedState ? JSON.parse(savedState) : false;
+    if (typeof localStorage !== 'undefined') {
+      const savedState = localStorage.getItem('showChecklist');
+      return savedState ? JSON.parse(savedState) : false;
+    }
+    return false;
   });
 
   useEffect(() => {
@@ -151,15 +164,21 @@ export function TableView({
   }, [tutorialRef, addColumnButtonRef]);
 
   useEffect(() => {
-    localStorage.setItem('tutorialChecklist', JSON.stringify(tutorialChecklist));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('tutorialChecklist', JSON.stringify(tutorialChecklist));
+    }
   }, [tutorialChecklist]);
 
   useEffect(() => {
-    localStorage.setItem('isTutorialOpen', JSON.stringify(isTutorialOpen));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('isTutorialOpen', JSON.stringify(isTutorialOpen));
+    }
   }, [isTutorialOpen]);
 
   useEffect(() => {
-    localStorage.setItem('showChecklist', JSON.stringify(showChecklist));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('showChecklist', JSON.stringify(showChecklist));
+    }
   }, [showChecklist]);
 
   const handleChecklistChange = (item: string) => {

@@ -25,17 +25,26 @@ export default function DashboardPage() {
   });
 
   const [isTutorialOpen, setIsTutorialOpen] = useState(() => {
-    const savedState = localStorage.getItem('isTutorialOpen');
-    return savedState ? JSON.parse(savedState) : false;
+    if (typeof window !== 'undefined') {
+      const savedState = localStorage.getItem('isTutorialOpen');
+      return savedState ? JSON.parse(savedState) : false;
+    }
+    return false;
   });
   const [tutorialChecklist, setTutorialChecklist] = useState<string[]>(() => {
-    const savedChecklist = localStorage.getItem('tutorialChecklist');
-    return savedChecklist ? JSON.parse(savedChecklist) : [];
+    if (typeof window !== 'undefined') {
+      const savedChecklist = localStorage.getItem('tutorialChecklist');
+      return savedChecklist ? JSON.parse(savedChecklist) : [];
+    }
+    return [];
   });
   const tutorialRef = useRef<HTMLDivElement>(null);
   const [showChecklist, setShowChecklist] = useState(() => {
-    const savedState = localStorage.getItem('showChecklist');
-    return savedState ? JSON.parse(savedState) : false;
+    if (typeof window !== 'undefined') {
+      const savedState = localStorage.getItem('showChecklist');
+      return savedState ? JSON.parse(savedState) : false;
+    }
+    return false;
   });
 
   useEffect(() => {
@@ -54,15 +63,21 @@ export default function DashboardPage() {
   }, [tutorialRef]);
 
   useEffect(() => {
-    localStorage.setItem('tutorialChecklist', JSON.stringify(tutorialChecklist));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tutorialChecklist', JSON.stringify(tutorialChecklist));
+    }
   }, [tutorialChecklist]);
 
   useEffect(() => {
-    localStorage.setItem('isTutorialOpen', JSON.stringify(isTutorialOpen));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('isTutorialOpen', JSON.stringify(isTutorialOpen));
+    }
   }, [isTutorialOpen]);
 
   useEffect(() => {
-    localStorage.setItem('showChecklist', JSON.stringify(showChecklist));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('showChecklist', JSON.stringify(showChecklist));
+    }
   }, [showChecklist]);
 
   const handleChecklistChange = (item: string) => {
