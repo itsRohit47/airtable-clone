@@ -27,7 +27,6 @@ export function EditableCell({
     useAppContext();
 
   const { mutate } = api.table.updateCell.useMutation({
-
     onSettled: () => {
       void ctx.table.getData.invalidate();
       setIsInvalid(false);
@@ -44,23 +43,6 @@ export function EditableCell({
       setLoading(false);
       return;
     }
-    void ctx.table.getData.cancel();
-
-    ctx.table.getData.setData({ tableId: rowId }, (oldData) => {
-      if (!oldData) return oldData;
-      return {
-        ...oldData,
-        data: oldData.data.map((row) => {
-          if (row.id === rowId) {
-            return {
-              ...row,
-              [columnId]: debouncedInputValue,
-            };
-          } 
-          return row;
-        }),
-      };
-    });
     mutate({
       value: debouncedInputValue,
       columnId,
