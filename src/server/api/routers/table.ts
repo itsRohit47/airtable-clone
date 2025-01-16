@@ -55,15 +55,21 @@ export const tableRouter = createTRPCRouter({
 
         // Create cells with default values for all existing rows
         if (existingRows.length > 0) {
-          await tx.cell.createMany({
-            data: existingRows.map((row) => ({
-              value: input.type === "number" ? null : "",
-              numericValue: input.type === "number" ? null : null,
+          const cellData = existingRows.map((row) => {
+            const numericValue =
+              input.type === "number" ? faker.number.int() : null;
+            return {
+              value:
+                input.type === "number"
+                  ? numericValue?.toString()
+                  : faker.person.fullName(),
+              numericValue,
               rowId: row.id,
               columnId: newColumn.id,
               tableId: input.tableId,
-            })),
+            };
           });
+          await tx.cell.createMany({ data: cellData });
         }
 
         return newColumn;
@@ -286,13 +292,14 @@ export const tableRouter = createTRPCRouter({
 
       const newCells = newRows.flatMap((row, rowIndex) =>
         columns.map((column, colIndex) => {
-          const value = column.type === "number" ? "0" : "";
+          const v = input.fakerData ?? [];
           return {
             rowId: row.id,
             columnId: column.id,
             tableId: input.tableId,
-            value: null,
-            numericValue: null,
+            value: v[colIndex] ?? "",
+            numericValue:
+              column.type === "number" ? parseFloat(v[colIndex] ?? "0") : null,
           };
         }),
       );
@@ -393,13 +400,16 @@ export const tableRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       // Build "where" from filters
-      console.log(input.filters);
       const filterConditions = (input.filters ?? []).map((f) => {
         let condition;
         switch (f.operator) {
           case "empty":
             condition = {
-              OR: [{ numericValue: { equals: null } }],
+              OR: [
+                { value: { equals: "" } },
+                { value: { equals: null } },
+                { numericValue: { equals: null } },
+              ],
             };
             break;
           case "notEmpty":
@@ -414,7 +424,7 @@ export const tableRouter = createTRPCRouter({
             break;
           case "notEmpty2":
             condition = {
-              OR: [{ value: { not: null } }, { value: { not: "" } }],
+              AND: [{ value: { not: null } }, { value: { not: "" } }],
             };
             break;
           case "includesString":
@@ -491,33 +501,8 @@ export const tableRouter = createTRPCRouter({
         where: { tableId: input.tableId },
       });
 
-      // Apply sorting to the rows
-      const sortedRows = rows.sort((a, b) => {
-        for (const sort of input.sorts ?? []) {
-          const aCell = a.cells.find((c) => c.column.id === sort.columnId);
-          const bCell = b.cells.find((c) => c.column.id === sort.columnId);
-          const aValue =
-            aCell?.column.type === "number"
-              ? (aCell?.numericValue ?? Number.MIN_SAFE_INTEGER)
-              : (aCell?.value ?? "");
-          const bValue =
-            bCell?.column.type === "number"
-              ? (bCell?.numericValue ?? Number.MIN_SAFE_INTEGER)
-              : (bCell?.value ?? "");
-          const comparison = sort.desc
-            ? aCell?.column.type === "number"
-              ? Number(bValue) - Number(aValue)
-              : (bValue as string).localeCompare(aValue as string)
-            : aCell?.column.type === "number"
-              ? Number(aValue) - Number(bValue)
-              : (aValue as string).localeCompare(bValue as string);
-          if (comparison !== 0) return comparison;
-        }
-        return 0;
-      });
-
       // Transform the data into a flat structure
-      const data = sortedRows.map((row) => {
+      let data = rows.map((row) => {
         const rowData: Record<string, string | number> = {
           id: row.id,
           order: row.order,
@@ -531,6 +516,26 @@ export const tableRouter = createTRPCRouter({
         });
         return rowData;
       });
+
+      // Apply sorts if they exist
+      if (input.sorts && input.sorts.length > 0) {
+        data = data.sort((a, b) => {
+          for (const sort of input.sorts!) {
+            const aVal = a[sort.columnId];
+            const bVal = b[sort.columnId];
+
+            if (aVal === bVal) continue;
+
+            if (typeof aVal === "number" && typeof bVal === "number") {
+              return sort.desc ? bVal - aVal : aVal - bVal;
+            }
+
+            const comp = String(aVal).localeCompare(String(bVal));
+            return sort.desc ? -comp : comp;
+          }
+          return 0;
+        });
+      }
 
       return {
         data,

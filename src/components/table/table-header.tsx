@@ -314,7 +314,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
         </div>
         <div className="relative" ref={filterMenuRef}>
           <button
-            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewFilters && viewFilters.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
+            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewFilters && viewFilters.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : filterMenuOpen ? "bg-gray-200" : "hover:bg-gray-200/60"}`}
             onClick={() => {
               setFilterMenuOpen(!filterMenuOpen);
             }}
@@ -330,15 +330,11 @@ export default function TableHead({ tableId }: { tableId: string }) {
           </button>
           {filterMenuOpen && <FilterMenu />}
         </div>
-        <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
-          <GroupIcon size={16} />
-          <div>Group</div>
-        </div>
         <div className="relative" ref={
           sortMenuRef
         }>
           <button
-            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewSorts && viewSorts.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
+            className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewSorts && viewSorts.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : sortMenuOpen ? "bg-gray-200" : "hover:bg-gray-200/60"}`}
             onClick={() => {
               setSortMenuOpen(!sortMenuOpen);
             }}
@@ -353,10 +349,6 @@ export default function TableHead({ tableId }: { tableId: string }) {
           {sortMenuOpen && viewSorts.length === 0 && <SortMenu />}
           {sortMenuOpen && (viewSorts.length ?? 0) > 0 && <SortView />}
         </div>
-        <div className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
-          <PaintBucketIcon size={16} />
-          <div>Color</div>
-        </div>
         <div
           className="relative flex cursor-pointer items-center justify-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60"
           ref={rowHeightMenuRef}
@@ -366,10 +358,6 @@ export default function TableHead({ tableId }: { tableId: string }) {
         >
           <LineHeightIcon />
           {rowHeightMenuOpen && <RowHeightMenu />}
-        </div>
-        <div className="h- flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
-          <ShareIcon size={16} />
-          <div>Share</div>
         </div>
       </div>
       <div className="relative" ref={searchMenuRef}>

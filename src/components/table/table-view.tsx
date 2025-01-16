@@ -352,6 +352,7 @@ export function TableView({
     },
     onSettled: () => {
       setLoading(false);
+      void ctx.table.getData.invalidate({ tableId });
       void ctx.table.getColumnsByTableId.invalidate();
     },
   });
@@ -363,7 +364,7 @@ export function TableView({
   );
 
   // ----------- add row mutation -----------
-  const { mutate: add5kRow } = api.table.addRow.useMutation({
+  const { mutate: add5kRow, isPending: is5kPending } = api.table.addRow.useMutation({
     onMutate: async () => {
       setLoading(true);
       setIsAdding(true);
@@ -374,8 +375,14 @@ export function TableView({
       const newRows = Array.from({ length: 400 }).map((_, index) => ({
         id: `temp-id-${index}-${Date.now()}`, // Ensure unique temp IDs
         order: (Number(lastRow?.order) ?? -1) + index + 1,
-        ...Object.fromEntries((c ?? []).map((col) => [col.id, ""])),
-      }));
+      } as { id: string; order: number;[key: string]: string | number }));
+
+      c?.forEach((col) => {
+        newRows.forEach((row) => {
+          row[col.id] = faker.person.fullName();
+        });
+      }
+      );
 
       // Optimistically update the infinite query data
       ctx.table.getData.setInfiniteData(
@@ -445,7 +452,7 @@ export function TableView({
     },
   });
 
-  const add1Row = api.table.add1Row.useMutation({
+  const { mutate: add1Row, isPending: is1Pending } = api.table.add1Row.useMutation({
     onMutate: async (data) => {
       setLoading(true);
       // Cancel any outgoing refetches to avoid overwriting our optimistic update
@@ -478,7 +485,7 @@ export function TableView({
 
       // Add empty cells for each column
       c?.forEach((col) => {
-        newRowData[col.id] = typeof data.fakerData === 'string' || typeof data.fakerData === 'number' ? data.fakerData : "";
+        newRowData[col.id] = data.fakerData?.[c.indexOf(col)] ?? '';
       });
 
       // Optimistically update the table data
@@ -550,11 +557,6 @@ export function TableView({
     },
     onSuccess: () => {
       setLoading(false);
-      void ctx.table.getData.invalidate({ tableId });
-      void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
-    },
-    onSettled: () => {
-      // Always refetch after error or success to sync with server
       void ctx.table.getData.invalidate({ tableId });
       void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
@@ -667,8 +669,8 @@ export function TableView({
   };
 
   const handleAdd1Row = () => {
-    const fakerData = c?.map((col) => (col.type === "text" ? faker.lorem.word() : faker.number.int().toString())) ?? [];
-    add1Row.mutate({ tableId, fakerData });
+    const fakerData = c?.map((col) => (col.type === "text" ? faker.person.fullName() : faker.number.int({ max: 1000000 }).toString())) ?? [];
+    add1Row({ tableId, fakerData });
   };
 
   // ----------- add column handler -----------
@@ -1148,14 +1150,19 @@ export function TableView({
             </button>
           </div>
           <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500 flex justify-between items-center">
-            <div>
-              {Object.keys(rowSelection).length > 0
-                ? `${Object.keys(rowSelection).length} records selected`
-                : viewFilters && viewFilters.length > 0
-                  ? `${flatData.length} of ${totalRows} filtered ${totalRows === 1 ? "record" : "records"}`
-                  : `${flatData.length} of ${totalRows} ${totalRows === 1 ? "record" : "records"}`
-              }
-            </div>
+            {is1Pending || is5kPending ? (
+              <div className="flex items-center gap-2 bg-gray-200 p-2 rounded-md animate-pulse w-20">
+              </div>
+            ) : (
+              <div>
+                {Object.keys(rowSelection).length > 0
+                  ? `${Object.keys(rowSelection).length} records selected`
+                  : viewFilters && viewFilters.length > 0
+                    ? `${flatData.length} of ${totalRows} filtered ${totalRows === 1 ? "record" : "records"}`
+                    : `${flatData.length} of ${totalRows} ${totalRows === 1 ? "record" : "records"}`
+                }
+              </div>
+            )}
             <button
               onClick={handleToggleTutorial}
               className="ml-4 px-3 py-2 bg-violet-500 text-white rounded-md fixed bottom-10 right-4"
