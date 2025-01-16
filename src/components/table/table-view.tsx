@@ -369,7 +369,14 @@ export function TableView({
       setLoading(true);
       setIsAdding(true);
       const previousData = ctx.table.getData.getInfiniteData();
-      const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData();
+      const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData({
+        tableId,
+        filters: viewFilters?.map((f) => ({
+          columnId: f.columnId,
+          operator: f.operator,
+          value: f.value ?? "",
+        })) ?? [],
+      });
       const lastRow = previousData?.pages.flatMap(page => page.data).sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0)).pop();
 
       const newRows = Array.from({ length: 400 }).map((_, index) => ({
@@ -379,7 +386,7 @@ export function TableView({
 
       c?.forEach((col) => {
         newRows.forEach((row) => {
-          row[col.id] = faker.person.fullName();
+          row[col.id] = 'Faker data loading...';
         });
       }
       );
@@ -418,7 +425,14 @@ export function TableView({
 
       // Optimistically update total rows count
       ctx.table.getTotalRowsGivenTableId.setData(
-        { tableId },
+        {
+          tableId,
+          filters: viewFilters?.map((f) => ({
+            columnId: f.columnId,
+            operator: f.operator,
+            value: f.value ?? "",
+          })) ?? [],
+        },
         (old) => (old ?? 0) + 5000
       );
 
@@ -455,10 +469,9 @@ export function TableView({
   const { mutate: add1Row, isPending: is1Pending } = api.table.add1Row.useMutation({
     onMutate: async (data) => {
       setLoading(true);
-      // Cancel any outgoing refetches to avoid overwriting our optimistic update
       await ctx.table.getData.cancel();
+      await ctx.table.getTotalRowsGivenTableId.cancel();
 
-      // Snapshot the previous value
       const previousData = ctx.table.getData.getInfiniteData({
         tableId,
         pageSize: 200,
@@ -471,6 +484,15 @@ export function TableView({
         sorts: viewSorts?.map((s) => ({
           columnId: s.columnId,
           desc: s.desc,
+        })) ?? [],
+      });
+
+      const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData({
+        tableId,
+        filters: viewFilters?.map((f) => ({
+          columnId: f.columnId,
+          operator: f.operator,
+          value: f.value ?? "",
         })) ?? [],
       });
 
@@ -523,11 +545,18 @@ export function TableView({
 
       // Optimistically update the total rows count
       ctx.table.getTotalRowsGivenTableId.setData(
-        { tableId },
+        {
+          tableId,
+          filters: viewFilters?.map((f) => ({
+            columnId: f.columnId,
+            operator: f.operator,
+            value: f.value ?? "",
+          })) ?? [],
+        },
         (old) => (old ?? 0) + 1
       );
 
-      return { previousData };
+      return { previousData, previousTotalRows };
     },
     onError: (err, newRow, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
@@ -548,6 +577,21 @@ export function TableView({
           },
           context.previousData
         );
+
+        // Rollback total rows count on error
+        if (context.previousTotalRows !== undefined) {
+          ctx.table.getTotalRowsGivenTableId.setData(
+            {
+              tableId,
+              filters: viewFilters?.map((f) => ({
+                columnId: f.columnId,
+                operator: f.operator,
+                value: f.value ?? "",
+              })) ?? [],
+            },
+            context.previousTotalRows
+          );
+        }
       }
       setLoading(false);
       toast({
@@ -669,7 +713,7 @@ export function TableView({
   };
 
   const handleAdd1Row = () => {
-    const fakerData = c?.map((col) => (col.type === "text" ? faker.person.fullName() : faker.number.int({ max: 1000000 }).toString())) ?? [];
+    const fakerData = c?.map((col) => (col.type === "text" ? "" : "")) ?? [];
     add1Row({ tableId, fakerData });
   };
 
@@ -981,7 +1025,7 @@ export function TableView({
                           <button
                             onClick={() => colType && handleAddColumn({ _type: colType })}
                             disabled={!colType}
-                            className="flex items-center gap-2 p-2 rounded-md bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-2 p-2 rounded-md bg-blue-500 text-white disabled:cursor-not-allowed"
                           >
                             Create Field
                           </button>
@@ -1138,7 +1182,7 @@ export function TableView({
             <button
               onClick={handleAddRow}
               disabled={isAdding}
-              className="flex items-center justify-center gap-x-2 rounded-l-full border bg-white p-2 hover:bg-gray-100 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-x-2 rounded-l-full border bg-white p-2 hover:bg-gray-100 text-xs disabled:cursor-not-allowed"
             >
               Add 5k rows {isAdding && <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />}
             </button>
@@ -1150,19 +1194,14 @@ export function TableView({
             </button>
           </div>
           <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500 flex justify-between items-center">
-            {is1Pending || is5kPending ? (
-              <div className="flex items-center gap-2 bg-gray-200 p-2 rounded-md animate-pulse w-20">
-              </div>
-            ) : (
-              <div>
-                {Object.keys(rowSelection).length > 0
-                  ? `${Object.keys(rowSelection).length} records selected`
-                  : viewFilters && viewFilters.length > 0
-                    ? `${flatData.length} of ${totalRows} filtered ${totalRows === 1 ? "record" : "records"}`
-                    : `${flatData.length} of ${totalRows} ${totalRows === 1 ? "record" : "records"}`
-                }
-              </div>
-            )}
+            <div>
+              {Object.keys(rowSelection).length > 0
+                ? `${Object.keys(rowSelection).length} records selected`
+                : viewFilters && viewFilters.length > 0
+                  ? `${flatData.length} of ${totalRows} filtered ${totalRows === 1 ? "record" : "records"}`
+                  : `${flatData.length} of ${totalRows} ${totalRows === 1 ? "record" : "records"}`
+              }
+            </div>
             <button
               onClick={handleToggleTutorial}
               className="ml-4 px-3 py-2 bg-violet-500 text-white rounded-md fixed bottom-10 right-4"

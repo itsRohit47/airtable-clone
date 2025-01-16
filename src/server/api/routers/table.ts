@@ -56,13 +56,9 @@ export const tableRouter = createTRPCRouter({
         // Create cells with default values for all existing rows
         if (existingRows.length > 0) {
           const cellData = existingRows.map((row) => {
-            const numericValue =
-              input.type === "number" ? faker.number.int() : null;
+            const numericValue = input.type === "number" ? null : null;
             return {
-              value:
-                input.type === "number"
-                  ? numericValue?.toString()
-                  : faker.person.fullName(),
+              value: input.type === "number" ? "" : "",
               numericValue,
               rowId: row.id,
               columnId: newColumn.id,
