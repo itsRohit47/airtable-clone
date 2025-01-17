@@ -1195,12 +1195,7 @@ export function TableView({
           </div>
           <div className="fixed bottom-0 w-full border-t border-gray-300 bg-white p-2 text-xs text-gray-500 flex justify-between items-center">
             <div>
-              {Object.keys(rowSelection).length > 0
-                ? `${Object.keys(rowSelection).length} records selected`
-                : viewFilters && viewFilters.length > 0
-                  ? `${flatData.length} of ${totalRows} filtered ${totalRows === 1 ? "record" : "records"}`
-                  : `${flatData.length} of ${totalRows} ${totalRows === 1 ? "record" : "records"}`
-              }
+              {`${totalRows} records`}
             </div>
             <button
               onClick={handleToggleTutorial}
