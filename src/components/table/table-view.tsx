@@ -53,6 +53,15 @@ export function TableView({
   viewId: string;
 }) {
   // ----------- useState -----------
+  // Add new state for pending rows
+  const [pendingRows, setPendingRows] = useState<Set<string>>(new Set());
+  const pendingRowsRef = useRef<Set<string>>(pendingRows);
+
+  // Update ref when pendingRows changes
+  useEffect(() => {
+    pendingRowsRef.current = pendingRows;
+  }, [pendingRows]);
+
   const { toast } = useToast();
   const router = useRouter();
   const {
@@ -377,24 +386,35 @@ export function TableView({
           value: f.value ?? "",
         })) ?? [],
       });
-      const lastRow = previousData?.pages.flatMap(page => page.data).sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0)).pop();
 
-      const newRows = Array.from({ length: 400 }).map((_, index) => ({
-        id: `temp-id-${index}-${Date.now()}`, // Ensure unique temp IDs
-        order: (Number(lastRow?.order) ?? -1) + index + 1,
-      } as { id: string; order: number;[key: string]: string | number }));
+      // Get the highest order from existing non-pending rows
+      const lastRow = previousData?.pages
+        .flatMap(page => page.data)
+        .filter(row => !pendingRowsRef.current.has(String(row.id)))
+        .sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0))
+        .pop();
 
+      const newRows: Record<string, any>[] = Array.from({ length: 400 }).map((_, index) => {
+        const tempId = `temp-id-${Date.now()}-${index}`;
+        setPendingRows(prev => new Set(prev).add(tempId));
+        return {
+          id: tempId,
+          order: (Number(lastRow?.order) ?? -1) + index + 1,
+        };
+      });
+
+      // Initialize with placeholder data
       c?.forEach((col) => {
         newRows.forEach((row) => {
-          row[col.id] = 'Faker data loading...';
+          row[col.id] = 'Loading...';
         });
-      }
-      );
+      });
 
-      // Optimistically update the infinite query data
+      // Optimistically update data while maintaining order
       ctx.table.getData.setInfiniteData(
         {
-          tableId, pageSize: 200,
+          tableId,
+          pageSize: 200,
           search: globalFilter ?? undefined,
           filters: viewFilters?.map((f) => ({
             columnId: f.columnId,
@@ -404,41 +424,49 @@ export function TableView({
           sorts: viewSorts?.map((s) => ({
             columnId: s.columnId,
             desc: s.desc,
-          })) ?? []
+          })) ?? [],
         },
         (old) => {
           if (!old) return old;
           const newPages = [...old.pages];
           const lastPage = newPages[newPages.length - 1];
           if (lastPage) {
+            // Remove any existing temp rows first
+            const filteredData = lastPage.data.filter(
+              row => !String(row.id).startsWith('temp-id-')
+            );
             newPages[newPages.length - 1] = {
               ...lastPage,
-              data: [
-                ...lastPage.data.filter(row => !String(row.id).startsWith('temp-id-')), // Remove old temp rows
-                ...newRows,
-              ],
+              data: [...filteredData, ...newRows].sort(
+                (a, b) => (Number(a.order) ?? 0) - (Number(b.order) ?? 0)
+              ),
             };
           }
           return { ...old, pages: newPages };
         }
       );
 
-      // Optimistically update total rows count
-      ctx.table.getTotalRowsGivenTableId.setData(
-        {
-          tableId,
-          filters: viewFilters?.map((f) => ({
-            columnId: f.columnId,
-            operator: f.operator,
-            value: f.value ?? "",
-          })) ?? [],
-        },
-        (old) => (old ?? 0) + 5000
-      );
-
       return { previousData, previousTotalRows };
     },
+    onSuccess: (data) => {
+      // Clear pending rows that were successfully added
+      setPendingRows(prev => {
+        const newPending = new Set(prev);
+        data.forEach(row => {
+          newPending.delete(String(row.id));
+        });
+        return newPending;
+      });
+
+      setLoading(false);
+      setIsAdding(false);
+      void ctx.table.getData.invalidate({ tableId });
+      void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
+    },
     onError: (err, newRow, context) => {
+      // Clear pending rows on error
+      setPendingRows(new Set());
+
       if (context?.previousData) {
         ctx.table.getData.setInfiniteData(
           { tableId, pageSize: 200 },
@@ -454,21 +482,13 @@ export function TableView({
         description: err.message,
       });
     },
-    onSuccess: (data, variables, context) => {
-      setLoading(false);
-      setIsAdding(false);
-      toast({
-        title: "Success",
-        description: "Rows added successfully",
-      });
-      void ctx.table.getData.invalidate({ tableId });
-      void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
-    },
   });
 
   const { mutate: add1Row, isPending: is1Pending } = api.table.add1Row.useMutation({
     onMutate: async (data) => {
       setLoading(true);
+      const tempId = `temp-id-${Date.now()}`;
+      setPendingRows(prev => new Set(prev).add(tempId));
       await ctx.table.getData.cancel();
       await ctx.table.getTotalRowsGivenTableId.cancel();
 
@@ -501,7 +521,7 @@ export function TableView({
 
       // Create the new row with empty data
       const newRowData: Record<string, string | number> = {
-        id: `temp-id-${Date.now()}`,
+        id: tempId,
         order: (Number(lastRow?.order) ?? -1) + 1, // Continue from the last order
       };
 
@@ -559,7 +579,9 @@ export function TableView({
       return { previousData, previousTotalRows };
     },
     onError: (err, newRow, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
+      // Clear pending rows on error
+      setPendingRows(new Set());
+
       if (context?.previousData) {
         ctx.table.getData.setInfiniteData(
           {
@@ -599,7 +621,16 @@ export function TableView({
         description: "Failed to add row",
       });
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Clear pending rows that were successfully added
+      setPendingRows(prev => {
+        const newPending = new Set(prev);
+        data.forEach(row => {
+          newPending.delete(String(row.id));
+        });
+        return newPending;
+      });
+
       setLoading(false);
       void ctx.table.getData.invalidate({ tableId });
       void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
@@ -669,6 +700,7 @@ export function TableView({
                     autoFocus
                     onFocus={(e) => e.target.select()}
                     className="max-w-24 outline-none bg-transparent"
+                    disabled={pendingRows.size > 0} // Disable input if there are pending rows
                   />
                 ) : (
                   <span>{col.name}</span>
@@ -689,6 +721,7 @@ export function TableView({
                     setNewColName(col.name);
                     setIsColNameEditing(true);
                   }}
+                  disabled={pendingRows.size > 0} // Disable button if there are pending rows
                 >
                   <EditIcon size={14} strokeWidth={1.5} />
                 </button>
@@ -705,7 +738,7 @@ export function TableView({
           />
         ),
       })) ?? [];
-  }, [c, updateColumnName, newColName, isColNameEditing, editColId]);
+  }, [c, updateColumnName, newColName, isColNameEditing, editColId, pendingRows]);
 
   // ----------- add column handler -----------
   const handleAddRow = () => {
@@ -890,6 +923,41 @@ export function TableView({
     overscan: 5,
   });
 
+  // Modify the row rendering to handle pending state
+  const renderRow = (row: any, virtualRow: any) => {
+    const isPending = pendingRows.has(String(row.original.id));
+
+    return (
+      <tr
+        key={row.id}
+        style={{ height: `${rowHeight}rem` }}
+        className={cn(
+          "flex w-max items-center bg-white hover:bg-gray-100 group transition-all duration-200",
+          {
+            "bg-violet-100 hover:bg-violet-100/50": row.getIsSelected(),
+            "opacity-70": isPending
+          }
+        )}
+      >
+        {/* Rest of your row rendering code... */}
+      </tr>
+    );
+  };
+
+  const renderCell = (cell: any, isPending: boolean) => {
+    if (isPending) {
+      return (
+        <div className="animate-pulse bg-gray-100 h-full w-full rounded">
+          <div className="h-4 bg-gray-200 rounded"></div>
+        </div>
+      );
+    }
+
+    return flexRender(cell.column.columnDef.cell, cell.getContext());
+  };
+
+
+
   // ----------- when loading -----------
   if (isLoading || isColsLoading || isRowsLoading || isViewSortsLoading || isViewFiltersLoading || isViewLoding) {
     return (
@@ -1053,24 +1121,30 @@ export function TableView({
                 transform: `translateY(${rowVirtualizer.getVirtualItems()[0]?.start ?? 0}px)`,
               }}
             >
-              {table.getRowModel().rows.length === 0 ? ( // Use getRowModel instead of getFilteredRowModel
+              {table.getRowModel().rows.length === 0 ? (
                 globalFilter && (
                   <div className="fixed top-0 flex w-screen items-center justify-center p-52 min-h-96 max-h-[100vh] -translate-y-32 flex-col gap-4">
                     <img src={'https://fsbauno90gkbhha8.public.blob.vercel-storage.com/TheL-yzAcc9yNUxSUgMZySW5JfqKhwASjOO.gif'} alt="" width={100} height={24} />
-                    <div className="ml-2 text-sm text-gray-500 flex items-center gap-x-1">No records match <span className="px-2 py-1 text-xs bg-gray-100 border  rounded-md">{globalFilter}</span > try something else </div>
+                    <div className="ml-2 text-sm text-gray-500 flex items-center gap-x-1">No records match <span className="px-2 py-1 text-xs bg-gray-100 border rounded-md">{globalFilter}</span> try something else </div>
                   </div>
                 )
               ) : (
-                rowVirtualizer.getVirtualItems().map((virtualRow, index) => {
-                  const row = table.getRowModel().rows[virtualRow.index]; // Use getRowModel instead of getFilteredRowModel
+                rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const row = table.getRowModel().rows[virtualRow.index];
+                  const isPending = pendingRows.has(String(row?.original?.id));
+
                   return (
                     <ContextMenu key={row?.id}>
                       <ContextMenuTrigger>
                         <tr
                           style={{ height: `${rowHeight}rem` }}
-                          className={cn("flex w-max items-center bg-white hover:bg-gray-100 group transition-all duration-200", {
-                            "bg-violet-100 hover:bg-violet-100/50": row?.getIsSelected(),
-                          })}
+                          className={cn(
+                            "flex w-max items-center bg-white hover:bg-gray-100 group transition-all duration-200",
+                            {
+                              "bg-violet-100 hover:bg-violet-100/50": row?.getIsSelected(),
+                              "opacity-70": isPending
+                            }
+                          )}
                         >
                           {!row?.getIsSelected() && (
                             <div className="absolute left-2 text-xs text-gray-500">
@@ -1098,7 +1172,7 @@ export function TableView({
                               className={cn(
                                 "h-full w-max border-b border-r p-[2px] text-xs focus:border focus:border-blue-500 focus:outline-none border-gray-300",
                                 {
-                                  " border-dashed cursor-not-allowed pointer-events-none border-gray-300": String(row.original?.id)?.startsWith("temp-id") ?? false,
+                                  "border-dashed cursor-not-allowed pointer-events-none border-gray-300": isPending,
                                 },
                                 {
                                   "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-yellow-400":
@@ -1109,19 +1183,18 @@ export function TableView({
                                   "bg-blue-50/50": cell.column.getIsSorted(),
                                   "bg-purple-50/50": cell.column.getFilterIndex() > -1,
                                   "bg-indigo-50/50": cell.column.getFilterIndex() > -1 && cell.column.getIsSorted(),
-                                },
-                                {
-                                  "border-yellow-500 bg-yellow-300 text-yellow-800 hover:bg-yellow-400":
-                                    globalFilter &&
-                                    String(cell.getValue())
-                                      .toLowerCase()
-                                      .includes(globalFilter.toLowerCase()),
                                 }
                               )}
                             >
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext(),
+                              {isPending ? (
+                                <div className="animate-pulse bg-gray-100 h-full w-full rounded p-2 flex items-center justify-center">
+                                  <div className="h-4 bg-gray-200 rounded"></div>
+                                </div>
+                              ) : (
+                                flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext(),
+                                )
                               )}
                             </td>
                           ))}
@@ -1137,16 +1210,18 @@ export function TableView({
                             });
                           }}
                         >
-                          <Trash2Icon size={14} strokeWidth={1.5} /> <span className="text-red-500 flex items-center gap-1">
+                          <Trash2Icon size={14} strokeWidth={1.5} />
+                          <span className="text-red-500 flex items-center gap-1">
                             {isPending ? <Loader2 size={14} strokeWidth={1.5} /> : null}
-                            Delete record</span>
+                            Delete record
+                          </span>
                         </ContextMenuItem>
                       </ContextMenuContent>
                     </ContextMenu>
                   );
                 })
               )}
-              <div className="flex w-max border-r">
+              <div className="flex w-max border-r -translate-x-[1px] border-gray-300">
                 {table.getFooterGroups().map((footerGroup) => (
                   <button
                     key={footerGroup.id}
@@ -1157,7 +1232,7 @@ export function TableView({
                       <td
                         key={column.id}
                         style={{ width: column.getSize() }}
-                        className="h-full w-max border-b p-2 text-xs"
+                        className="h-full w-max border-b p-2 text-xs  border-gray-300"
                       >
                         {index === 0 && (
                           <div className="flex items-center gap-1 text-gray-500 hover:text-gray-700">
@@ -1175,7 +1250,7 @@ export function TableView({
                   </button>
                 ))}
               </div>
-
+              {/* Rest of your code for add row buttons... */}
             </div>
           </tbody>
           <div className="fixed bottom-10 ml-3 flex items-center">

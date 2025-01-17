@@ -35,41 +35,38 @@ export const tableRouter = createTRPCRouter({
         orderBy: { order: "desc" },
       });
 
+      // Create the new column with order = last + 1
+      const newColumn = await ctx.db.column.create({
+        data: {
+          name: "Untitled Column",
+          defaultValue: "",
+          type: input.type,
+          order: (lastColumn?.order ?? -1) + 1, // If no columns exist, start at 0
+          tableId: input.tableId,
+        },
+      });
+
       // Get all existing rows for this table
       const existingRows = await ctx.db.row.findMany({
         where: { tableId: input.tableId },
       });
 
-      // Create the new column and cells in a transaction
-      return ctx.db.$transaction(async (tx) => {
-        // Create the new column with order = last + 1
-        const newColumn = await tx.column.create({
-          data: {
-            name: "Untitled Column",
-            defaultValue: "",
-            type: input.type,
-            order: (lastColumn?.order ?? -1) + 1, // If no columns exist, start at 0
+      // Create cells with default values for all existing rows
+      if (existingRows.length > 0) {
+        const cellData = existingRows.map((row) => {
+          const numericValue = input.type === "number" ? null : null;
+          return {
+            value: input.type === "number" ? "" : "",
+            numericValue,
+            rowId: row.id,
+            columnId: newColumn.id,
             tableId: input.tableId,
-          },
+          };
         });
+        await ctx.db.cell.createMany({ data: cellData });
+      }
 
-        // Create cells with default values for all existing rows
-        if (existingRows.length > 0) {
-          const cellData = existingRows.map((row) => {
-            const numericValue = input.type === "number" ? null : null;
-            return {
-              value: input.type === "number" ? "" : "",
-              numericValue,
-              rowId: row.id,
-              columnId: newColumn.id,
-              tableId: input.tableId,
-            };
-          });
-          await tx.cell.createMany({ data: cellData });
-        }
-
-        return newColumn;
-      });
+      return newColumn;
     }),
 
   // to add a new table to a base
