@@ -50,7 +50,7 @@ export function EditableCell({
       columnId,
       rowId,
     });
-  }, [columnId, debouncedInputValue, initialValue, mutate, rowId, setLoading, type]);
+  }, [debouncedInputValue]);
 
 
   useEffect(() => {
