@@ -5,6 +5,7 @@
 import { useMemo, useEffect, useState, useRef, useCallback } from "react";
 import { faker } from '@faker-js/faker';
 import Image from "next/image";
+import { v4 as uuidv4 } from "uuid";
 import {
   ContextMenu,
   ContextMenuCheckboxItem,
@@ -342,7 +343,7 @@ export function TableView({
     onMutate: async (data) => {
       setLoading(true);
       setColType(null);
-      const tempId = `temp-col-${Date.now()}`;
+      const tempId = uuidv4();
       setPendingColumns(prev => new Set(prev).add(tempId));
 
       await ctx.table.getColumnsByTableId.cancel();
@@ -420,7 +421,7 @@ export function TableView({
         .pop();
 
       const newRows: Record<string, any>[] = Array.from({ length: 400 }).map((_, index) => {
-        const tempId = `temp-id-${Date.now()}-${index}`;
+        const tempId = uuidv4();
         setPendingRows(prev => new Set(prev).add(tempId));
         return {
           id: tempId,
@@ -512,7 +513,7 @@ export function TableView({
   const { mutate: add1Row, isPending: is1Pending } = api.table.add1Row.useMutation({
     onMutate: async (data) => {
       setLoading(true);
-      const tempId = `temp-id-${Date.now()}`;
+      const tempId = uuidv4();
       setPendingRows(prev => new Set(prev).add(tempId));
       await ctx.table.getData.cancel();
       await ctx.table.getTotalRowsGivenTableId.cancel();
