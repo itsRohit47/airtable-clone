@@ -1359,8 +1359,13 @@ export function TableView({
             >
               {isTutorialOpen ? "Close" : " Show Demo"}
             </button>
+            {isFetching &&
+              <div className="fixed bottom-10 right-1/2 transform translate-x-1/2 flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-gray-300">
+                Loading more <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />
+              </div>
+            }
             {isTutorialOpen && (
-              <div className="fixed bottom-20 right-4 w-max max-w-96 z-[10000] bg-white border border-gray-300 shadow-lg rounded-md p-4 grid gap-4 grid-cols-1">
+              <div className="w-max max-w-96 z-[10000] bg-white border border-gray-300 shadow-lg rounded-md p-4 grid gap-4 grid-cols-1 fixed bottom-20 right-4">
                 {showChecklist ? (
                   <div className="list-none">
                     <div className="flex flex-col">
