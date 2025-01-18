@@ -337,6 +337,14 @@ export const tableRouter = createTRPCRouter({
       });
     }),
 
+  getcellsByRowId: protectedProcedure
+    .input(z.object({ rowId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      return ctx.db.cell.findMany({
+        where: { rowId: input.rowId },
+      });
+    }),
+
   // update a cell value
   updateCell: protectedProcedure
     .input(

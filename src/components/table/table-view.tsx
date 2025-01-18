@@ -62,6 +62,15 @@ export function TableView({
     pendingRowsRef.current = pendingRows;
   }, [pendingRows]);
 
+  // Add new state for pending columns
+  const [pendingColumns, setPendingColumns] = useState<Set<string>>(new Set());
+  const pendingColumnsRef = useRef<Set<string>>(pendingColumns);
+
+  // Update ref when pendingColumns changes
+  useEffect(() => {
+    pendingColumnsRef.current = pendingColumns;
+  }, [pendingColumns]);
+
   const { toast } = useToast();
   const router = useRouter();
   const {
@@ -115,7 +124,7 @@ export function TableView({
   const [newColName, setNewColName] = useState<string>("");
   const [isAdding, setIsAdding] = useState(false);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
-  const [colType, setColType] = useState<"text" | "number" | null>(null);
+  const [colType, setColType] = useState<"text" | "number" | null>("text");
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const addColumnButtonRef = useRef<HTMLButtonElement>(null);
   const debouncedColName = useDebounce(newColName, 100);
@@ -333,12 +342,16 @@ export function TableView({
     onMutate: async (data) => {
       setLoading(true);
       setColType(null);
+      const tempId = `temp-col-${Date.now()}`;
+      setPendingColumns(prev => new Set(prev).add(tempId));
+
       await ctx.table.getColumnsByTableId.cancel();
       const previousData = ctx.table.getColumnsByTableId.getData();
+
       ctx.table.getColumnsByTableId.setData({ tableId }, (old) => {
         if (!old) return old;
         return [...old, {
-          id: "temp-id",
+          id: tempId,
           name: "Untitled Column",
           tableId: tableId,
           defaultValue: null,
@@ -348,9 +361,12 @@ export function TableView({
           updatedAt: new Date()
         }];
       });
-      return { previousData };
+      return { previousData, tempId };
     },
     onError: (err, newColumn, context) => {
+      // Clear pending columns on error
+      setPendingColumns(new Set());
+
       if (context?.previousData) {
         ctx.table.getColumnsByTableId.setData({ tableId }, context.previousData);
       }
@@ -359,7 +375,16 @@ export function TableView({
         description: "Failed to add column",
       });
     },
-    onSettled: () => {
+    onSuccess: (data, variables, context) => {
+      if (!context?.tempId) return;
+
+      // Remove from pending columns
+      setPendingColumns(prev => {
+        const newPending = new Set(prev);
+        newPending.delete(context.tempId);
+        return newPending;
+      });
+
       setLoading(false);
       void ctx.table.getData.invalidate({ tableId });
       void ctx.table.getColumnsByTableId.invalidate();
@@ -519,9 +544,9 @@ export function TableView({
       // Get the highest order number from existing rows
       const lastRow = previousData?.pages.flatMap(page => page.data).sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0))[0];
 
-      // Create the new row with empty data
+      // Create the new row with temp ID
       const newRowData: Record<string, string | number> = {
-        id: tempId,
+        id: tempId,  // Use the same tempId we added to pendingRows
         order: (Number(lastRow?.order) ?? -1) + 1, // Continue from the last order
       };
 
@@ -576,7 +601,7 @@ export function TableView({
         (old) => (old ?? 0) + 1
       );
 
-      return { previousData, previousTotalRows };
+      return { previousData, previousTotalRows, tempId }; // Return tempId in context
     },
     onError: (err, newRow, context) => {
       // Clear pending rows on error
@@ -621,17 +646,56 @@ export function TableView({
         description: "Failed to add row",
       });
     },
-    onSuccess: (data) => {
-      // Clear pending rows that were successfully added
+    onSuccess: (data, variables, context) => {
+      if (!context?.tempId) return;
+
+      // Update the cache to replace temp ID with real ID
+      ctx.table.getData.setInfiniteData(
+        {
+          tableId,
+          pageSize: 200,
+          search: globalFilter ?? undefined,
+          filters: viewFilters?.map((f) => ({
+            columnId: f.columnId,
+            operator: f.operator,
+            value: f.value ?? "",
+          })) ?? [],
+          sorts: viewSorts?.map((s) => ({
+            columnId: s.columnId,
+            desc: s.desc,
+          })) ?? [],
+        },
+        (old) => {
+          if (!old) return old;
+          const newPages = [...old.pages];
+          const lastPage = newPages[newPages.length - 1];
+          if (lastPage) {
+            const updatedData = lastPage.data.map(row => {
+              if (row.id === context.tempId) {
+                // Replace the temp row with the real data
+                return { ...row, ...data[0] }; // Assuming data[0] contains the new row data
+              }
+              return row;
+            });
+            newPages[newPages.length - 1] = {
+              ...lastPage,
+              data: updatedData,
+            };
+          }
+          return { ...old, pages: newPages };
+        }
+      );
+
+      // Remove from pending rows
       setPendingRows(prev => {
         const newPending = new Set(prev);
-        data.forEach(row => {
-          newPending.delete(String(row.id));
-        });
+        newPending.delete(context.tempId);
         return newPending;
       });
 
       setLoading(false);
+
+      // Invalidate the queries to fetch fresh data
       void ctx.table.getData.invalidate({ tableId });
       void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
@@ -663,8 +727,8 @@ export function TableView({
         accessorKey: col.id,
         size: 200,
         minSize: 200,
-        enableSorting: true,
-        enableFilters: true,
+        enableSorting: !pendingColumns.has(col.id),
+        enableFilters: !pendingColumns.has(col.id),
         options: {
           enableColumnFilter: true,
           enableFilters: true,
@@ -672,15 +736,17 @@ export function TableView({
         filterFn: (viewFilters?.find((filter) => filter.columnId === col.id)
           ?.operator as keyof typeof filterFns) ?? "eq",
         header: ({ column }) => (
-          <span className="flex w-full items-center justify-between gap-x-2 overflow-hidden">
+          <span className={cn(
+            "flex w-full items-center justify-between gap-x-2 overflow-hidden",
+            { "opacity-70": pendingColumns.has(col.id) }
+          )}>
             <div className="flex items-center gap-x-2 justify-center mx-auto">
-
               <div className="w-max px-2 flex items-center gap-x-1">
                 <span>
                   {col.type === "text" ? (
-                    <CaseUpperIcon size={16} strokeWidth={1.5} />
+                    <CaseUpperIcon size={16} strokeWidth={1.5} className="mr-2" />
                   ) : (
-                    <HashIcon size={14} strokeWidth={1.5} />
+                    <HashIcon size={14} strokeWidth={1.5} className="mr-2" />
                   )}
                 </span>
                 {isColNameEditing && editColId === col.id ? (
@@ -691,8 +757,7 @@ export function TableView({
                       if (e.key === "Enter") {
                         setIsColNameEditing(false);
                       }
-                    }
-                    }
+                    }}
                     onBlur={() => setIsColNameEditing(false)}
                     onChange={(e) => {
                       setNewColName(e.target.value);
@@ -700,45 +765,59 @@ export function TableView({
                     autoFocus
                     onFocus={(e) => e.target.select()}
                     className="max-w-24 outline-none bg-transparent"
-                    disabled={pendingRows.size > 0} // Disable input if there are pending rows
+                    disabled={pendingColumns.has(col.id) || pendingRows.size > 0}
                   />
                 ) : (
-                  <span>{col.name}</span>
+                  pendingColumns.has(col.id) ? (
+                    <div className="animate-pulse bg-gray-300 h-4 w-20 rounded"></div>
+                  ) : (
+                    <span>{col.name}</span>
+                  )
                 )}
               </div>
             </div>
             <div>
-              {isColNameEditing && editColId === col.id ? (
-                <button
-                  onClick={() => setIsColNameEditing(false)}
-                >
-                  <SaveIcon size={14} strokeWidth={1.5} />
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setEditColId(col.id);
-                    setNewColName(col.name);
-                    setIsColNameEditing(true);
-                  }}
-                  disabled={pendingRows.size > 0} // Disable button if there are pending rows
-                >
-                  <EditIcon size={14} strokeWidth={1.5} />
-                </button>
+              {!pendingColumns.has(col.id) && (
+                isColNameEditing && editColId === col.id ? (
+                  <button
+                    onClick={() => setIsColNameEditing(false)}
+                    disabled={pendingColumns.has(col.id)}
+                  >
+                    <SaveIcon size={14} strokeWidth={1.5} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setEditColId(col.id);
+                      setNewColName(col.name);
+                      setIsColNameEditing(true);
+                    }}
+                    disabled={pendingColumns.has(col.id) || pendingRows.size > 0}
+                  >
+                    <EditIcon size={14} strokeWidth={1.5} />
+                  </button>
+                )
               )}
             </div>
           </span>
         ),
         cell: ({ row, getValue }) => (
-          <EditableCell
-            rowId={String(row.original.id ?? "")}
-            columnId={col.id}
-            type={col.type as "text" | "number"}
-            value={row.original[col.id] as string}
-          />
+          pendingColumns.has(col.id) ? (
+            <div className="animate-pulse bg-gray-100 h-full w-full rounded p-2">
+              <div className="h-4 bg-gray-200 rounded"></div>
+            </div>
+          ) : (
+            <EditableCell
+              rowId={String(row.original.id ?? "")}
+              columnId={col.id}
+              type={col.type as "text" | "number"}
+              value={row.original[col.id] as string}
+              tableId={tableId}
+            />
+          )
         ),
       })) ?? [];
-  }, [c, updateColumnName, newColName, isColNameEditing, editColId, pendingRows]);
+  }, [c, updateColumnName, newColName, isColNameEditing, editColId, pendingColumns, pendingRows]);
 
   // ----------- add column handler -----------
   const handleAddRow = () => {
@@ -1093,7 +1172,7 @@ export function TableView({
                           <button
                             onClick={() => colType && handleAddColumn({ _type: colType })}
                             disabled={!colType}
-                            className="flex items-center gap-2 p-2 rounded-md bg-blue-500 text-white disabled:cursor-not-allowed"
+                            className="flex items-center gap-2 p-2 rounded-md bg-blue-500 text-white disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Create Field
                           </button>

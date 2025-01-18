@@ -10,6 +10,7 @@ interface EditableCellProps {
   columnId: string;
   className?: string;
   type: "text" | "number";
+  tableId: string;
 }
 
 export function EditableCell({
@@ -17,22 +18,21 @@ export function EditableCell({
   type,
   columnId,
   rowId,
-  className
+  className,
+  tableId
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
-  const debouncedInputValue = useDebounce(value, 1500);
+  const debouncedInputValue = useDebounce(value, 100);
   const [isInvalid, setIsInvalid] = useState(false);
   const ctx = api.useUtils();
-  const { setLoading, setGlobalFilter, localCells, setLocalCells } =
-    useAppContext();
+  const { setLoading, setGlobalFilter } = useAppContext();
 
   const { mutate } = api.table.updateCell.useMutation({
-    onSuccess: () => {
-      // void ctx.table.getData.invalidate();
-      // void ctx.table.getTotalRowsGivenTableId.invalidate();
+    onSuccess: (data) => {
       setIsInvalid(false);
       setLoading(false);
-    },
+      void ctx.table.getData.invalidate();
+    }
   });
 
   useEffect(() => {
@@ -52,10 +52,11 @@ export function EditableCell({
     });
   }, [debouncedInputValue]);
 
+
   useEffect(() => {
     setValue(initialValue);
-  }, [initialValue]);
-
+  }
+    , [initialValue]);
 
   return (
     <input
@@ -64,7 +65,7 @@ export function EditableCell({
       onChange={(e) => {
         setValue(e.target.value);
       }}
-      type="text"
+      type={type}
     />
   );
 }
