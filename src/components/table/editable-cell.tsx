@@ -11,6 +11,7 @@ interface EditableCellProps {
   className?: string;
   type: "text" | "number";
   tableId: string;
+  row: any;
 }
 
 export function EditableCell({
@@ -19,10 +20,11 @@ export function EditableCell({
   columnId,
   rowId,
   className,
-  tableId
+  tableId,
+  row,
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
-  const debouncedInputValue = useDebounce(value, 500);
+  const debouncedInputValue = useDebounce(value, 300);
   const [isInvalid, setIsInvalid] = useState(false);
   const ctx = api.useUtils();
   const { setLoading, setGlobalFilter } = useAppContext();
@@ -31,7 +33,7 @@ export function EditableCell({
     onSuccess: (data) => {
       setIsInvalid(false);
       setLoading(false);
-      void ctx.table.getData.invalidate();
+      // row[columnId] = data.value;
     }
   });
 
@@ -50,6 +52,7 @@ export function EditableCell({
       columnId,
       rowId,
     });
+    row[columnId] = debouncedInputValue;
   }, [debouncedInputValue]);
 
 

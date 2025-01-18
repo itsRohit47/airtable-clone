@@ -814,6 +814,7 @@ export function TableView({
               type={col.type as "text" | "number"}
               value={row.original[col.id] as string}
               tableId={tableId}
+              row={row.original}
             />
           )
         ),
