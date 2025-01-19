@@ -52,7 +52,7 @@ export function EditableCell({
       columnId,
       rowId,
     });
-    row[columnId] = debouncedInputValue;
+
   }, [debouncedInputValue]);
 
 
@@ -68,6 +68,10 @@ export function EditableCell({
       onChange={(e) => {
         setValue(e.target.value);
       }}
+      onBlur={() => {
+        row[columnId] = debouncedInputValue;
+      }
+      }
       type={type}
     />
   );
