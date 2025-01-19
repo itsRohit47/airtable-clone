@@ -24,7 +24,7 @@ export function EditableCell({
   row,
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
-  const debouncedInputValue = useDebounce(value, 300);
+  const debouncedInputValue = useDebounce(value, 350);
   const [isInvalid, setIsInvalid] = useState(false);
   const ctx = api.useUtils();
   const { setLoading, setGlobalFilter, sorting, columnFilters } = useAppContext();
@@ -52,6 +52,7 @@ export function EditableCell({
       columnId,
       rowId,
     });
+    row[columnId] = debouncedInputValue;
 
   }, [debouncedInputValue]);
 
