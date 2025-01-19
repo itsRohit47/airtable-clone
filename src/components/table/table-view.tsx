@@ -394,7 +394,8 @@ export function TableView({
 
 
   const flatData = useMemo(
-    () => tableData?.pages?.flatMap((page) => page.data) ?? [],
+    () => (tableData?.pages?.flatMap((page) => page.data) ?? [])
+      .sort((a, b) => (Number(a.order) ?? 0) - (Number(b.order) ?? 0)),
     [tableData],
   );
 
@@ -697,7 +698,7 @@ export function TableView({
       setLoading(false);
 
       // Invalidate the queries to fetch fresh data
-      void ctx.table.getData.invalidate({ tableId });
+      // void ctx.table.getData.invalidate({ tableId });
       void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
   });
