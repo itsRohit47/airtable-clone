@@ -646,9 +646,6 @@ function SearchInput() {
           placeholder="Find in view"
           autoFocus
           value={globalFilter ?? ""}
-          onFocus={(e) => {
-            setGlobalFilter(e.target.value);
-          }}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               setGlobalFilter("");
