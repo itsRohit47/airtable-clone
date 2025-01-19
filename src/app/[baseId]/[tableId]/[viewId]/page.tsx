@@ -20,10 +20,12 @@ export default function Table({
           <TableNav baseId={params.baseId} viewId={params.viewId}></TableNav>
           <TableHead tableId={params.tableId}></TableHead>
           <div className="flex h-full">
-            <ViewMenu
-              _tableId={params.tableId}
-              _baseId={params.baseId}
-            ></ViewMenu>
+            <div className="max-h-[85vh] h-full">
+              <ViewMenu
+                _tableId={params.tableId}
+                _baseId={params.baseId}
+              ></ViewMenu>
+            </div>
             <TableView
               tableId={params.tableId}
               viewId={params.viewId}

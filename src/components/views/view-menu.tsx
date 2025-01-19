@@ -95,7 +95,7 @@ export default function ViewMenu({
   }
 
   return (
-    <div className="w-80 border-r border-gray-200 bg-white text-xs flex flex-col relative">
+    <div className="w-80 border-r border-gray-200 bg-white text-xs flex flex-col relative h-full">
       <div className="px-4 py-2">
         <div
           className={`flex items-center gap-x-2 border-b ${isInputFocused ? "border-blue-500" : "border-gray-200"}`}
