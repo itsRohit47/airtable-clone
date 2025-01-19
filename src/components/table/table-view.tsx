@@ -394,9 +394,33 @@ export function TableView({
 
 
   const flatData = useMemo(
-    () => (tableData?.pages?.flatMap((page) => page.data) ?? [])
-      .sort((a, b) => (Number(a.order) ?? 0) - (Number(b.order) ?? 0)),
-    [tableData],
+    () => {
+      const data = tableData?.pages?.flatMap((page) => page.data) ?? [];
+      if (sorting.length > 0) {
+        return [...data].sort((a, b) => {
+          for (const sort of sorting) {
+            const aValue = a[sort.id];
+            const bValue = b[sort.id];
+            const direction = sort.desc ? -1 : 1;
+
+            // Handle string comparison
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+              const comparison = aValue.localeCompare(bValue);
+              if (comparison !== 0) return comparison * direction;
+            }
+            // Handle number comparison
+            else if (typeof aValue === 'number' && typeof bValue === 'number') {
+              if (aValue < bValue) return -1 * direction;
+              if (aValue > bValue) return 1 * direction;
+            }
+          }
+          // Fall back to order if all sort comparisons are equal
+          return (Number(a.order) ?? 0) - (Number(b.order) ?? 0);
+        });
+      }
+      return data.sort((a, b) => (Number(a.order) ?? 0) - (Number(b.order) ?? 0));
+    },
+    [tableData, sorting],
   );
 
   // ----------- add row mutation -----------
