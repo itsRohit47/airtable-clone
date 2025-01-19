@@ -488,9 +488,7 @@ export function TableView({
             );
             newPages[newPages.length - 1] = {
               ...lastPage,
-              data: [...filteredData, ...newRows].sort(
-                (a, b) => (Number(a.order) ?? 0) - (Number(b.order) ?? 0)
-              ),
+              data: [...filteredData, ...newRows]
             };
           }
           return { ...old, pages: newPages };
