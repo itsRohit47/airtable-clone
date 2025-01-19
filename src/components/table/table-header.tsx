@@ -78,7 +78,6 @@ const useSortFilterManagement = (viewId: string) => {
   // delete sort mutation
   const { mutate: deleteSort } = api.table.deleteSort.useMutation({
     onMutate: async (variables) => {
-      await ctx.table.getData.invalidate();
       await ctx.table.getViewSorts.cancel();
       const previousSorts = ctx.table.getViewSorts.getData({ viewId });
 
@@ -94,6 +93,7 @@ const useSortFilterManagement = (viewId: string) => {
       ctx.table.getViewSorts.setData({ viewId }, context?.previousSorts);
     },
     onSettled: () => {
+      void ctx.table.getData.invalidate();
       void ctx.table.getViewSorts.invalidate();
     },
   });
@@ -153,7 +153,6 @@ const useSortFilterManagement = (viewId: string) => {
   // delete filter mutation
   const { mutate: deleteFilter } = api.table.deleteFilter.useMutation({
     onMutate: async (variables) => {
-      await ctx.table.getData.invalidate();
       await ctx.table.getViewFilters.cancel();
       const previousFilters = ctx.table.getViewFilters.getData({ viewId });
 
@@ -169,6 +168,7 @@ const useSortFilterManagement = (viewId: string) => {
       ctx.table.getViewFilters.setData({ viewId }, context?.previousFilters);
     },
     onSettled: () => {
+      void ctx.table.getData.invalidate();
       void ctx.table.getViewFilters.invalidate();
     },
   });

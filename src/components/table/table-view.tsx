@@ -1362,7 +1362,7 @@ export function TableView({
             </button>
             {isFetching &&
               <div className="fixed bottom-10 right-1/2 transform translate-x-1/2 flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-gray-300">
-                Loading more <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />
+                <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />
               </div>
             }
             {isTutorialOpen && (
