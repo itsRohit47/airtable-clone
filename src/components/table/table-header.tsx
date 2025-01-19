@@ -633,6 +633,8 @@ function SearchInput() {
     }
   }, [globalFilter, setGlobalFilter]);
 
+  const ctx = api.useUtils();
+
   return (
     <div
       id="search-input"
@@ -655,6 +657,10 @@ function SearchInput() {
           }}
           onChange={(e) => {
             setGlobalFilter(e.target.value);
+            if (e.target.value === "") {
+              setGlobalFilter(null);
+              void ctx.table.getData.invalidate();
+            }
           }}
         />
         {!!globalFilter && (isLoading ? (
