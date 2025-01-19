@@ -332,7 +332,7 @@ export function TableView({
       })),
     },
     {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      getNextPageParam: (lastPage) => lastPage.nextCursor?.toString(),
       refetchOnWindowFocus: false,
     },
   );
@@ -1337,7 +1337,7 @@ export function TableView({
           <div className="fixed bottom-10 ml-3 flex items-center">
             <button
               onClick={handleAddRow}
-              disabled={isAdding || pendingRows.size > 0}
+              disabled={isAdding}
               className="flex items-center justify-center gap-x-2 rounded-l-full border bg-white p-2 hover:bg-gray-100 text-xs disabled:cursor-not-allowed disabled:opacity-50"
             >
               Add 5k rows {(isAdding) && <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />}

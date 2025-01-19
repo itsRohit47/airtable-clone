@@ -379,7 +379,7 @@ export const tableRouter = createTRPCRouter({
         search: z.string().optional(),
         sortBy: z.string().optional(),
         sortDesc: z.boolean().optional().default(false),
-        pageSize: z.number().optional().default(10),
+        pageSize: z.number().nullish().optional(),
         filters: z
           .array(
             z.object({
@@ -467,8 +467,8 @@ export const tableRouter = createTRPCRouter({
         };
       });
 
-      // Fetch rows from the database
-      const rows = await ctx.db.row.findMany({
+      // First, fetch all rows that match the filters
+      const allRows = await ctx.db.row.findMany({
         include: {
           cells: {
             include: {
@@ -493,8 +493,6 @@ export const tableRouter = createTRPCRouter({
             ...filterConditions,
           ],
         },
-        take: input.pageSize,
-        ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
       });
 
       // Fetch columns for the table
@@ -502,8 +500,8 @@ export const tableRouter = createTRPCRouter({
         where: { tableId: input.tableId },
       });
 
-      // Transform the data into a flat structure
-      let data = rows.map((row) => {
+      // Transform all rows into flat structure
+      let transformedData = allRows.map((row) => {
         const rowData: Record<string, string | number> = {
           id: row.id,
           order: row.order,
@@ -520,7 +518,7 @@ export const tableRouter = createTRPCRouter({
 
       // Apply sorts if they exist
       if (input.sorts && input.sorts.length > 0) {
-        data = data.sort((a, b) => {
+        transformedData = transformedData.sort((a, b) => {
           for (const sort of input.sorts!) {
             const aVal = a[sort.columnId];
             const bVal = b[sort.columnId];
@@ -538,10 +536,30 @@ export const tableRouter = createTRPCRouter({
         });
       }
 
+      // Apply pagination after sorting
+      let paginatedData = transformedData;
+      if (input.cursor) {
+        const cursorIndex = transformedData.findIndex(
+          (row) => row.id === input.cursor,
+        );
+        paginatedData = transformedData.slice(cursorIndex + 1);
+      }
+
+      if (input.pageSize) {
+        paginatedData = paginatedData.slice(0, input.pageSize + 1);
+      }
+
+      const hasNextPage = paginatedData.length > (input.pageSize ?? 0);
+      if (hasNextPage) {
+        paginatedData.pop(); // Remove the extra item we used to check for next page
+      }
+
       return {
-        data,
-        nextCursor: rows[rows.length - 1]?.id,
-        hasNextPage: rows.length === input.pageSize,
+        data: paginatedData,
+        nextCursor: hasNextPage
+          ? paginatedData[paginatedData.length - 1]?.id
+          : undefined,
+        hasNextPage,
       };
     }),
 
