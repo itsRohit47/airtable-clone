@@ -836,7 +836,7 @@ export function TableView({
                 )}
               </div>
             </div>
-            <div>
+            <div className="flex items-center gap-x-2">
               {!pendingColumns.has(col.id) && (
                 isColNameEditing && editColId === col.id ? (
                   <button
