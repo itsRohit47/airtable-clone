@@ -30,7 +30,7 @@ export default function TableNav({
             {tables?.map((table) => (
               <div className="transition-all duration-100" key={table.id}>
                 <Link
-                  href={`/${baseId}/${table.id}/${viewId}`}
+                  href={`/${baseId}/${table.id}/${table.views[0]?.id}`}
                   key={table.id}
                   onClick={() => {
                     if (pathname === `/${baseId}/${table.id}/${viewId}`) {

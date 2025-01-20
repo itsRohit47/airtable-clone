@@ -21,7 +21,7 @@ export const tableRouter = createTRPCRouter({
     .query(async ({ input, ctx }) => {
       return ctx.db.table.findMany({
         where: { baseId: input.baseId },
-        include: { rows: false, columns: false },
+        include: { rows: false, columns: false, views: true },
       });
     }),
 
