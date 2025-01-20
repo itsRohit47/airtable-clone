@@ -437,6 +437,7 @@ export function TableView({
     onMutate: async () => {
       setLoading(true);
       setIsAdding(true);
+      await ctx.table.getData.cancel();
       const previousData = ctx.table.getData.getInfiniteData();
       const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData({
         tableId,
@@ -450,9 +451,9 @@ export function TableView({
       // Get the highest order from existing non-pending rows
       const lastRow = previousData?.pages
         .flatMap(page => page.data)
-        .filter(row => !pendingRowsRef.current.has(String(row.id)))
         .sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0))
         .pop();
+
 
       const newRows: Record<string, any>[] = Array.from({ length: 400 }).map((_, index) => {
         const tempId = uuidv4();
@@ -462,6 +463,7 @@ export function TableView({
           order: (Number(lastRow?.order) ?? -1) + index + 1,
         };
       });
+
 
       // Initialize with placeholder data
       c?.forEach((col) => {
@@ -856,6 +858,7 @@ export function TableView({
 
   // ----------- add column handler -----------
   const handleAddRow = () => {
+
     add5kRow({ tableId });
   };
 
