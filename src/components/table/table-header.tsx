@@ -355,6 +355,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
           <button
             className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${viewSorts && viewSorts.length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : sortMenuOpen ? "bg-gray-200" : "hover:bg-gray-200/60"}`}
             onClick={() => {
+              void ctx.table.getData.invalidate();
               setSortMenuOpen(!sortMenuOpen);
             }}
           >

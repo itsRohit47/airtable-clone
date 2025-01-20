@@ -448,22 +448,21 @@ export function TableView({
         })) ?? [],
       });
 
-      // Get the highest order from existing non-pending rows
-      const lastRow = previousData?.pages
-        .flatMap(page => page.data)
-        .sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0))
-        .pop();
+      // Get all existing rows across all pages
+      const allExistingRows = previousData?.pages.flatMap(page => page.data) ?? [];
 
+      // Find the highest order number
+      const maxOrder = allExistingRows.reduce((max, row) =>
+        Math.max(max, Number(row.order) ?? 0), 0);
 
       const newRows: Record<string, any>[] = Array.from({ length: 400 }).map((_, index) => {
         const tempId = uuidv4();
         setPendingRows(prev => new Set(prev).add(tempId));
         return {
           id: tempId,
-          order: (Number(lastRow?.order) ?? -1) + index + 1,
+          order: maxOrder + index + 1, // Ensure new rows have order numbers after existing ones
         };
       });
-
 
       // Initialize with placeholder data
       c?.forEach((col) => {
@@ -472,7 +471,7 @@ export function TableView({
         });
       });
 
-      // Optimistically update data while maintaining order
+      // Append new rows to the last page
       ctx.table.getData.setInfiniteData(
         {
           tableId,
@@ -493,35 +492,19 @@ export function TableView({
           const newPages = [...old.pages];
           const lastPage = newPages[newPages.length - 1];
           if (lastPage) {
-            // Remove any existing temp rows first
-            const filteredData = lastPage.data.filter(
-              row => !String(row.id).startsWith('temp-id-')
-            );
             newPages[newPages.length - 1] = {
               ...lastPage,
-              data: [...filteredData, ...newRows]
+              data: [...lastPage.data.filter(row => !String(row.id).startsWith('temp-id-')), ...newRows]
             };
           }
-          return { ...old, pages: newPages };
+          return {
+            ...old,
+            pages: newPages,
+          };
         }
       );
 
       return { previousData, previousTotalRows };
-    },
-    onSuccess: (data) => {
-      // Clear pending rows that were successfully added
-      setPendingRows(prev => {
-        const newPending = new Set(prev);
-        data.forEach(row => {
-          newPending.delete(String(row.id));
-        });
-        return newPending;
-      });
-
-      setLoading(false);
-      setIsAdding(false);
-      void ctx.table.getData.invalidate({ tableId });
-      void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
     onError: (err, newRow, context) => {
       // Clear pending rows on error
@@ -541,6 +524,21 @@ export function TableView({
         title: "Error",
         description: err.message,
       });
+    },
+    onSuccess: (data) => {
+      // Clear pending rows that were successfully added
+      setPendingRows(prev => {
+        const newPending = new Set(prev);
+        data.forEach(row => {
+          newPending.delete(String(row.id));
+        });
+        return newPending;
+      });
+
+      setLoading(false);
+      setIsAdding(false);
+      void ctx.table.getData.invalidate({ tableId });
+      void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
   });
 
@@ -728,9 +726,7 @@ export function TableView({
       //   return newPending;
       // });
 
-      if (viewFilters?.length || viewSorts?.length || globalFilter) {
-        void ctx.table.getData.invalidate();
-      }
+      void ctx.table.getData.invalidate();
       setLoading(false);
 
       // Invalidate the queries to fetch fresh data
