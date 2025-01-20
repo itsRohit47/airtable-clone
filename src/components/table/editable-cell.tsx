@@ -25,7 +25,7 @@ export function EditableCell({
   row,
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
-  const debouncedInputValue = useDebounce(value, 100);
+  const debouncedInputValue = useDebounce(value, 200);
   const [isInvalid, setIsInvalid] = useState(false);
   const ctx = api.useUtils();
   const { setLoading, setGlobalFilter, sorting, columnFilters } = useAppContext();
@@ -37,11 +37,6 @@ export function EditableCell({
       // row[columnId] = data.value;
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-      });
-      alert(error.message);
       setIsInvalid(true);
       setLoading(false);
     }
