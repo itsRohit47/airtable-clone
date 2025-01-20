@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { api } from "@/trpc/react";
 import { useAppContext } from "../context";
 import useDebounce from "@/hooks/use-debounce";
+import { toast } from "@/hooks/use-toast";
 
 interface EditableCellProps {
   value: string;
@@ -24,7 +25,7 @@ export function EditableCell({
   row,
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
-  const debouncedInputValue = useDebounce(value, 350);
+  const debouncedInputValue = useDebounce(value, 100);
   const [isInvalid, setIsInvalid] = useState(false);
   const ctx = api.useUtils();
   const { setLoading, setGlobalFilter, sorting, columnFilters } = useAppContext();
@@ -34,6 +35,15 @@ export function EditableCell({
       setIsInvalid(false);
       setLoading(false);
       // row[columnId] = data.value;
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+      });
+      alert(error.message);
+      setIsInvalid(true);
+      setLoading(false);
     }
   });
 
@@ -52,7 +62,7 @@ export function EditableCell({
       columnId,
       rowId,
     });
-    row[columnId] = debouncedInputValue;
+    // row[columnId] = debouncedInputValue;
 
   }, [debouncedInputValue]);
 

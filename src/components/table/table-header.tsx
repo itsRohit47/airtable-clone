@@ -21,6 +21,7 @@ import {
   CaseUpperIcon,
   HashIcon,
   Loader2Icon,
+  Users2Icon,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { useState } from "react";
@@ -280,24 +281,26 @@ export default function TableHead({ tableId }: { tableId: string }) {
   }, [filterMenuRef, sortMenuRef, rowHeightMenuRef, searchMenuRef, setFilterMenuOpen, setSortMenuOpen, setRowHeightMenuOpen, setSearchMenuOpen, setIsViewsOpen]);
 
   return (
-    <div className="z-10 flex w-full items-center justify-between border-b border-gray-300 p-2 text-xs text-gray-700">
+    <div className="z-10 flex w-full items-center justify-between border-b border-gray-300 px-2 py-1 text-xs ">
       <div className="flex items-center gap-x-3">
         <button
           onClick={() => {
             setIsViewsOpen(!isViewsOpen);
           }}
-          style={{ backgroundColor: isViewsOpen ? "#f0f0f0" : "" }}
-          className={`flex cursor-pointer items-center gap-x-2 rounded-sm border border-gray-200/10 p-2 hover:bg-gray-200/60 ${isViewsOpen ? "hover:border-gray-300" : ""}`}
+          style={{ backgroundColor: isViewsOpen ? "#F2F2F2" : "" }}
+          className={`flex cursor-pointer items-center gap-x-2 rounded-sm border-2 border-gray-200/10 px-[6px] py-1 hover:bg-gray-200/60 ${isViewsOpen ? "hover:border-gray-300" : ""}`}
         >
           {" "}
           <ListIcon size={16} />
-          <div>View</div>
-        </button>
-        <button className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
-          <Grid2X2Icon size={16} />
-          <div>{selectedView ? selectedView.name : <div className="animate-pulse bg-gray-200 h-4 w-10 rounded-md"></div>}</div>
+          <div>Views</div>
         </button>
         <div>|</div>
+        <button className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
+          <Grid2X2Icon size={14} />
+          <div>{selectedView ? selectedView.name : <div className="animate-pulse bg-gray-200 h-4 w-10 rounded-md"></div>}</div>
+          <Users2Icon size={14} />
+          <ChevronDownIcon size={14} />
+        </button>
         <div className="relative rounded-sm hover:bg-gray-200/60" ref={hideMenuRef}>
           <button
             className={`flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 ${Object.values(columnVisibility).filter((visible) => !visible).length > 0 ? "bg-blue-200/80 hover:bg-blue-200" : "hover:bg-gray-200/60"}`}
@@ -332,6 +335,11 @@ export default function TableHead({ tableId }: { tableId: string }) {
           </button>
           {filterMenuOpen && <FilterMenu />}
         </div>
+        {/* group button */}
+        <button className="flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 hover:bg-gray-200/60">
+          <GroupIcon size={16} />
+          <div>Group</div>
+        </button>
         <div className="relative" ref={
           sortMenuRef
         }>
@@ -351,6 +359,11 @@ export default function TableHead({ tableId }: { tableId: string }) {
           {sortMenuOpen && viewSorts.length === 0 && <SortMenu />}
           {sortMenuOpen && (viewSorts.length ?? 0) > 0 && <SortView />}
         </div>
+        {/* color button */}
+        <button className="flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 hover:bg-gray-200/60">
+          <PaintBucketIcon size={16} />
+          <div>Color</div>
+        </button>
         <div
           className="relative flex cursor-pointer items-center justify-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60"
           ref={rowHeightMenuRef}
@@ -361,7 +374,13 @@ export default function TableHead({ tableId }: { tableId: string }) {
           <LineHeightIcon />
           {rowHeightMenuOpen && <RowHeightMenu />}
         </div>
+        <button className="flex cursor-pointer items-center justify-center gap-x-1 rounded-sm p-2 hover:bg-gray-200/60">
+          <ShareIcon size={16} />
+          <div>Share</div>
+        </button>
       </div>
+
+
       <div className="relative" ref={searchMenuRef}>
         <button
           className="h- flex cursor-pointer items-center gap-x-2 rounded-sm p-2 text-gray-500 hover:text-gray-900"
@@ -617,7 +636,7 @@ function SearchInput() {
     currentMatchIndex,
     goToNextMatch,
     goToPrevMatch,
-    selectedView
+    selectedView,
   } = useAppContext(); // Or wherever these are exposed
 
   const { data: totalMatches, isLoading } = api.table.getTotalMatches.useQuery({
@@ -646,12 +665,6 @@ function SearchInput() {
           placeholder="Find in view"
           autoFocus
           value={globalFilter ?? ""}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              setGlobalFilter("");
-              (e.target as HTMLInputElement).value = "";
-            }
-          }}
           onChange={(e) => {
             setGlobalFilter(e.target.value);
             if (e.target.value === "") {

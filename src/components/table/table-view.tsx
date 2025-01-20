@@ -13,6 +13,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 
 import {
@@ -43,6 +44,7 @@ import { cn } from "@/lib/utils";
 import { useAppContext } from "@/components/context";
 import { useVirtualizer, VirtualizerOptions } from "@tanstack/react-virtual";
 import useDebounce from "@/hooks/use-debounce";
+import cuid from "cuid";
 
 
 
@@ -57,11 +59,14 @@ export function TableView({
   // Add new state for pending rows
   const [pendingRows, setPendingRows] = useState<Set<string>>(new Set());
   const pendingRowsRef = useRef<Set<string>>(pendingRows);
+  const path = usePathname();
 
   // Update ref when pendingRows changes
   useEffect(() => {
     pendingRowsRef.current = pendingRows;
   }, [pendingRows]);
+
+
 
   // Add new state for pending columns
   const [pendingColumns, setPendingColumns] = useState<Set<string>>(new Set());
@@ -343,8 +348,8 @@ export function TableView({
     onMutate: async (data) => {
       setLoading(true);
       setColType(null);
-      const tempId = uuidv4();
-      setPendingColumns(prev => new Set(prev).add(tempId));
+      const tempId = cuid();
+      // setPendingColumns(prev => new Set(prev).add(tempId));
 
       await ctx.table.getColumnsByTableId.cancel();
       const previousData = ctx.table.getColumnsByTableId.getData();
@@ -352,7 +357,7 @@ export function TableView({
       ctx.table.getColumnsByTableId.setData({ tableId }, (old) => {
         if (!old) return old;
         return [...old, {
-          id: tempId,
+          id: data.columnId,
           name: "Untitled Column",
           tableId: tableId,
           defaultValue: null,
@@ -377,18 +382,21 @@ export function TableView({
       });
     },
     onSuccess: (data, variables, context) => {
-      if (!context?.tempId) return;
+      // if (!context?.tempId) return;
 
-      // Remove from pending columns
-      setPendingColumns(prev => {
-        const newPending = new Set(prev);
-        newPending.delete(context.tempId);
-        return newPending;
-      });
+      // // Remove from pending columns
+      // setPendingColumns(prev => {
+      //   const newPending = new Set(prev);
+      //   newPending.delete(context.tempId);
+      //   return newPending;
+      // });
+
+      // void ctx.table.getData.invalidate();
+      // void ctx.table.getColumnsByTableId.invalidate();
 
       setLoading(false);
-      void ctx.table.getData.invalidate({ tableId });
-      void ctx.table.getColumnsByTableId.invalidate();
+      // void ctx.table.getData.invalidate({ tableId });
+      // void ctx.table.getColumnsByTableId.invalidate();
     },
   });
 
@@ -536,8 +544,8 @@ export function TableView({
   const { mutate: add1Row, isPending: is1Pending } = api.table.add1Row.useMutation({
     onMutate: async (data) => {
       setLoading(true);
-      const tempId = uuidv4();
-      setPendingRows(prev => new Set(prev).add(tempId));
+      // const tempId = uuidv4();
+      // setPendingRows(prev => new Set(prev).add(tempId));
       await ctx.table.getData.cancel();
       await ctx.table.getTotalRowsGivenTableId.cancel();
 
@@ -570,7 +578,7 @@ export function TableView({
 
       // Create the new row with temp ID
       const newRowData: Record<string, string | number> = {
-        id: tempId,  // Use the same tempId we added to pendingRows
+        id: data.rowId,
         order: (Number(lastRow?.order) ?? -1) + 1, // Continue from the last order
       };
 
@@ -625,7 +633,7 @@ export function TableView({
         (old) => (old ?? 0) + 1
       );
 
-      return { previousData, previousTotalRows, tempId }; // Return tempId in context
+      return { previousData, previousTotalRows }; // Return tempId in context
     },
     onError: (err, newRow, context) => {
       // Clear pending rows on error
@@ -671,52 +679,53 @@ export function TableView({
       });
     },
     onSuccess: (data, variables, context) => {
-      if (!context?.tempId) return;
+      // if (!context?.tempId) return;
 
-      // Update the cache to replace temp ID with real ID
-      ctx.table.getData.setInfiniteData(
-        {
-          tableId,
-          pageSize: 200,
-          search: globalFilter ?? undefined,
-          filters: viewFilters?.map((f) => ({
-            columnId: f.columnId,
-            operator: f.operator,
-            value: f.value ?? "",
-          })) ?? [],
-          sorts: viewSorts?.map((s) => ({
-            columnId: s.columnId,
-            desc: s.desc,
-          })) ?? [],
-        },
-        (old) => {
-          if (!old) return old;
-          const newPages = [...old.pages];
-          const lastPage = newPages[newPages.length - 1];
-          if (lastPage) {
-            const updatedData = lastPage.data.map(row => {
-              if (row.id === context.tempId) {
-                // Replace the temp row with the real data
-                return { ...row, ...data[0] }; // Assuming data[0] contains the new row data
-              }
-              return row;
-            });
-            newPages[newPages.length - 1] = {
-              ...lastPage,
-              data: updatedData,
-            };
-          }
-          return { ...old, pages: newPages };
-        }
-      );
+      // // Update the cache to replace temp ID with real ID
+      // ctx.table.getData.setInfiniteData(
+      //   {
+      //     tableId,
+      //     pageSize: 200,
+      //     search: globalFilter ?? undefined,
+      //     filters: viewFilters?.map((f) => ({
+      //       columnId: f.columnId,
+      //       operator: f.operator,
+      //       value: f.value ?? "",
+      //     })) ?? [],
+      //     sorts: viewSorts?.map((s) => ({
+      //       columnId: s.columnId,
+      //       desc: s.desc,
+      //     })) ?? [],
+      //   },
+      //   (old) => {
+      //     if (!old) return old;
+      //     const newPages = [...old.pages];
+      //     const lastPage = newPages[newPages.length - 1];
+      //     if (lastPage) {
+      //       const updatedData = lastPage.data.map(row => {
+      //         if (row.id === context.tempId) {
+      //           // Replace the temp row with the real data
+      //           return { ...row, ...data[0] }; // Assuming data[0] contains the new row data
+      //         }
+      //         return row;
+      //       });
+      //       newPages[newPages.length - 1] = {
+      //         ...lastPage,
+      //         data: updatedData,
+      //       };
+      //     }
+      //     return { ...old, pages: newPages };
+      //   }
+      // );
 
-      // Remove from pending rows
-      setPendingRows(prev => {
-        const newPending = new Set(prev);
-        newPending.delete(context.tempId);
-        return newPending;
-      });
+      // // Remove from pending rows
+      // setPendingRows(prev => {
+      //   const newPending = new Set(prev);
+      //   newPending.delete(context.tempId);
+      //   return newPending;
+      // });
 
+      void ctx.table.getData.invalidate();
       setLoading(false);
 
       // Invalidate the queries to fetch fresh data
@@ -825,12 +834,10 @@ export function TableView({
             </div>
           </span>
         ),
-        cell: ({ row, getValue }) => (
-          pendingColumns.has(col.id) ? (
-            <div className="animate-pulse bg-gray-100 h-full w-full rounded p-2">
-              <div className="h-4 bg-gray-200 rounded"></div>
-            </div>
-          ) : (
+        cell: ({ row, getValue }) => {
+          const isPending = pendingRows.has(String(row.original.id)) || pendingColumns.has(col.id);
+
+          return (
             <EditableCell
               rowId={String(row.original.id ?? "")}
               columnId={col.id}
@@ -839,8 +846,8 @@ export function TableView({
               tableId={tableId}
               row={row.original}
             />
-          )
-        ),
+          );
+        },
       })) ?? [];
   }, [c, updateColumnName, newColName, isColNameEditing, editColId, pendingColumns, pendingRows]);
 
@@ -851,13 +858,22 @@ export function TableView({
 
   const handleAdd1Row = () => {
     const fakerData = c?.map((col) => (col.type === "text" ? "" : "")) ?? [];
-    add1Row({ tableId, fakerData });
+    const id = cuid();
+    add1Row({ rowId: id, tableId, fakerData });
   };
 
   // ----------- add column handler -----------
   const handleAddColumn = ({ _type }: { _type: "text" | "number" }) => {
-    table.resetSorting();
-    addColumn.mutate({ tableId, type: _type });
+    // Generate cell IDs for all existing rows
+    const cellIds = flatData.map(() => cuid());
+
+    addColumn.mutate({
+      tableId,
+      type: _type,
+      columnId: cuid(),
+      cellIds: cellIds, // Pass array of cell IDs
+      rows: flatData.map(row => String(row.id)) // Pass array of row IDs
+    });
     setIsAddColumnOpen(false);
   };
 
@@ -1060,7 +1076,9 @@ export function TableView({
     return flexRender(cell.column.columnDef.cell, cell.getContext());
   };
 
-
+  useEffect(() => {
+    ctx.table.getData.invalidate();
+  }, [path, ctx.table.getData]);
 
   // ----------- when loading -----------
   if (isLoading || isColsLoading || isRowsLoading || isViewSortsLoading || isViewFiltersLoading || isViewLoding) {

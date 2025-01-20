@@ -5,6 +5,7 @@ import { useAppContext } from "../context";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useOutsideClick } from "@/hooks/use-outside-click";
+import cuid from "cuid";
 
 export default function AddTableDialog({
   baseId,
@@ -19,7 +20,7 @@ export default function AddTableDialog({
   const ctx = api.useUtils();
   const router = useRouter();
   const { mutate: addTable } = api.table.addTable.useMutation({
-    onMutate: async (newTable: { baseId: string; name?: string; id?: string; createdAt?: Date; updatedAt?: Date }) => {
+    onMutate: async (newTable: { baseId: string; name?: string; id?: string; createdAt?: Date; updatedAt?: Date, tableId?: string, viewId?: string }) => {
       await ctx.table.getTablesByBaseId.cancel();
       const previousTables = ctx.table.getTablesByBaseId.getData();
       ctx.table.getTablesByBaseId.setData({ baseId }, (old) => [
@@ -28,6 +29,8 @@ export default function AddTableDialog({
           ...newTable,
           name: newTable.name ?? "Untitled Table",
           id: newTable.id ?? uuidv4(),
+          tableId: newTable.tableId ?? cuid(),
+          viewId: newTable.viewId ?? cuid(),
           createdAt: newTable.createdAt ?? new Date(),
           updatedAt: newTable.updatedAt ?? new Date(),
         },
@@ -39,11 +42,8 @@ export default function AddTableDialog({
         ctx.table.getTablesByBaseId.setData({ baseId }, context.previousTables);
       }
     },
-    onSettled: (data) => {
+    onSuccess: (data) => {
       void ctx.table.getTablesByBaseId.invalidate();
-      if (data) {
-        router.replace(`/${baseId}/${data.id}/${viewId}`);
-      }
     },
   });
   const ref = useOutsideClick(() => {
@@ -62,8 +62,14 @@ export default function AddTableDialog({
         <button
           className="rounded-sm bg-gray-100 p-2 text-start text-xs text-black"
           onClick={() => {
+            const _tableId = cuid();
+            const _viewId = cuid();
+            router.push(`/${baseId}/${_tableId}/${_viewId}`);
+            void ctx.table.getData.invalidate();
             addTable({
               baseId,
+              tableId: _tableId,
+              viewId: _viewId,
             });
           }}
         >

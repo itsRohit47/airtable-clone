@@ -134,7 +134,7 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [sortViewOpen, setSortViewOpen] = useState(false);
   const [tempCol, setTempCol] = useState({ id: "", name: "", type: "" });
   const [sortItems, setSortItems] = useState<JSX.Element[]>([]);
-  const [isViewsOpen, setIsViewsOpen] = useState(false);
+  const [isViewsOpen, setIsViewsOpen] = useState(true);
   const [selectedView, setSelectedView] = useState<View | null>(null);
   const [viewSorting, setViewSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})

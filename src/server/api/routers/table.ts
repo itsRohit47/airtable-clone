@@ -27,7 +27,15 @@ export const tableRouter = createTRPCRouter({
 
   // to add a new column to a table
   addField: protectedProcedure
-    .input(z.object({ tableId: z.string(), type: z.string() }))
+    .input(
+      z.object({
+        tableId: z.string(),
+        type: z.string(),
+        columnId: z.string(),
+        cellIds: z.array(z.string()), // Accept array of cell IDs
+        rows: z.array(z.string()), // Accept array of row IDs
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       // First get the highest order number from existing columns
       const lastColumn = await ctx.db.column.findFirst({
@@ -38,6 +46,7 @@ export const tableRouter = createTRPCRouter({
       // Create the new column with order = last + 1
       const newColumn = await ctx.db.column.create({
         data: {
+          id: input.columnId,
           name: "Untitled Column",
           defaultValue: "",
           type: input.type,
@@ -46,23 +55,17 @@ export const tableRouter = createTRPCRouter({
         },
       });
 
-      // Get all existing rows for this table
-      const existingRows = await ctx.db.row.findMany({
-        where: { tableId: input.tableId },
-      });
+      // Create cells using provided IDs
+      if (input.rows.length > 0) {
+        const cellData = input.rows.map((rowId, index) => ({
+          id: input.cellIds[index],
+          value: input.type === "number" ? "" : "",
+          numericValue: input.type === "number" ? null : null,
+          rowId: rowId,
+          columnId: newColumn.id,
+          tableId: input.tableId,
+        }));
 
-      // Create cells with default values for all existing rows
-      if (existingRows.length > 0) {
-        const cellData = existingRows.map((row) => {
-          const numericValue = input.type === "number" ? null : null;
-          return {
-            value: input.type === "number" ? "" : "",
-            numericValue,
-            rowId: row.id,
-            columnId: newColumn.id,
-            tableId: input.tableId,
-          };
-        });
         await ctx.db.cell.createMany({ data: cellData });
       }
 
@@ -71,10 +74,13 @@ export const tableRouter = createTRPCRouter({
 
   // to add a new table to a base
   addTable: protectedProcedure
-    .input(z.object({ baseId: z.string() }))
+    .input(
+      z.object({ baseId: z.string(), tableId: z.string(), viewId: z.string() }),
+    )
     .mutation(async ({ input, ctx }) => {
       return ctx.db.table.create({
         data: {
+          id: input.tableId,
           name: `Untitled Table`,
           baseId: input.baseId,
           columns: {
@@ -96,6 +102,7 @@ export const tableRouter = createTRPCRouter({
           views: {
             create: [
               {
+                id: input.viewId,
                 name: "Grid View",
                 filters: {
                   create: [],
@@ -130,13 +137,14 @@ export const tableRouter = createTRPCRouter({
 
   // to create a new view for a table
   addView: protectedProcedure
-    .input(z.object({ tableId: z.string() }))
+    .input(z.object({ tableId: z.string(), viewId: z.string() }))
     .mutation(async ({ input, ctx }) => {
       const viewCount = await ctx.db.view.count({
         where: { tableId: input.tableId },
       });
       return ctx.db.view.create({
         data: {
+          id: input.viewId,
           name: `Grid View ${viewCount + 1}`,
           tableId: input.tableId,
           filters: {
@@ -258,6 +266,7 @@ export const tableRouter = createTRPCRouter({
   add1Row: protectedProcedure
     .input(
       z.object({
+        rowId: z.string(),
         tableId: z.string(),
         fakerData: z.array(z.string()).optional(),
       }),
@@ -270,7 +279,7 @@ export const tableRouter = createTRPCRouter({
       });
 
       const newRows = Array.from({ length: 1 }).map((_, i) => ({
-        id: cuid(), // Pre-generate unique ID
+        id: input.rowId, // Pre-generate unique ID
         tableId: input.tableId,
         order: (lastRow?.order ?? -1) + i + 1, // Continue from the last order
       }));
@@ -355,6 +364,39 @@ export const tableRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // First check if the cell exists
+      const existingCell = await ctx.db.cell.findUnique({
+        where: {
+          rowId_columnId: {
+            rowId: input.rowId,
+            columnId: input.columnId,
+          },
+        },
+      });
+
+      // If cell doesn't exist, create it
+      if (!existingCell) {
+        const column = await ctx.db.column.findUnique({
+          where: { id: input.columnId },
+        });
+
+        if (!column) {
+          throw new Error("Column not found");
+        }
+
+        return ctx.db.cell.create({
+          data: {
+            rowId: input.rowId,
+            columnId: input.columnId,
+            value: input.value,
+            numericValue:
+              column.type === "number" ? parseFloat(input.value) : null,
+            tableId: column.tableId,
+          },
+        });
+      }
+
+      // If cell exists, update it
       const numericValue = parseFloat(input.value);
       return ctx.db.cell.update({
         where: {

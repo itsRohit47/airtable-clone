@@ -20,7 +20,7 @@ export default function Table({
           <TableNav baseId={params.baseId} viewId={params.viewId}></TableNav>
           <TableHead tableId={params.tableId}></TableHead>
           <div className="flex h-full">
-            <div className="max-h-[85vh] h-full">
+            <div className="max-h-[100vh] h-full">
               <ViewMenu
                 _tableId={params.tableId}
                 _baseId={params.baseId}
