@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Account {
@@ -100,17 +101,17 @@ model Row {
 }
 
 model Cell {
-  id        String   @id @default(cuid())
-  value     String?
+  id           String   @id @default(cuid())
+  value        String?
   numericValue Float?
-  row       Row      @relation(fields: [rowId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  rowId     String
-  column    Column   @relation(fields: [columnId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  columnId  String
-  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  tableId   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  row          Row      @relation(fields: [rowId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  rowId        String
+  column       Column   @relation(fields: [columnId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  columnId     String
+  table        Table    @relation(fields: [tableId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tableId      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([rowId, columnId])
   @@index([value])

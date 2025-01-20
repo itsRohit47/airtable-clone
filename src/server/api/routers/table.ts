@@ -241,7 +241,13 @@ export const tableRouter = createTRPCRouter({
   // to add a new row to a table
 
   addRow: protectedProcedure
-    .input(z.object({ tableId: z.string() }))
+    .input(
+      z.object({
+        tableId: z.string(),
+        rowIds: z.array(z.string()),
+        fakerData: z.array(z.array(z.string())),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Get the highest order number from existing rows
       const lastRow = await ctx.db.row.findFirst({
@@ -253,24 +259,22 @@ export const tableRouter = createTRPCRouter({
         where: { tableId: input.tableId },
       });
 
-      const newRows = Array.from({ length: 5000 }).map((_, i) => ({
-        id: cuid(), // Pre-generate unique ID
+      const newRows = input.rowIds.map((id, i) => ({
+        id: id,
         tableId: input.tableId,
-        order: (lastRow?.order ?? -1) + i + 1, // Continue from the last order
+        order: (lastRow?.order ?? -1) + i + 1,
       }));
 
-      const newCells = newRows.flatMap((row) =>
-        columns.map((column) => {
-          const value =
-            column.type === "text"
-              ? faker.person.fullName()
-              : faker.number.int({ max: 1000000 }).toString();
+      const newCells = newRows.flatMap((row, rowIndex) =>
+        columns.map((column, colIndex) => {
+          const value = input.fakerData[rowIndex]?.[colIndex] ?? "";
           return {
             rowId: row.id,
             columnId: column.id,
             tableId: input.tableId,
-            value,
-            numericValue: column.type === "number" ? parseFloat(value) : null,
+            value: value,
+            numericValue:
+              column.type === "number" ? parseFloat(value) || null : null,
           };
         }),
       );

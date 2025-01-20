@@ -31,7 +31,7 @@ export default function AddTableDialog({
           id: newTable.id ?? uuidv4(),
           createdAt: newTable.createdAt ?? new Date(),
           updatedAt: newTable.updatedAt ?? new Date(),
-          views: [], // Add empty views array to match the required type
+          views: [],
         },
       ]);
       return { previousTables };

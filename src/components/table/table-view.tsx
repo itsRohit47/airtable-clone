@@ -433,12 +433,31 @@ export function TableView({
   );
 
   // ----------- add row mutation -----------
-  const { mutate: add5kRow, isPending: is5kPending } = api.table.addRow.useMutation({
-    onMutate: async () => {
+  const { mutate: add5kRow, isPending: is5kPending } = api.table.addRow.useMutation<{
+    rowIds: string[];
+    tableId: string;
+    fakerData: string[][];
+  }>({
+    onMutate: async (variables) => {
+      const { tableId, rowIds, fakerData } = variables;
       setLoading(true);
       setIsAdding(true);
       await ctx.table.getData.cancel();
-      const previousData = ctx.table.getData.getInfiniteData();
+      const previousData = ctx.table.getData.getInfiniteData({
+        tableId,
+        pageSize: 200,
+        search: globalFilter ?? undefined,
+        filters: viewFilters?.map((f) => ({
+          columnId: f.columnId,
+          operator: f.operator,
+          value: f.value ?? "",
+        })) ?? [],
+        sorts: viewSorts?.map((s) => ({
+          columnId: s.columnId,
+          desc: s.desc,
+        })) ?? [],
+      });
+
       const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData({
         tableId,
         filters: viewFilters?.map((f) => ({
@@ -448,30 +467,28 @@ export function TableView({
         })) ?? [],
       });
 
-      // Get all existing rows across all pages
-      const allExistingRows = previousData?.pages.flatMap(page => page.data) ?? [];
+      // Get the highest order number from existing rows
+      const lastRow = previousData?.pages.flatMap(page => page.data).sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0))[0];
+      const startOrder = (Number(lastRow?.order) ?? -1) + 1;
 
-      // Find the highest order number
-      const maxOrder = allExistingRows.reduce((max, row) =>
-        Math.max(max, Number(row.order) ?? 0), 0);
-
-      const newRows: Record<string, any>[] = Array.from({ length: 400 }).map((_, index) => {
-        const tempId = uuidv4();
-        setPendingRows(prev => new Set(prev).add(tempId));
+      // Create array of 5000 new rows
+      const newRows: Record<string, string | number>[] = Array.from({ length: 5000 }).map((_, index) => {
+        const rowId = cuid();
+        setPendingRows(prev => new Set(prev).add(rowId));
         return {
-          id: tempId,
-          order: maxOrder + index + 1, // Ensure new rows have order numbers after existing ones
+          id: rowId,
+          order: startOrder + index,
         };
       });
 
-      // Initialize with placeholder data
-      c?.forEach((col) => {
-        newRows.forEach((row) => {
-          row[col.id] = 'Loading...';
+      // Initialize with empty cells for each column
+      newRows.forEach(row => {
+        c?.forEach(col => {
+          row[col.id] = '';
         });
       });
 
-      // Append new rows to the last page
+      // Add new rows to the data
       ctx.table.getData.setInfiniteData(
         {
           tableId,
@@ -494,50 +511,79 @@ export function TableView({
           if (lastPage) {
             newPages[newPages.length - 1] = {
               ...lastPage,
-              data: [...lastPage.data.filter(row => !String(row.id).startsWith('temp-id-')), ...newRows]
+              data: [...lastPage.data, ...newRows],
             };
           }
-          return {
-            ...old,
-            pages: newPages,
-          };
+          return { ...old, pages: newPages };
         }
       );
 
-      return { previousData, previousTotalRows };
+      // Update total rows count
+      ctx.table.getTotalRowsGivenTableId.setData(
+        {
+          tableId,
+          filters: viewFilters?.map((f) => ({
+            columnId: f.columnId,
+            operator: f.operator,
+            value: f.value ?? "",
+          })) ?? [],
+        },
+        (old) => (old ?? 0) + 5000
+      );
+
+      return {
+        rowIds,
+        tableId,
+        fakerData,
+        context: { previousData, previousTotalRows }
+      };
     },
-    onError: (err, newRow, context) => {
-      // Clear pending rows on error
+    // onError: (err, newRow, context) => {
+    //   setPendingRows(new Set());
+    //   if (context?.previousData) {
+    //     ctx.table.getData.setInfiniteData(
+    //       {
+    //         tableId,
+    //       pageSize: 200,
+    //       search: globalFilter ?? undefined,
+    //       filters: viewFilters?.map((f) => ({
+    //         columnId: f.columnId,
+    //         operator: f.operator,
+    //         value: f.value ?? "",
+    //       })) ?? [],
+    //       sorts: viewSorts?.map((s) => ({
+    //         columnId: s.columnId,
+    //         desc: s.desc,
+    //       })) ?? [],
+    //       },
+    //       context.previousData
+    //     );
+    //     if (context.previousTotalRows !== undefined) {
+    //       ctx.table.getTotalRowsGivenTableId.setData(
+    //         {
+    //           tableId,
+    //           filters: viewFilters?.map((f) => ({
+    //             columnId: f.columnId,
+    //             operator: f.operator,
+    //             value: f.value ?? "",
+    //           })) ?? [],
+    //         },
+    //         context.previousTotalRows
+    //       );
+    //     }
+    //   }
+    //   setLoading(false);
+    //   setIsAdding(false);
+    //   toast({
+    //     title: "Error",
+    //     description: "Failed to add rows",
+    //   });
+    // },
+    onSuccess: () => {
       setPendingRows(new Set());
-
-      if (context?.previousData) {
-        ctx.table.getData.setInfiniteData(
-          { tableId, pageSize: 200 },
-          context.previousData
-        );
-        ctx.table.getTotalRowsGivenTableId.setData(
-          { tableId },
-          context.previousTotalRows
-        );
-      }
-      toast({
-        title: "Error",
-        description: err.message,
-      });
-    },
-    onSuccess: (data) => {
-      // Clear pending rows that were successfully added
-      setPendingRows(prev => {
-        const newPending = new Set(prev);
-        data.forEach(row => {
-          newPending.delete(String(row.id));
-        });
-        return newPending;
-      });
-
       setLoading(false);
       setIsAdding(false);
-      void ctx.table.getData.invalidate({ tableId });
+      void ctx.table.getData.invalidate();
       void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
   });
@@ -726,7 +772,7 @@ export function TableView({
       //   return newPending;
       // });
 
-      void ctx.table.getData.invalidate();
+      // void ctx.table.getData.invalidate();
       setLoading(false);
 
       // Invalidate the queries to fetch fresh data
@@ -854,8 +900,16 @@ export function TableView({
 
   // ----------- add column handler -----------
   const handleAddRow = () => {
+    const rowIds = Array(5000).fill(null).map(() => cuid());
+    const fakerData = Array(5000).fill(null).map(() =>
+      c?.map(col => col.type === "text" ? faker.person.fullName() : faker.number.int({ max: 1000000 }).toString()) ?? []
+    );
 
-    add5kRow({ tableId });
+    add5kRow({
+      rowIds,
+      tableId,
+      fakerData
+    });
   };
 
   const handleAdd1Row = () => {
