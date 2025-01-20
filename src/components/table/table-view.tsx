@@ -59,8 +59,7 @@ export function TableView({
   // Add new state for pending rows
   const [pendingRows, setPendingRows] = useState<Set<string>>(new Set());
   const pendingRowsRef = useRef<Set<string>>(pendingRows);
-  const path = usePathname();
-
+  const [rowOrder, setRowOrder] = useState(0);
   // Update ref when pendingRows changes
   useEffect(() => {
     pendingRowsRef.current = pendingRows;
@@ -433,13 +432,13 @@ export function TableView({
   );
 
   // ----------- add row mutation -----------
-  const { mutate: add5kRow, isPending: is5kPending } = api.table.addRow.useMutation<{
+  const { mutate: add5kRow } = api.table.addRow.useMutation<{
     rowIds: string[];
     tableId: string;
-    fakerData: string[][];
+    order: number;
   }>({
     onMutate: async (variables) => {
-      const { tableId, rowIds, fakerData } = variables;
+      const { tableId, rowIds, fakerData, order } = variables;
       setLoading(true);
       setIsAdding(true);
       await ctx.table.getData.cancel();
@@ -467,24 +466,24 @@ export function TableView({
         })) ?? [],
       });
 
-      // Get the highest order number from existing rows
-      const lastRow = previousData?.pages.flatMap(page => page.data).sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0))[0];
-      const startOrder = (Number(lastRow?.order) ?? -1) + 1;
 
       // Create array of 5000 new rows
-      const newRows: Record<string, string | number>[] = Array.from({ length: 5000 }).map((_, index) => {
+      const newRows: Record<string, string | number>[] = Array.from({ length: 200 }).map((_, index) => {
         const rowId = cuid();
         setPendingRows(prev => new Set(prev).add(rowId));
+        const lastRow = flatData[flatData.length - 1];
         return {
           id: rowId,
-          order: startOrder + index,
+          order: viewFilters?.length || viewSorts?.length
+            ? Number(lastRow?.order ?? 0) + index + 1
+            : (order ?? rowOrder) + index,
         };
       });
 
       // Initialize with empty cells for each column
       newRows.forEach(row => {
         c?.forEach(col => {
-          row[col.id] = '';
+          row[col.id] = c?.find(c => c.id === col.id)?.type === "text" ? faker.person.fullName() : faker.number.int({ max: 1000000 }).toString();
         });
       });
 
@@ -531,14 +530,14 @@ export function TableView({
         (old) => (old ?? 0) + 5000
       );
 
+
       return {
         rowIds,
         tableId,
         fakerData,
-        context: { previousData, previousTotalRows }
+        order: order ?? rowOrder,
       };
     },
-    // onError: (err, newRow, context) => {
     //   setPendingRows(new Set());
     //   if (context?.previousData) {
     //     ctx.table.getData.setInfiniteData(
@@ -580,10 +579,25 @@ export function TableView({
     //   });
     // },
     onSuccess: () => {
-      setPendingRows(new Set());
       setLoading(false);
       setIsAdding(false);
-      void ctx.table.getData.invalidate();
+      setPendingRows(new Set());
+      void ctx.table.getData.invalidate({
+        tableId,
+        pageSize: 200,
+        search: globalFilter ?? undefined,
+        filters: viewFilters?.map((f) => ({
+          columnId: f.columnId,
+          operator: f.operator,
+          value: f.value ?? "",
+        })) ?? [],
+        sorts: viewSorts?.map((s) => ({
+          columnId: s.columnId,
+          desc: s.desc,
+        })) ?? [],
+      });
+      setRowOrder((prev) => prev + 5000);
+      console.log(rowOrder);
       void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
   });
@@ -620,13 +634,13 @@ export function TableView({
         })) ?? [],
       });
 
-      // Get the highest order number from existing rows
-      const lastRow = previousData?.pages.flatMap(page => page.data).sort((a, b) => (Number(b.order) ?? 0) - (Number(a.order) ?? 0))[0];
 
       // Create the new row with temp ID
       const newRowData: Record<string, string | number> = {
         id: data.rowId,
-        order: (Number(lastRow?.order) ?? -1) + 1, // Continue from the last order
+        order: viewFilters?.length || viewSorts?.length
+          ? Number(flatData[flatData.length - 1]?.order ?? 0) + 1
+          : data.order ?? rowOrder + 1,
       };
 
       // Add empty cells for each column
@@ -680,7 +694,9 @@ export function TableView({
         (old) => (old ?? 0) + 1
       );
 
-      return { previousData, previousTotalRows }; // Return tempId in context
+      const hasMore = previousData?.pages?.[previousData.pages.length - 1]?.hasNextPage ?? false;
+
+      return { previousData, previousTotalRows, hasMore };
     },
     onError: (err, newRow, context) => {
       // Clear pending rows on error
@@ -726,6 +742,7 @@ export function TableView({
       });
     },
     onSuccess: (data, variables, context) => {
+      console.log(rowOrder);
       // if (!context?.tempId) return;
 
       // // Update the cache to replace temp ID with real ID
@@ -775,8 +792,11 @@ export function TableView({
       // void ctx.table.getData.invalidate();
       setLoading(false);
 
-      // Invalidate the queries to fetch fresh data
-      // void ctx.table.getData.invalidate({ tableId });
+      // Invalidate the queries to fetch fresh data if there is next page (hasNextPage) in context
+      if (context.hasMore || (viewFilters && viewFilters.length > 0) || (viewSorts && viewSorts.length > 0) || globalFilter) {
+        void ctx.table.getData.invalidate();
+      }
+
       void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
   });
@@ -791,6 +811,13 @@ export function TableView({
       value: f.value ?? "",
     })) ?? [],
   });
+
+  useEffect(() => {
+    if (totalRows !== undefined) {
+      setRowOrder(totalRows);
+      console.log(rowOrder, 'rowOrder');
+    }
+  }, [rowOrder, totalRows]);
 
 
   // ----------- columns -----------
@@ -901,21 +928,20 @@ export function TableView({
   // ----------- add column handler -----------
   const handleAddRow = () => {
     const rowIds = Array(5000).fill(null).map(() => cuid());
-    const fakerData = Array(5000).fill(null).map(() =>
-      c?.map(col => col.type === "text" ? faker.person.fullName() : faker.number.int({ max: 1000000 }).toString()) ?? []
-    );
 
     add5kRow({
       rowIds,
       tableId,
-      fakerData
+      order: rowOrder + 1,
     });
+
   };
 
   const handleAdd1Row = () => {
     const fakerData = c?.map((col) => (col.type === "text" ? "" : "")) ?? [];
     const id = cuid();
-    add1Row({ rowId: id, tableId, fakerData });
+
+    add1Row({ rowId: id, tableId, fakerData, order: rowOrder + 1 });
   };
 
   // ----------- add column handler -----------
@@ -1323,7 +1349,7 @@ export function TableView({
                         >
                           {!row?.getIsSelected() && (
                             <div className="absolute left-2 text-xs text-gray-500">
-                              {table.getVisibleLeafColumns().length > 0 && (virtualRow.index + 1)}
+                              {table.getVisibleLeafColumns().length > 0 && (row?.index !== undefined ? row.index + 1 : '')}
                             </div>
                           )}
                           <td className={cn("absolute z-20 p-2 text-xs", {
@@ -1416,7 +1442,6 @@ export function TableView({
                               strokeWidth={1}
                               className="rounded-md p-1 group-hover:bg-gray-200"
                             />
-                            Add 1 row
                           </div>
                         )}
                         {index !== 0 && <div className=""></div>}

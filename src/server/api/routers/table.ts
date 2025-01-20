@@ -245,16 +245,11 @@ export const tableRouter = createTRPCRouter({
       z.object({
         tableId: z.string(),
         rowIds: z.array(z.string()),
-        fakerData: z.array(z.array(z.string())),
+        fakerData: z.array(z.array(z.string())).optional(),
+        order: z.number().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Get the highest order number from existing rows
-      const lastRow = await ctx.db.row.findFirst({
-        where: { tableId: input.tableId },
-        orderBy: { order: "desc" },
-      });
-
       const columns = await ctx.db.column.findMany({
         where: { tableId: input.tableId },
       });
@@ -262,19 +257,37 @@ export const tableRouter = createTRPCRouter({
       const newRows = input.rowIds.map((id, i) => ({
         id: id,
         tableId: input.tableId,
-        order: (lastRow?.order ?? -1) + i + 1,
+        order: (input.order ?? 0) + i,
       }));
 
       const newCells = newRows.flatMap((row, rowIndex) =>
         columns.map((column, colIndex) => {
-          const value = input.fakerData[rowIndex]?.[colIndex] ?? "";
+          let value: string;
+          let numericValue: number | null = null;
+          switch (column.type) {
+            case "number":
+              const numberValue =
+                input.fakerData?.[rowIndex]?.[colIndex] ??
+                faker.number.int({ max: 10000 });
+              value = String(numberValue);
+              numericValue =
+                typeof numberValue === "number"
+                  ? numberValue
+                  : Number(numberValue);
+              break;
+            case "text":
+            default:
+              value =
+                input.fakerData?.[rowIndex]?.[colIndex] ??
+                faker.person.fullName();
+              break;
+          }
           return {
             rowId: row.id,
             columnId: column.id,
             tableId: input.tableId,
             value: value,
-            numericValue:
-              column.type === "number" ? parseFloat(value) || null : null,
+            numericValue: numericValue,
           };
         }),
       );
@@ -294,19 +307,14 @@ export const tableRouter = createTRPCRouter({
         rowId: z.string(),
         tableId: z.string(),
         fakerData: z.array(z.string()).optional(),
+        order: z.number().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Get the highest order number from existing rows
-      const lastRow = await ctx.db.row.findFirst({
-        where: { tableId: input.tableId },
-        orderBy: { order: "desc" },
-      });
-
       const newRows = Array.from({ length: 1 }).map((_, i) => ({
         id: input.rowId, // Pre-generate unique ID
         tableId: input.tableId,
-        order: (lastRow?.order ?? -1) + i + 1, // Continue from the last order
+        order: input.order ?? 0,
       }));
 
       // Step 1: Create rows
@@ -326,7 +334,7 @@ export const tableRouter = createTRPCRouter({
             tableId: input.tableId,
             value: v[colIndex] ?? "",
             numericValue:
-              column.type === "number" ? parseFloat(v[colIndex] ?? "0") : null,
+              column.type === "number" ? parseFloat(v[colIndex] ?? "") : null,
           };
         }),
       );
@@ -583,7 +591,6 @@ export const tableRouter = createTRPCRouter({
         return rowData;
       });
 
-      // Apply sorts if they exist
       if (input.sorts && input.sorts.length > 0) {
         transformedData = transformedData.sort((a, b) => {
           for (const sort of input.sorts!) {
@@ -596,7 +603,11 @@ export const tableRouter = createTRPCRouter({
               return sort.desc ? bVal - aVal : aVal - bVal;
             }
 
-            const comp = String(aVal).localeCompare(String(bVal));
+            const comp = (aVal ?? "")
+              .toString()
+              .localeCompare((bVal ?? "").toString(), undefined, {
+                numeric: true,
+              });
             return sort.desc ? -comp : comp;
           }
           return 0;

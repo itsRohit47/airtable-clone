@@ -667,7 +667,7 @@ function SearchInput() {
   return (
     <div
       id="search-input"
-      className="absolute right-0 top-full mt-2 bg-white shadow-sm flex"
+      className="absolute right-0 top-full mt-1 bg-white shadow-sm flex"
     >
       <div className="flex w-80 items-center border p-2">
         <input

@@ -5,6 +5,7 @@ import React, {
   useState,
   type ReactNode,
   useContext,
+  useEffect,
 } from "react";
 
 interface Column {
@@ -134,7 +135,13 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [sortViewOpen, setSortViewOpen] = useState(false);
   const [tempCol, setTempCol] = useState({ id: "", name: "", type: "" });
   const [sortItems, setSortItems] = useState<JSX.Element[]>([]);
-  const [isViewsOpen, setIsViewsOpen] = useState(true);
+  const [isViewsOpen, setIsViewsOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('isViewsOpen');
+      return stored ? JSON.parse(stored) : true;
+    }
+    return true;
+  });
   const [selectedView, setSelectedView] = useState<View | null>(null);
   const [viewSorting, setViewSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
@@ -158,6 +165,10 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   >([]);
   const [matchedCells, setMatchedCells] = useState<{ rowIndex: number; colIndex: number }[]>([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  useEffect(() => {
+    localStorage.setItem('isViewsOpen', JSON.stringify(isViewsOpen));
+  }, [isViewsOpen]);
 
   const focusMatch = (rowI: number, colI: number) => {
     const selector = `[data-row-index='${rowI}'][data-col-index='${colI}']`;

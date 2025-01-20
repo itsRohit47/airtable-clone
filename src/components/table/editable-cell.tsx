@@ -25,7 +25,7 @@ export function EditableCell({
   row,
 }: EditableCellProps) {
   const [value, setValue] = useState(initialValue);
-  const debouncedInputValue = useDebounce(value, 200);
+  const debouncedInputValue = useDebounce(value, 350);
   const [isInvalid, setIsInvalid] = useState(false);
   const ctx = api.useUtils();
   const { setLoading, setGlobalFilter, sorting, columnFilters } = useAppContext();
@@ -57,7 +57,7 @@ export function EditableCell({
       columnId,
       rowId,
     });
-    // row[columnId] = debouncedInputValue;
+    row[columnId] = debouncedInputValue;
 
   }, [debouncedInputValue]);
 
@@ -76,7 +76,7 @@ export function EditableCell({
       }}
       onBlur={() => {
         row[columnId] = debouncedInputValue;
-        if (sorting.length > 0) {
+        if (sorting.length > 0 || columnFilters.length > 0) {
           void ctx.table.getData.invalidate();
         }
       }
