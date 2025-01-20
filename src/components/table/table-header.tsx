@@ -23,11 +23,13 @@ import {
   Loader2Icon,
   Users2Icon,
 } from "lucide-react";
+
 import { api } from "@/trpc/react";
 import { useState } from "react";
 import { LineHeightIcon } from "@radix-ui/react-icons";
 import { useAppContext } from "../context";
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 
 const useSortFilterManagement = (viewId: string) => {
@@ -35,6 +37,7 @@ const useSortFilterManagement = (viewId: string) => {
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const ctx = api.useUtils();
   const { localColumns } = useAppContext();
+
 
   // get the view sorts and filters
   const viewSorts = api.table.getViewSorts.useQuery({ viewId });
@@ -223,6 +226,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
   const [rowHeightMenuOpen, setRowHeightMenuOpen] = useState(false);
   const [hideMenuOpen, setHideMenuOpen] = useState(false);
   const { data: cols } = api.table.getColumnsByTableId.useQuery({ tableId });
+  const router = useRouter();
 
   const { isViewsOpen, setIsViewsOpen, selectedView, localColumns, setLocalColumns, columnVisibility } =
     useAppContext();
@@ -245,6 +249,11 @@ export default function TableHead({ tableId }: { tableId: string }) {
   const rowHeightMenuRef = useRef<HTMLDivElement>(null);
   const searchMenuRef = useRef<HTMLDivElement>(null);
   const hideMenuRef = useRef<HTMLDivElement>(null);
+
+  const { data: view } = api.table.getViewById.useQuery({ viewId: selectedView?.id ?? "" }, {
+    enabled: !!selectedView?.id,
+  });
+
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -297,7 +306,7 @@ export default function TableHead({ tableId }: { tableId: string }) {
         <div>|</div>
         <button className="flex cursor-pointer items-center gap-x-2 rounded-sm p-2 hover:bg-gray-200/60">
           <Grid2X2Icon size={14} />
-          <div>{selectedView ? selectedView.name : <div className="animate-pulse bg-gray-200 h-4 w-10 rounded-md"></div>}</div>
+          <div>{view ? view.name : <div className="animate-pulse bg-gray-200 h-4 w-10 rounded-md"></div>}</div>
           <Users2Icon size={14} />
           <ChevronDownIcon size={14} />
         </button>

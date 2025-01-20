@@ -7,6 +7,15 @@ import { faker } from "@faker-js/faker";
 
 export const tableRouter = createTRPCRouter({
   // for the base layout
+
+  getviewById: protectedProcedure
+    .input(z.object({ viewId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      return ctx.db.view.findUnique({
+        where: { id: input.viewId },
+      });
+    }),
+
   getTablesByBaseId: protectedProcedure
     .input(z.object({ baseId: z.string() }))
     .query(async ({ input, ctx }) => {
@@ -82,7 +91,7 @@ export const tableRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      return ctx.db.table.create({
+      const result = await ctx.db.table.create({
         data: {
           id: input.tableId ?? cuid(),
           name: `Untitled Table`,
@@ -118,7 +127,15 @@ export const tableRouter = createTRPCRouter({
             ],
           },
         },
+        include: {
+          views: true,
+        },
       });
+
+      return {
+        table: result,
+        view: result.views[0],
+      };
     }),
 
   // to get views for a table

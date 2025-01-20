@@ -18,6 +18,7 @@ export default function AddTableDialog({
   const [clicked, setClicked] = useState(false);
   const ctx = api.useUtils();
   const router = useRouter();
+  const { setSelectedView } = useAppContext();
   const { mutate: addTable } = api.table.addTable.useMutation({
     onMutate: async (newTable: { baseId: string; name?: string; id?: string; createdAt?: Date; updatedAt?: Date }) => {
       await ctx.table.getTablesByBaseId.cancel();
@@ -39,10 +40,11 @@ export default function AddTableDialog({
         ctx.table.getTablesByBaseId.setData({ baseId }, context.previousTables);
       }
     },
-    onSettled: (data) => {
+    onSuccess: (data) => {
       void ctx.table.getTablesByBaseId.invalidate();
+      setSelectedView(data.view ?? null);
       if (data) {
-        router.replace(`/${baseId}/${data.id}/${viewId}`);
+        router.replace(`/${baseId}/${data.table.id}/${data.view?.id}`);
       }
     },
   });

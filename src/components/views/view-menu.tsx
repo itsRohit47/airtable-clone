@@ -164,6 +164,7 @@ export default function ViewMenu({
               onClick={() => {
                 const _viewId = cuid();
                 router.push(`/${_baseId}/${_tableId}/${_viewId}`);
+
                 addView({
                   tableId: _tableId,
                   viewId: _viewId
