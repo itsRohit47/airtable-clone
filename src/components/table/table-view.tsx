@@ -726,7 +726,9 @@ export function TableView({
       //   return newPending;
       // });
 
-      void ctx.table.getData.invalidate();
+      if (viewFilters?.length || viewSorts?.length || globalFilter) {
+        void ctx.table.getData.invalidate();
+      }
       setLoading(false);
 
       // Invalidate the queries to fetch fresh data
