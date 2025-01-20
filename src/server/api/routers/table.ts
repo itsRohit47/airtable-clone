@@ -75,12 +75,16 @@ export const tableRouter = createTRPCRouter({
   // to add a new table to a base
   addTable: protectedProcedure
     .input(
-      z.object({ baseId: z.string(), tableId: z.string(), viewId: z.string() }),
+      z.object({
+        baseId: z.string(),
+        tableId: z.string().optional(),
+        viewId: z.string().optional(),
+      }),
     )
     .mutation(async ({ input, ctx }) => {
       return ctx.db.table.create({
         data: {
-          id: input.tableId,
+          id: input.tableId ?? cuid(),
           name: `Untitled Table`,
           baseId: input.baseId,
           columns: {
@@ -102,7 +106,7 @@ export const tableRouter = createTRPCRouter({
           views: {
             create: [
               {
-                id: input.viewId,
+                id: input.viewId ?? cuid(),
                 name: "Grid View",
                 filters: {
                   create: [],

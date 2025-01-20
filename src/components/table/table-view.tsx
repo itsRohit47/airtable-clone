@@ -337,6 +337,7 @@ export function TableView({
       })),
     },
     {
+      enabled: !!tableId,
       getNextPageParam: (lastPage) => lastPage.nextCursor?.toString(),
       refetchOnWindowFocus: false,
     },
@@ -1076,9 +1077,6 @@ export function TableView({
     return flexRender(cell.column.columnDef.cell, cell.getContext());
   };
 
-  useEffect(() => {
-    ctx.table.getData.invalidate();
-  }, [path, ctx.table.getData]);
 
   // ----------- when loading -----------
   if (isLoading || isColsLoading || isRowsLoading || isViewSortsLoading || isViewFiltersLoading || isViewLoding) {
