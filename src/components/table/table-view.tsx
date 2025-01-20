@@ -59,7 +59,6 @@ export function TableView({
   // Add new state for pending rows
   const [pendingRows, setPendingRows] = useState<Set<string>>(new Set());
   const pendingRowsRef = useRef<Set<string>>(pendingRows);
-  const [rowOrder, setRowOrder] = useState(0);
   // Update ref when pendingRows changes
   useEffect(() => {
     pendingRowsRef.current = pendingRows;
@@ -404,12 +403,17 @@ export function TableView({
   const flatData = useMemo(
     () => {
       const data = tableData?.pages?.flatMap((page) => page.data) ?? [];
-      if (sorting.length > 0) {
+      if (viewSorts && viewSorts.length > 0) {
         return [...data].sort((a, b) => {
           for (const sort of sorting) {
             const aValue = a[sort.id];
             const bValue = b[sort.id];
             const direction = sort.desc ? -1 : 1;
+
+            // Handle null/empty values first
+            if (!aValue && !bValue) return 0;
+            if (!aValue) return -1 * direction; // Nulls on top for ascending
+            if (!bValue) return 1 * direction;  // Nulls on top for ascending
 
             // Handle string comparison
             if (typeof aValue === 'string' && typeof bValue === 'string') {
@@ -428,7 +432,7 @@ export function TableView({
       }
       return data.sort((a, b) => (Number(a.order) ?? 0) - (Number(b.order) ?? 0));
     },
-    [tableData, sorting],
+    [tableData?.pages, viewSorts, sorting],
   );
 
   // ----------- add row mutation -----------
@@ -457,26 +461,14 @@ export function TableView({
         })) ?? [],
       });
 
-      const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData({
-        tableId,
-        filters: viewFilters?.map((f) => ({
-          columnId: f.columnId,
-          operator: f.operator,
-          value: f.value ?? "",
-        })) ?? [],
-      });
-
 
       // Create array of 5000 new rows
       const newRows: Record<string, string | number>[] = Array.from({ length: 200 }).map((_, index) => {
         const rowId = cuid();
         setPendingRows(prev => new Set(prev).add(rowId));
-        const lastRow = flatData[flatData.length - 1];
         return {
           id: rowId,
-          order: viewFilters?.length || viewSorts?.length
-            ? Number(lastRow?.order ?? 0) + index + 1
-            : (order ?? rowOrder) + index,
+          order: totalRows ? totalRows + index + 1 : index + 1,
         };
       });
 
@@ -517,15 +509,9 @@ export function TableView({
         }
       );
 
-      // Update total rows count
       ctx.table.getTotalRowsGivenTableId.setData(
         {
           tableId,
-          filters: viewFilters?.map((f) => ({
-            columnId: f.columnId,
-            operator: f.operator,
-            value: f.value ?? "",
-          })) ?? [],
         },
         (old) => (old ?? 0) + 5000
       );
@@ -535,7 +521,7 @@ export function TableView({
         rowIds,
         tableId,
         fakerData,
-        order: order ?? rowOrder,
+        order: order ?? 0,
       };
     },
     //   setPendingRows(new Set());
@@ -596,8 +582,6 @@ export function TableView({
           desc: s.desc,
         })) ?? [],
       });
-      setRowOrder((prev) => prev + 5000);
-      console.log(rowOrder);
       void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
   });
@@ -627,20 +611,13 @@ export function TableView({
 
       const previousTotalRows = ctx.table.getTotalRowsGivenTableId.getData({
         tableId,
-        filters: viewFilters?.map((f) => ({
-          columnId: f.columnId,
-          operator: f.operator,
-          value: f.value ?? "",
-        })) ?? [],
       });
 
 
       // Create the new row with temp ID
       const newRowData: Record<string, string | number> = {
         id: data.rowId,
-        order: viewFilters?.length || viewSorts?.length
-          ? Number(flatData[flatData.length - 1]?.order ?? 0) + 1
-          : data.order ?? rowOrder + 1,
+        order: totalRows ? totalRows + 1 : 1,
       };
 
       // Add empty cells for each column
@@ -685,11 +662,6 @@ export function TableView({
       ctx.table.getTotalRowsGivenTableId.setData(
         {
           tableId,
-          filters: viewFilters?.map((f) => ({
-            columnId: f.columnId,
-            operator: f.operator,
-            value: f.value ?? "",
-          })) ?? [],
         },
         (old) => (old ?? 0) + 1
       );
@@ -725,11 +697,6 @@ export function TableView({
           ctx.table.getTotalRowsGivenTableId.setData(
             {
               tableId,
-              filters: viewFilters?.map((f) => ({
-                columnId: f.columnId,
-                operator: f.operator,
-                value: f.value ?? "",
-              })) ?? [],
             },
             context.previousTotalRows
           );
@@ -742,7 +709,6 @@ export function TableView({
       });
     },
     onSuccess: (data, variables, context) => {
-      console.log(rowOrder);
       // if (!context?.tempId) return;
 
       // // Update the cache to replace temp ID with real ID
@@ -805,20 +771,7 @@ export function TableView({
   // ----------- total rows -----------
   const { data: totalRows, isLoading: isRowsLoading } = api.table.getTotalRowsGivenTableId.useQuery({
     tableId,
-    filters: viewFilters?.map((f) => ({
-      columnId: f.columnId,
-      operator: f.operator,
-      value: f.value ?? "",
-    })) ?? [],
   });
-
-  useEffect(() => {
-    if (totalRows !== undefined) {
-      setRowOrder(totalRows);
-      console.log(rowOrder, 'rowOrder');
-    }
-  }, [rowOrder, totalRows]);
-
 
   // ----------- columns -----------
   const columns = useMemo<ColumnDef<Record<string, string | number>>[]>(() => {
@@ -932,7 +885,7 @@ export function TableView({
     add5kRow({
       rowIds,
       tableId,
-      order: rowOrder + 1,
+      order: (totalRows ?? 0) + 1,
     });
 
   };
@@ -941,7 +894,7 @@ export function TableView({
     const fakerData = c?.map((col) => (col.type === "text" ? "" : "")) ?? [];
     const id = cuid();
 
-    add1Row({ rowId: id, tableId, fakerData, order: rowOrder + 1 });
+    add1Row({ rowId: id, tableId, fakerData, order: (totalRows ?? 0) + 1 });
   };
 
   // ----------- add column handler -----------
@@ -986,63 +939,7 @@ export function TableView({
     fetchMoreOnBottomReached(tableContainerRef.current);
   }, [fetchMoreOnBottomReached]);
 
-  // Add this useEffect to handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const activeElement = document.activeElement as HTMLElement;
-      if (activeElement.tagName !== "TD") return;
 
-      const currentRow = activeElement.parentElement as HTMLTableRowElement;
-      const currentCellIndex = Array.from(currentRow.children).indexOf(activeElement);
-      const currentRowIndex = Array.from(currentRow.parentElement!.children).indexOf(currentRow);
-
-      let nextCell: HTMLElement | null = null;
-
-      switch (event.key) {
-        case "ArrowRight":
-          nextCell = currentRow.children[currentCellIndex + 1] as HTMLElement;
-          break;
-        case "ArrowLeft":
-          nextCell = currentRow.children[currentCellIndex - 1] as HTMLElement;
-          break;
-        case "ArrowDown":
-          const nextRowDown = currentRow.parentElement!.children[currentRowIndex + 1] as HTMLTableRowElement;
-          if (nextRowDown) {
-            nextCell = nextRowDown.children[currentCellIndex] as HTMLElement;
-          }
-          break;
-        case "ArrowUp":
-          const nextRowUp = currentRow.parentElement!.children[currentRowIndex - 1] as HTMLTableRowElement;
-          if (nextRowUp) {
-            nextCell = nextRowUp.children[currentCellIndex] as HTMLElement;
-          }
-          break;
-      }
-
-      if (nextCell) {
-        nextCell.focus();
-        event.preventDefault();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
-
-  useEffect(() => {
-    function handleFocusIn(e: FocusEvent) {
-      const target = e.target as HTMLElement;
-      if (target && target.tagName === "TD") {
-        target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
-      }
-    }
-    document.addEventListener("focusin", handleFocusIn);
-    return () => {
-      document.removeEventListener("focusin", handleFocusIn);
-    };
-  }, []);
 
 
 
@@ -1092,25 +989,6 @@ export function TableView({
     },
   });
 
-  useEffect(() => {
-    if (!globalFilter) {
-      setMatchedCells([]);
-      setCurrentMatchIndex(0);
-      return;
-    }
-    const newMatches: { rowIndex: number; colIndex: number }[] = [];
-    const rows = table.getRowModel().rows;
-    rows.forEach((r, rIndex) => {
-      r.getVisibleCells().forEach((c, cIndex) => {
-        const val = String(c.getValue()).toLowerCase();
-        if (val.includes(globalFilter.toLowerCase())) {
-          newMatches.push({ rowIndex: rIndex, colIndex: cIndex });
-        }
-      });
-    });
-    setMatchedCells(newMatches);
-    setCurrentMatchIndex(0);
-  }, [table, globalFilter, setMatchedCells, setCurrentMatchIndex]);
 
   // Update the virtualizer to use filtered and sorted rows
   const rowVirtualizer = useVirtualizer({
@@ -1125,38 +1003,6 @@ export function TableView({
     overscan: 5,
   });
 
-  // Modify the row rendering to handle pending state
-  const renderRow = (row: any, virtualRow: any) => {
-    const isPending = pendingRows.has(String(row.original.id));
-
-    return (
-      <tr
-        key={row.id}
-        style={{ height: `${rowHeight}rem` }}
-        className={cn(
-          "flex w-max items-center bg-white hover:bg-gray-100 group transition-all duration-200",
-          {
-            "bg-violet-100 hover:bg-violet-100/50": row.getIsSelected(),
-            "opacity-70": isPending
-          }
-        )}
-      >
-        {/* Rest of your row rendering code... */}
-      </tr>
-    );
-  };
-
-  const renderCell = (cell: any, isPending: boolean) => {
-    if (isPending) {
-      return (
-        <div className="animate-pulse bg-gray-100 h-full w-full rounded">
-          <div className="h-4 bg-gray-200 rounded"></div>
-        </div>
-      );
-    }
-
-    return flexRender(cell.column.columnDef.cell, cell.getContext());
-  };
 
 
   // ----------- when loading -----------

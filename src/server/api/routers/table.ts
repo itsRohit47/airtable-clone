@@ -645,82 +645,12 @@ export const tableRouter = createTRPCRouter({
     .input(
       z.object({
         tableId: z.string(),
-        filters: z
-          .array(
-            z.object({
-              columnId: z.string(),
-              operator: z.string(),
-              value: z.any(),
-            }),
-          )
-          .optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
-      // Build "where" from filters
-      const filterConditions = (input.filters ?? []).map((f) => {
-        let condition;
-        switch (f.operator) {
-          case "empty":
-            condition = {
-              OR: [{ numericValue: { equals: null } }],
-            };
-            break;
-          case "notEmpty":
-            condition = {
-              OR: [{ numericValue: { not: null } }],
-            };
-            break;
-          case "empty2":
-            condition = {
-              OR: [{ value: null }, { value: "" }],
-            };
-            break;
-          case "notEmpty2":
-            condition = {
-              OR: [{ value: { not: null } }, { value: { not: "" } }],
-            };
-            break;
-          case "includesString":
-            condition = {
-              value: {
-                contains: f.value,
-                mode: "insensitive" as any,
-              },
-            };
-            break;
-          case "eq":
-            condition = f.value === "" ? {} : { value: { equals: f.value } };
-            break;
-          case "gt":
-            condition =
-              f.value === ""
-                ? {}
-                : { numericValue: { gt: parseFloat(f.value) } };
-            break;
-          case "lt":
-            condition =
-              f.value === ""
-                ? {}
-                : { numericValue: { lt: parseFloat(f.value) } };
-            break;
-          default:
-            condition = { value: f.value };
-        }
-        return {
-          cells: {
-            some: {
-              columnId: f.columnId,
-              ...(condition as any),
-            },
-          },
-        };
-      });
-
       return ctx.db.row.count({
         where: {
           tableId: input.tableId,
-          AND: filterConditions,
         },
       });
     }),

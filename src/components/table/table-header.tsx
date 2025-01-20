@@ -1010,7 +1010,7 @@ function FilterItem({
           </>
         )}
       </select>
-      {operator !== 'empty' && operator !== 'notEmpty' ? (
+      {operator !== 'empty' && operator !== 'notEmpty' && operator !== 'empty2' && operator !== 'notEmpty2' ? (
         <input
           className="w-32 border-y border-r p-2"
           value={filterValue ?? ""}
