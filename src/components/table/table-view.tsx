@@ -1057,14 +1057,16 @@ export function TableView({
           <thead className="sticky top-0 z-10 flex group">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className={cn("flex w-max items-center")}>
-                <td className="absolute z-20  border-gray-300 p-2 text-xs bg-transparent">
-                  <input
-                    type="checkbox"
-                    className="form-checkbox"
-                    checked={table.getIsAllRowsSelected()}
-                    onChange={table.getToggleAllRowsSelectedHandler()}
-                  />
-                </td>
+                {table.getVisibleLeafColumns().length > 0 && (
+                  <td className="absolute z-20  border-gray-300 p-2 text-xs bg-transparent">
+                    <input
+                      type="checkbox"
+                      className="form-checkbox"
+                      checked={table.getIsAllRowsSelected()}
+                      onChange={table.getToggleAllRowsSelectedHandler()}
+                    />
+                  </td>
+                )}
                 {headerGroup.headers.map((header) => (
                   <td
                     key={header.id}

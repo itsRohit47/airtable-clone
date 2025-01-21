@@ -452,6 +452,24 @@ function RowHeightMenu() {
 function HideMenu() {
   const { localColumns, columnVisibility, setColumnVisibility } = useAppContext();
   const [filteredColumns, setFilteredColumns] = useState(localColumns);
+
+  // Add effect to initialize visibility state for new columns
+  useEffect(() => {
+    const newVisibility = { ...columnVisibility };
+    let hasChanges = false;
+
+    localColumns.forEach(col => {
+      if (columnVisibility[col.id] === undefined) {
+        newVisibility[col.id] = true;
+        hasChanges = true;
+      }
+    });
+
+    if (hasChanges) {
+      setColumnVisibility(newVisibility);
+    }
+  }, [localColumns, columnVisibility, setColumnVisibility]);
+
   return (
     <div className="absolute top-full mt-1">
       <div className="w-60 rounded-sm border bg-white shadow-sm p-2">

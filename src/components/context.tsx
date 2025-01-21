@@ -145,7 +145,14 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   const [selectedView, setSelectedView] = useState<View | null>(null);
   const [viewSorting, setViewSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    // Default all columns to visible
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('columnVisibility');
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [colsNotInSort, setColsNotInSort] = useState<Column[]>([]);
   const [localCells, setLocalCells] = useState<
@@ -169,6 +176,12 @@ const AppContextProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     localStorage.setItem('isViewsOpen', JSON.stringify(isViewsOpen));
   }, [isViewsOpen]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('columnVisibility', JSON.stringify(columnVisibility));
+    }
+  }, [columnVisibility]);
 
   const focusMatch = (rowI: number, colI: number) => {
     const selector = `[data-row-index='${rowI}'][data-col-index='${colI}']`;
