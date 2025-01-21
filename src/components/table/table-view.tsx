@@ -394,8 +394,8 @@ export function TableView({
       // void ctx.table.getColumnsByTableId.invalidate();
 
       setLoading(false);
-      // void ctx.table.getData.invalidate({ tableId });
-      // void ctx.table.getColumnsByTableId.invalidate();
+      void ctx.table.getData.invalidate({ tableId });
+      void ctx.table.getColumnsByTableId.invalidate();
     },
   });
 
@@ -446,6 +446,8 @@ export function TableView({
       setLoading(true);
       setIsAdding(true);
       await ctx.table.getData.cancel();
+
+      // Get existing data first
       const previousData = ctx.table.getData.getInfiniteData({
         tableId,
         pageSize: 200,
@@ -461,27 +463,32 @@ export function TableView({
         })) ?? [],
       });
 
-      // Get the current total rows
+      // Get the current total rows including any pending rows
       const currentTotal = ctx.table.getTotalRowsGivenTableId.getData({ tableId }) ?? 0;
 
-      // Create array of 5000 new rows with correct order starting from currentTotal + 1
+      // Create array of new rows preserving existing data
+      const existingRows = previousData?.pages?.flatMap(page => page.data) ?? [];
+      const lastOrder = Math.max(...existingRows.map(row => Number(row.order) ?? 0), 0);
+
       const newRows: Record<string, string | number>[] = Array.from({ length: 200 }).map((_, index) => {
         const rowId = cuid();
         setPendingRows(prev => new Set(prev).add(rowId));
         return {
           id: rowId,
-          order: currentTotal + index + 1, // Start order from currentTotal + 1
+          order: lastOrder + index + 1, // Start order from after last existing row
         };
       });
 
-      // Initialize with empty cells for each column
+      // Initialize with cells for each column
       newRows.forEach(row => {
         c?.forEach(col => {
-          row[col.id] = c?.find(c => c.id === col.id)?.type === "text" ? faker.person.fullName() : faker.number.int({ max: 1000000 }).toString();
+          row[col.id] = c?.find(c => c.id === col.id)?.type === "text"
+            ? faker.person.fullName()
+            : faker.number.int({ max: 1000000 }).toString();
         });
       });
 
-      // Add new rows to the data
+      // Optimistically update the table data while preserving existing rows
       ctx.table.getData.setInfiniteData(
         {
           tableId,
@@ -511,19 +518,18 @@ export function TableView({
         }
       );
 
+      // Update total count
       ctx.table.getTotalRowsGivenTableId.setData(
-        {
-          tableId,
-        },
-        (old) => (old ?? 0) + 5000
+        { tableId },
+        (old) => (old ?? 0) + 200
       );
 
-
       return {
+        previousData,
         rowIds,
         tableId,
         fakerData,
-        order: order ?? 0,
+        order: lastOrder + 1,
       };
     },
     //   setPendingRows(new Set());
