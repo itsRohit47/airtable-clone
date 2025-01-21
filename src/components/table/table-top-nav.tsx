@@ -78,7 +78,7 @@ export default function TableTopNav({
   }, [loading]);
 
   return (
-    <div className="top-0 z-0 max-h-[56px] h-full max bg-[#176EE1] px-2  flex items-center justify-between text-white   flex-auto top-bar-text-light pl-[20px]">
+    <div className="top-0 z-0 max-h-[56px] min-h-[56px] h-full max bg-[#176EE1] px-2  flex items-center justify-between text-white   flex-auto top-bar-text-light pl-[20px]">
       <div className="flex items-center gap-x-10">
         {/* logo + base name */}
         <div className="flex cursor-pointer items-center gap-x-2 w-max">

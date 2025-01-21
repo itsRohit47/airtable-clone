@@ -797,7 +797,7 @@ export function TableView({
           ?.operator as keyof typeof filterFns) ?? "eq",
         header: ({ column }) => (
           <span className={cn(
-            "flex w-full items-center justify-between gap-x-2 overflow-hidden",
+            "flex w-full items-center justify-between gap-x-2 overflow-hidden ",
             { "opacity-70": pendingColumns.has(col.id) }
           )}>
             <div className="flex items-center gap-x-2 justify-center mx-auto">
@@ -1101,7 +1101,7 @@ export function TableView({
                 {headerGroup.headers.length > 0 && (
                   <div className="relative">
                     <button
-                      className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-2 text-xs"
+                      className="border-b border-r border-gray-300 bg-[#F5F5F5] px-10 py-[7px] text-xs"
                       onClick={() => setIsAddColumnOpen(!isAddColumnOpen)}
                     >
                       <Plus size={18} strokeWidth={1.5} />
