@@ -394,8 +394,9 @@ export function TableView({
       // void ctx.table.getColumnsByTableId.invalidate();
 
       setLoading(false);
-      void ctx.table.getData.invalidate({ tableId });
+      // void ctx.table.getData.invalidate({ tableId });
       void ctx.table.getColumnsByTableId.invalidate();
+      // void ctx.table.getTotalRowsGivenTableId.invalidate({ tableId });
     },
   });
 
@@ -403,34 +404,36 @@ export function TableView({
   const flatData = useMemo(
     () => {
       const data = tableData?.pages?.flatMap((page) => page.data) ?? [];
-      if (viewSorts && viewSorts.length > 0) {
-        return [...data].sort((a, b) => {
-          for (const sort of sorting) {
-            const aValue = a[sort.id];
-            const bValue = b[sort.id];
-            const direction = sort.desc ? -1 : 1;
 
-            // Handle null/empty values first
-            if (!aValue && !bValue) return 0;
-            if (!aValue) return -1 * direction; // Nulls on top for ascending
-            if (!bValue) return 1 * direction;  // Nulls on top for ascending
-
-            // Handle string comparison
-            if (typeof aValue === 'string' && typeof bValue === 'string') {
-              const comparison = aValue.localeCompare(bValue);
-              if (comparison !== 0) return comparison * direction;
-            }
-            // Handle number comparison
-            else if (typeof aValue === 'number' && typeof bValue === 'number') {
-              if (aValue < bValue) return -1 * direction;
-              if (aValue > bValue) return 1 * direction;
-            }
-          }
-          // Fall back to order if all sort comparisons are equal
-          return (Number(a.order) ?? 0) - (Number(b.order) ?? 0);
-        });
+      // If there are no explicit sorts, sort by order
+      if (!viewSorts || viewSorts.length === 0) {
+        return [...data].sort((a, b) =>
+          (Number(a.order) ?? 0) - (Number(b.order) ?? 0)
+        );
       }
-      return data.sort((a, b) => (Number(a.order) ?? 0) - (Number(b.order) ?? 0));
+
+      // Otherwise use the same sorting logic as backend
+      return [...data].sort((a, b) => {
+        for (const sort of sorting) {
+          const aValue = a[sort.id];
+          const bValue = b[sort.id];
+
+          if (aValue === bValue) continue;
+
+          if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return sort.desc ? bValue - aValue : aValue - bValue;
+          }
+
+          const comp = (aValue ?? "")
+            .toString()
+            .localeCompare((bValue ?? "").toString(), undefined, {
+              numeric: true,
+            });
+          return sort.desc ? -comp : comp;
+        }
+        // Fall back to order if all sorts are equal
+        return (Number(a.order) ?? 0) - (Number(b.order) ?? 0);
+      });
     },
     [tableData?.pages, viewSorts, sorting],
   );

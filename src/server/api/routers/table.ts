@@ -591,7 +591,12 @@ export const tableRouter = createTRPCRouter({
         return rowData;
       });
 
-      if (input.sorts && input.sorts.length > 0) {
+      // Always sort by order first unless overridden by explicit sorts
+      if (!input.sorts || input.sorts.length === 0) {
+        transformedData = transformedData.sort(
+          (a, b) => (Number(a.order) ?? 0) - (Number(b.order) ?? 0),
+        );
+      } else {
         transformedData = transformedData.sort((a, b) => {
           for (const sort of input.sorts!) {
             const aVal = a[sort.columnId];
@@ -610,7 +615,8 @@ export const tableRouter = createTRPCRouter({
               });
             return sort.desc ? -comp : comp;
           }
-          return 0;
+          // If all sorts are equal, fall back to order
+          return (Number(a.order) ?? 0) - (Number(b.order) ?? 0);
         });
       }
 
