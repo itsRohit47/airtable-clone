@@ -461,14 +461,16 @@ export function TableView({
         })) ?? [],
       });
 
+      // Get the current total rows
+      const currentTotal = ctx.table.getTotalRowsGivenTableId.getData({ tableId }) ?? 0;
 
-      // Create array of 5000 new rows
+      // Create array of 5000 new rows with correct order starting from currentTotal + 1
       const newRows: Record<string, string | number>[] = Array.from({ length: 200 }).map((_, index) => {
         const rowId = cuid();
         setPendingRows(prev => new Set(prev).add(rowId));
         return {
           id: rowId,
-          order: totalRows ? totalRows + index + 1 : index + 1,
+          order: currentTotal + index + 1, // Start order from currentTotal + 1
         };
       });
 
